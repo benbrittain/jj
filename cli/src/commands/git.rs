@@ -133,6 +133,9 @@ pub struct GitPushArgs {
     /// The remote to push to (only named remotes are supported)
     #[arg(long)]
     remote: Option<String>,
+    /// Push to this refspec
+    #[arg(long)]
+    refspec: Option<String>,
     /// Push only this branch (can be repeated)
     #[arg(long, short)]
     branch: Vec<String>,
@@ -861,7 +864,7 @@ fn cmd_git_push(
     let mut new_heads = vec![];
     let mut force_pushed_branches = hashset! {};
     for (branch_name, update) in &branch_updates {
-        let qualified_name = format!("refs/heads/{branch_name}");
+        let qualified_name = args.refspec.clone().unwrap_or(format!("refs/heads/{branch_name}"));
         if let Some(new_target) = &update.new_target {
             new_heads.push(new_target.clone());
             let force = match &update.old_target {

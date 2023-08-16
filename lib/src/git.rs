@@ -809,6 +809,7 @@ pub fn push_updates(
             refspecs.push(format!(":{}", update.qualified_name));
         }
     }
+    eprintln!("{:?}", refspecs);
     let result = push_refs(
         git_repo,
         remote_name,
