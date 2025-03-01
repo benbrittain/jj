@@ -74,6 +74,7 @@ pub mod graph;
 pub mod hex_util;
 pub mod id_prefix;
 pub mod index;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod local_working_copy;
 pub mod lock;
 pub mod matchers;
@@ -103,6 +104,7 @@ pub mod simple_backend;
 pub mod simple_op_heads_store;
 pub mod simple_op_store;
 pub mod ssh_signing;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod stacked_table;
 pub mod store;
 pub mod str_util;
@@ -115,7 +117,9 @@ pub mod tree;
 pub mod tree_builder;
 pub mod union_find;
 pub mod view;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod working_copy;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod workspace;
 
 #[cfg(test)]

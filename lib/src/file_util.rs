@@ -162,6 +162,23 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     }
 }
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+mod platform {
+    use std::path::Path;
+
+    /// Symlinks are always available on UNIX
+    pub fn check_symlink_support() -> std::io::Result<bool> {
+        todo!();
+    }
+
+    pub fn try_symlink<P: AsRef<Path>, Q: AsRef<Path>>(
+        _original: P,
+        _link: Q,
+    ) -> std::io::Result<()> {
+        todo!();
+    }
+}
+
 #[cfg(unix)]
 mod platform {
     use std::io;

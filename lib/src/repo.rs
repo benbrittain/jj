@@ -396,6 +396,7 @@ impl Default for StoreFactories {
         let mut factories = StoreFactories::empty();
 
         // Backends
+        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
         factories.add_backend(
             SimpleBackend::name(),
             Box::new(|_settings, store_path| Ok(Box::new(SimpleBackend::load(store_path)))),
