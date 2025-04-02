@@ -27,8 +27,8 @@ fn test_commit_with_description_from_cli() {
     // Description applies to the current working-copy (not the new one)
     work_dir.run_jj(["commit", "-m=first"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  e8ea92a8b6b3
-    ○  fa15625b4a98 first
+    @  eb9fd2ab82e7
+    ○  68a505386f93 first
     ◆  000000000000
     [EOF]
     ");
@@ -47,8 +47,8 @@ fn test_commit_with_editor() {
     std::fs::write(&edit_script, ["dump editor0", "write\nmodified"].join("\0")).unwrap();
     work_dir.run_jj(["commit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  a57b2c95fb75
-    ○  159271101e05 modified
+    @  2094c8f2e360
+    ○  a7ba1eb73836 modified
     ◆  000000000000
     [EOF]
     ");
@@ -116,7 +116,7 @@ fn test_commit_interactive() {
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
-    You are splitting the working-copy commit: qpvuntsm 4219467e add files
+    You are splitting the working-copy commit: qpvuntsm d849dc34 add files
 
     The diff initially shows all changes. Adjust the right side until it shows the
     contents you want for the first commit. The remainder will be included in the
@@ -155,10 +155,10 @@ fn test_commit_interactive() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 21b846a6
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 9b0176ab
     │  (no description set)
     │  A file2
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 7d156390
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 6e6fa925
     │  add files
     │  A file1
     ◆  zzzzzzzz root() 00000000
@@ -194,8 +194,8 @@ fn test_commit_interactive_with_paths() {
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz f3e6062e (no description set)
-    Parent commit (@-)      : rlvkpnrz 9453cb28 edit
+    Working copy  (@) now at: kkmpptxz 50f426df (no description set)
+    Parent commit (@-)      : rlvkpnrz eb640375 edit
     [EOF]
     ");
 
@@ -211,14 +211,14 @@ fn test_commit_interactive_with_paths() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 f3e6062e
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 50f426df
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9453cb28
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 eb640375
     │  edit
     │  A file1
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 497ed465
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f
     │  (no description set)
     │  A file2
     │  A file3
@@ -241,8 +241,8 @@ fn test_commit_with_default_description() {
     work_dir.run_jj(["commit"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  c65242099289
-    ○  573b6df51aea TESTED=TODO
+    @  cba559ac1a48
+    ○  7276dfff8027 TESTED=TODO
     ◆  000000000000
     [EOF]
     ");
@@ -392,8 +392,8 @@ fn test_commit_paths_warning() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The given paths do not match any file: file3
-    Working copy  (@) now at: rlvkpnrz d1872100 (no description set)
-    Parent commit (@-)      : qpvuntsm fa15625b (empty) first
+    Working copy  (@) now at: rlvkpnrz 4c6f0146 (no description set)
+    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 

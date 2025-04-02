@@ -2164,7 +2164,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::new(vec![0; 32]),
             description: "initial".to_string(),
             author: signature.clone(),
             committer: signature,
@@ -2242,7 +2242,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::new(vec![0; 32]),
             description: "initial".to_string(),
             author: create_signature(),
             committer: create_signature(),
@@ -2284,7 +2284,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::new(vec![0; 32]),
             description: "initial".to_string(),
             author: create_signature(),
             committer: create_signature(),
@@ -2309,8 +2309,9 @@ mod tests {
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
+        change-id zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
         gpgsig test sig
-         hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
+         hash=89d2f59dceddfa757916edeeeb286c52e2d7f496b44b57e8e02659f6a5232211ab12823c7dc90ac1528a2ec56699d205af40adc7f497a7ce44e2e7a5d0ec7d22
 
         initial
         ");
@@ -2324,12 +2325,13 @@ mod tests {
 
         insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r"
         test sig
-        hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
+        hash=89d2f59dceddfa757916edeeeb286c52e2d7f496b44b57e8e02659f6a5232211ab12823c7dc90ac1528a2ec56699d205af40adc7f497a7ce44e2e7a5d0ec7d22
         ");
         insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
+        change-id zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
 
         initial
         ");
