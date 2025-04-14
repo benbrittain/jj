@@ -4019,22 +4019,22 @@ fn test_concurrent_read_write_commit() {
     // commit ids are static. If reader could interrupt in the timestamp
     // adjustment loop, this assumption wouldn't apply.
     let commit_ids = [
-        "c5c6efd6ac240102e7f047234c3cade55eedd621",
-        "9f7a96a6c9d044b228f3321a365bdd3514e6033a",
-        "aa7867ad0c566df5bbb708d8d6ddc88eefeea0ff",
-        "930a76e333d5cc17f40a649c3470cb99aae24a0c",
-        "88e9a719df4f0cc3daa740b814e271341f6ea9f4",
-        "4883bdc57448a53b4eef1af85e34b85b9ee31aee",
-        "308345f8d058848e83beed166704faac2ecd4541",
-        "9e35ff61ea8d1d4ef7f01edc5fd23873cc301b30",
-        "8010ac8c65548dd619e7c83551d983d724dda216",
-        "bbe593d556ea31acf778465227f340af7e627b2b",
-        "2f6800f4b8e8fc4c42dc0e417896463d13673654",
-        "a3a7e4fcddeaa11bb84f66f3428f107f65eb3268",
-        "96e17ff3a7ee1b67ddfa5619b2bf5380b80f619a",
-        "34613f7609524c54cc990ada1bdef3dcad0fd29f",
-        "95867e5aed6b62abc2cd6258da9fee8873accfd3",
-        "7635ce107ae7ba71821b8cd74a1405ca6d9e49ac",
+        "f8fd105ca49632a59881afa4a874e367a193889f",
+        "a07c8b97ae3a4b2ef81f023bfffe4892a5d8e549",
+        "ec0f93082997ebabff7981fbaa3212d66510cff5",
+        "43f32eb49ff3518fe88a17ddc0dcb2ca40c870b5",
+        "711ee8d8696bb37862a6abab76c980a4456cf70b",
+        "c939dfb140f50b71f928f582ad57e5978915d880",
+        "85b905fcbead8f42d1032d0c17f2921dd9ac1dac",
+        "2799489f2725e48e309fd40c62ea46a660bf86f5",
+        "124745f4869dcc8315dac96f1f6faa64b7cfbc98",
+        "761283513bdecca0c37b2a886a0aeb80d4a1d01b",
+        "dfe9acf65a55f21cecc014378358cbc98bc76ba4",
+        "e52ec23548bf33dd3800bbe78c61929dad25eb19",
+        "98c41f9927b6e88a95cd34e3b436cd0d5bb83d2c",
+        "438639f2d7c026515034f9b9d4ef157c5e6d85e3",
+        "368e3b363149cd6df36beab4a4abb84cbaf1bc85",
+        "981a3e0a2df1e612de5543922729bed29751fadc",
     ]
     .into_iter()
     .map(CommitId::from_hex)
@@ -4052,6 +4052,9 @@ fn test_concurrent_read_write_commit() {
                 let mut tx = repo.start_transaction();
                 let commit = create_rooted_commit(tx.repo_mut())
                     .set_description(format!("commit {i}"))
+                    .set_change_id(ChangeId::from_bytes(&[
+                        1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, i as u8,
+                    ]))
                     .write()
                     .unwrap();
                 tx.commit(format!("writer {i}")).unwrap();

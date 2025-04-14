@@ -67,32 +67,32 @@ fn test_id_prefix() {
         .sorted()
         .join("\n");
     insta::assert_snapshot!(commit_prefixes, @r"
-    11a 5
-    214 24
-    2a6 2
-    33e 14
-    3be 16
-    3ea 18
-    593 20
-    5d3 1
-    5f6 13
-    676 3
-    7b6 25
-    7da 9
-    81c 10
-    87e 12
-    997 21
-    9f7 22
-    a0e 4
-    a55 19
-    ac4 23
-    c18 17
-    ce9 0
-    d42 6
-    d9d 8
-    eec 15
-    efe 7
-    fa3 11
+    0c8 9
+    18f 7
+    19a 10
+    37a 13
+    3b4 21
+    3c0 1
+    4ee 16
+    51f 4
+    56e 14
+    711 17
+    761 3
+    7b1 11
+    7c6 24
+    7f4 8
+    846 23
+    8d7 25
+    960 15
+    a30 12
+    b51 19
+    b97 22
+    b9d 5
+    bb4 2
+    c3a 18
+    c47 0
+    d3c 6
+    d54 20
     ");
     let change_prefixes = commits
         .iter()
@@ -141,15 +141,15 @@ fn test_id_prefix() {
     );
     assert_eq!(
         index.shortest_commit_prefix_len(repo.as_ref(), commits[5].id()),
-        1
+        3
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("2")),
+        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("2a")),
-        SingleMatch(commits[2].id().clone())
+        index.resolve_commit_prefix(repo.as_ref(), &prefix("18")),
+        SingleMatch(commits[7].id().clone())
     );
     assert_eq!(
         index.resolve_commit_prefix(repo.as_ref(), &prefix("20")),
@@ -197,13 +197,13 @@ fn test_id_prefix() {
     );
     // Shorter prefix within the set can be used
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("2")),
+        index.resolve_commit_prefix(repo.as_ref(), &prefix("bb")),
         SingleMatch(commits[2].id().clone())
     );
     // Can still resolve commits outside the set
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("21")),
-        SingleMatch(commits[24].id().clone())
+        index.resolve_commit_prefix(repo.as_ref(), &prefix("0c")),
+        SingleMatch(commits[9].id().clone())
     );
     assert_eq!(
         index.shortest_change_prefix_len(repo.as_ref(), commits[0].change_id()),
@@ -311,9 +311,9 @@ fn test_id_prefix_divergent() {
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..4], i))
         .join("\n");
     insta::assert_snapshot!(commit_prefixes, @r"
-    eafa 0
-    d48d 1
-    2fbb 2
+    e2b9 0
+    f8d1 1
+    c596 2
     ");
 
     let prefix = |x| HexPrefix::new(x).unwrap();
@@ -424,16 +424,16 @@ fn test_id_prefix_hidden() {
         .sorted()
         .join("\n");
     insta::assert_snapshot!(commit_prefixes, @r"
-    15e 9
-    397 6
-    53c 7
-    62e 2
-    648 8
-    7c7 3
-    853 4
-    c0a 5
-    ce9 0
-    f10 1
+    3ae 6
+    64c 5
+    84e 2
+    906 8
+    912 7
+    9d1 3
+    a6b 1
+    c47 0
+    d9b 4
+    f5f 9
     ");
     let change_prefixes = commits
         .iter()

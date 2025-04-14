@@ -2161,7 +2161,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::new(vec![0; CHANGE_ID_LENGTH]),
             description: "initial".to_string(),
             author: signature.clone(),
             committer: signature,
@@ -2281,7 +2281,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::new(vec![0; CHANGE_ID_LENGTH]),
             description: "initial".to_string(),
             author: create_signature(),
             committer: create_signature(),
@@ -2306,8 +2306,9 @@ mod tests {
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
+        change-id zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
         gpgsig test sig
-         hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
+         hash=3a9a6d1667c926e86160b7a29ad9663a7cdceb745dc97dbe15421995eec25be3902bafc02cc69406fd5570e8e0a10ebd4f912364ac24f9cbccd35ff2bc349a4f
 
         initial
         ");
@@ -2321,12 +2322,13 @@ mod tests {
 
         insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r"
         test sig
-        hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
+        hash=3a9a6d1667c926e86160b7a29ad9663a7cdceb745dc97dbe15421995eec25be3902bafc02cc69406fd5570e8e0a10ebd4f912364ac24f9cbccd35ff2bc349a4f
         ");
         insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
+        change-id zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
 
         initial
         ");

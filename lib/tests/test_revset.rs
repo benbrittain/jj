@@ -152,7 +152,7 @@ fn test_resolve_symbol_commit_id() {
     };
 
     let mut commits = vec![];
-    for i in &[1, 167, 895] {
+    for i in &[229, 129, 936] {
         let commit = mut_repo
             .new_commit(
                 vec![repo.store().root_commit_id().clone()],
@@ -170,15 +170,15 @@ fn test_resolve_symbol_commit_id() {
     // Test the test setup
     assert_eq!(
         commits[0].id().hex(),
-        "0454de3cae04c46cda37ba2e8873b4c17ff51dcb"
+        "040aa880ef22750ae190a8332581bdc1918501dd"
     );
     assert_eq!(
         commits[1].id().hex(),
-        "045f56cd1b17e8abde86771e2705395dcde6a957"
+        "04c0823c716b291766b302ef2d7161ede46f2172"
     );
     assert_eq!(
         commits[2].id().hex(),
-        "0468f7da8de2ce442f512aacf83411d26cd2e0cf"
+        "04d3f7d7838a65b20374fb2c4e53c02980e44615"
     );
 
     // Change ids should never have prefix "04"
@@ -188,21 +188,21 @@ fn test_resolve_symbol_commit_id() {
 
     // Test lookup by full commit id
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "0454de3cae04c46cda37ba2e8873b4c17ff51dcb",).unwrap(),
+        resolve_symbol(repo.as_ref(), "040aa880ef22750ae190a8332581bdc1918501dd",).unwrap(),
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "045f56cd1b17e8abde86771e2705395dcde6a957",).unwrap(),
+        resolve_symbol(repo.as_ref(), "04c0823c716b291766b302ef2d7161ede46f2172",).unwrap(),
         vec![commits[1].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "0468f7da8de2ce442f512aacf83411d26cd2e0cf",).unwrap(),
+        resolve_symbol(repo.as_ref(), "04d3f7d7838a65b20374fb2c4e53c02980e44615",).unwrap(),
         vec![commits[2].id().clone()]
     );
 
     // Test commit id prefix
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "046").unwrap(),
+        resolve_symbol(repo.as_ref(), "04d").unwrap(),
         vec![commits[2].id().clone()]
     );
     assert_matches!(
@@ -210,8 +210,8 @@ fn test_resolve_symbol_commit_id() {
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "04"
     );
     assert_matches!(
-        resolve_symbol(repo.as_ref(), "040"),
-        Err(RevsetResolutionError::NoSuchRevision{name, candidates}) if name == "040" && candidates.is_empty()
+        resolve_symbol(repo.as_ref(), "045"),
+        Err(RevsetResolutionError::NoSuchRevision{name, candidates}) if name == "045" && candidates.is_empty()
     );
 
     // Test non-hex string
@@ -240,7 +240,7 @@ fn test_resolve_symbol_commit_id() {
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "04"
     );
     assert_eq!(
-        resolve_commit_ids(repo.as_ref(), "present(046)"),
+        resolve_commit_ids(repo.as_ref(), "present(04d)"),
         vec![commits[2].id().clone()]
     );
 }
@@ -300,10 +300,10 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(
             commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
-        8fd68d104372910e19511df709e5dde62a548720 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
-        5339432b8e7b90bd3aa1a323db71b8a5c5dcd020 zvzowopwpuymrlmonvnuruunomzqmlsy
-        e2ad9d861d0ee625851b8ecfcf2c727410e38720 zvlynszrxlvlwvkwkwsymrpypvtsszor
-        040031cb4ad0cbc3287914f1d205dabf4a7eb889 qyymsluxkmuopzvorkxrqlyvnwmwzoux
+        10d7d02fb3c3c0f38df0bc87335aa5f12ecd9e00 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
+        ea7078c5a43522d21bbaa156d3f4fbc71b2c09e8 zvzowopwpuymrlmonvnuruunomzqmlsy
+        f46cd07adc8b2d9f232565a472d345ca21778e56 zvlynszrxlvlwvkwkwsymrpypvtsszor
+        e0d400de373c7757612f05b0bf39bddbd678b09b qyymsluxkmuopzvorkxrqlyvnwmwzoux
         ");
     }
 
