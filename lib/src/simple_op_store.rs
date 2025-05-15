@@ -274,6 +274,7 @@ impl OpStore for SimpleOpStore {
     }
 
     #[tracing::instrument(skip(self))]
+    #[cfg(feature = "std")]
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
         let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
             let name = entry.file_name().into_string().ok()?;
@@ -370,7 +371,7 @@ fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
 }
 
 fn to_read_error(
-    source: Box<dyn std::error::Error + Send + Sync>,
+    source: Box<dyn core::error::Error + Send + Sync>,
     id: &impl ObjectId,
 ) -> OpStoreError {
     OpStoreError::ReadObject {

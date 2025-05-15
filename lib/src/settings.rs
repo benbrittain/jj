@@ -20,6 +20,7 @@ use alloc::string::String;
 use alloc::string::ToString as _;
 use alloc::sync::Arc;
 use core::str::FromStr;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -39,6 +40,7 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
+#[cfg(feature = "std")]
 use crate::fsmonitor::FsmonitorSettings;
 use crate::signing::SignBehavior;
 
@@ -61,6 +63,7 @@ struct UserSettingsData {
     signing_key: Option<String>,
 }
 
+#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct GitSettings {
     pub auto_local_bookmark: bool,
@@ -69,6 +72,7 @@ pub struct GitSettings {
     pub write_change_id_header: bool,
 }
 
+#[cfg(feature = "std")]
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(GitSettings {
@@ -80,6 +84,7 @@ impl GitSettings {
     }
 }
 
+#[cfg(feature = "std")]
 impl Default for GitSettings {
     fn default() -> Self {
         GitSettings {
@@ -118,7 +123,9 @@ impl SignSettings {
     }
 }
 
-fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Error + Send + Sync>> {
+fn to_timestamp(
+    value: ConfigValue,
+) -> Result<Timestamp, Box<dyn core::error::Error + Send + Sync>> {
     // Since toml_edit::Datetime isn't the date-time type used across our code
     // base, we accept both string and date-time types.
     if let Some(s) = value.as_str() {
@@ -192,6 +199,7 @@ impl UserSettings {
         &self.data.user_email
     }
 
+    #[cfg(feature = "std")]
     pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError> {
         FsmonitorSettings::from_settings(self)
     }
@@ -232,6 +240,7 @@ impl UserSettings {
         &self.config
     }
 
+    #[cfg(feature = "std")]
     pub fn git_settings(&self) -> Result<GitSettings, ConfigGetError> {
         GitSettings::from_settings(self)
     }
@@ -326,7 +335,10 @@ impl JJRng {
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
         match seed {
             Some(seed) => ChaCha20Rng::seed_from_u64(seed),
+            #[cfg(feature = "std")]
             None => ChaCha20Rng::from_os_rng(),
+            #[cfg(not(feature = "std"))]
+            None => unimplemented!("No internal rng for non-std targets"),
         }
     }
 }
@@ -335,8 +347,8 @@ impl JJRng {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct HumanByteSize(pub u64);
 
-impl std::fmt::Display for HumanByteSize {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for HumanByteSize {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let (value, prefix) = binary_prefix(self.0 as f32);
         write!(f, "{value:.1}{prefix}B")
     }

@@ -24,8 +24,6 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::fmt::Formatter;
 use core::slice;
-use std::fs;
-use std::path::Path;
 
 use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;
@@ -49,10 +47,15 @@ use crate::commit::CommitByCommitterTimestamp;
 use crate::commit_builder::CommitBuilder;
 use crate::commit_builder::DetachedCommitBuilder;
 use crate::dag_walk;
+#[cfg(feature = "std")]
 use crate::default_index::DefaultIndexStore;
+#[cfg(feature = "std")]
 use crate::default_index::DefaultMutableIndex;
+#[cfg(feature = "std")]
 use crate::default_submodule_store::DefaultSubmoduleStore;
+#[cfg(feature = "std")]
 use crate::file_util::IoResultExt as _;
+#[cfg(feature = "std")]
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
@@ -103,8 +106,11 @@ use crate::rewrite::RewriteRefsOptions;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
+#[cfg(feature = "std")]
 use crate::simple_backend::SimpleBackend;
+#[cfg(feature = "std")]
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
+#[cfg(feature = "std")]
 use crate::simple_op_store::SimpleOpStore;
 use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
@@ -153,7 +159,7 @@ pub struct ReadonlyRepo {
 }
 
 impl Debug for ReadonlyRepo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("ReadonlyRepo")
             .field("store", &self.loader.store)
             .finish_non_exhaustive()
@@ -167,32 +173,38 @@ pub enum RepoInitError {
     #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
     #[error(transparent)]
+    #[cfg(feature = "std")]
     Path(#[from] PathError),
 }
 
 impl ReadonlyRepo {
+    #[cfg(feature = "std")]
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
         &|_settings, store_path, root_data| {
             Ok(Box::new(SimpleOpStore::init(store_path, root_data)?))
         }
     }
 
+    #[cfg(feature = "std")]
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
         &|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::init(store_path)?))
     }
 
+    #[cfg(feature = "std")]
     pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
         &|_settings, store_path| Ok(Box::new(DefaultIndexStore::init(store_path)?))
     }
 
+    #[cfg(feature = "std")]
     pub fn default_submodule_store_initializer() -> &'static SubmoduleStoreInitializer<'static> {
         &|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::init(store_path)))
     }
 
     #[expect(clippy::too_many_arguments)]
+    #[cfg(feature = "std")]
     pub fn init(
         settings: &UserSettings,
-        repo_path: &Path,
+        repo_path: &std::path::Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
         op_store_initializer: &OpStoreInitializer,
@@ -203,42 +215,42 @@ impl ReadonlyRepo {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
         let store_path = repo_path.join("store");
-        fs::create_dir(&store_path).context(&store_path)?;
+        std::fs::create_dir(&store_path).context(&store_path)?;
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
-        fs::write(&backend_path, backend.name()).context(&backend_path)?;
+        std::fs::write(&backend_path, backend.name()).context(&backend_path)?;
         let store = Store::new(backend, signer);
 
         let op_store_path = repo_path.join("op_store");
-        fs::create_dir(&op_store_path).context(&op_store_path)?;
+        std::fs::create_dir(&op_store_path).context(&op_store_path)?;
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
         };
         let op_store = op_store_initializer(settings, &op_store_path, root_op_data)?;
         let op_store_type_path = op_store_path.join("type");
-        fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
+        std::fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
         let op_store: Arc<dyn OpStore> = Arc::from(op_store);
 
         let op_heads_path = repo_path.join("op_heads");
-        fs::create_dir(&op_heads_path).context(&op_heads_path)?;
+        std::fs::create_dir(&op_heads_path).context(&op_heads_path)?;
         let op_heads_store = op_heads_store_initializer(settings, &op_heads_path)?;
         let op_heads_type_path = op_heads_path.join("type");
-        fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
+        std::fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store.update_op_heads(&[], op_store.root_operation_id())?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
-        fs::create_dir(&index_path).context(&index_path)?;
+        std::fs::create_dir(&index_path).context(&index_path)?;
         let index_store = index_store_initializer(settings, &index_path)?;
         let index_type_path = index_path.join("type");
-        fs::write(&index_type_path, index_store.name()).context(&index_type_path)?;
+        std::fs::write(&index_type_path, index_store.name()).context(&index_type_path)?;
         let index_store: Arc<dyn IndexStore> = Arc::from(index_store);
 
         let submodule_store_path = repo_path.join("submodule_store");
-        fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
+        std::fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
         let submodule_store = submodule_store_initializer(settings, &submodule_store_path)?;
         let submodule_store_type_path = submodule_store_path.join("type");
-        fs::write(&submodule_store_type_path, submodule_store.name())
+        std::fs::write(&submodule_store_type_path, submodule_store.name())
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
 
@@ -359,30 +371,57 @@ impl Repo for ReadonlyRepo {
     }
 }
 
+#[cfg(feature = "std")]
 pub type BackendInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+#[cfg(feature = "std")]
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
+    dyn Fn(&UserSettings, &std::path::Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
+#[cfg(feature = "std")]
 pub type OpHeadsStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
+#[cfg(feature = "std")]
 pub type IndexStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
+#[cfg(feature = "std")]
 pub type SubmoduleStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
 
+#[cfg(feature = "std")]
 type BackendFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+#[cfg(feature = "std")]
 type OpStoreFactory = Box<
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
+    dyn Fn(&UserSettings, &std::path::Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
 >;
+#[cfg(feature = "std")]
 type OpHeadsStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+#[cfg(feature = "std")]
 type IndexStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+#[cfg(feature = "std")]
 type SubmoduleStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &std::path::Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
+
+#[cfg(not(feature = "std"))]
+type BackendFactory =
+    Box<dyn Fn(&UserSettings) -> Result<Box<dyn Backend>, BackendLoadError>>;
+#[cfg(not(feature = "std"))]
+type OpStoreFactory = Box<
+    dyn Fn(&UserSettings, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
+>;
+#[cfg(not(feature = "std"))]
+type OpHeadsStoreFactory =
+    Box<dyn Fn(&UserSettings) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+#[cfg(not(feature = "std"))]
+type IndexStoreFactory =
+    Box<dyn Fn(&UserSettings) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+#[cfg(not(feature = "std"))]
+type SubmoduleStoreFactory =
+    Box<dyn Fn(&UserSettings) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
 
 pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
     for (name, factory) in ext {
@@ -405,6 +444,7 @@ pub struct StoreFactories {
     submodule_store_factories: HashMap<String, SubmoduleStoreFactory>,
 }
 
+#[cfg(feature = "std")]
 impl Default for StoreFactories {
     fn default() -> Self {
         let mut factories = StoreFactories::empty();
@@ -471,6 +511,7 @@ pub enum StoreLoadError {
         store_type: String,
     },
     #[error("Failed to read {store} backend type")]
+    #[cfg(feature = "std")]
     ReadError {
         store: &'static str,
         source: PathError,
@@ -515,10 +556,11 @@ impl StoreFactories {
         self.backend_factories.insert(name.to_string(), factory);
     }
 
+    #[cfg(feature = "std")]
     pub fn load_backend(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &std::path::Path,
     ) -> Result<Box<dyn Backend>, StoreLoadError> {
         let backend_type = read_store_type("commit", store_path.join("type"))?;
         let backend_factory = self.backend_factories.get(&backend_type).ok_or_else(|| {
@@ -534,10 +576,11 @@ impl StoreFactories {
         self.op_store_factories.insert(name.to_string(), factory);
     }
 
+    #[cfg(feature = "std")]
     pub fn load_op_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &std::path::Path,
         root_data: RootOperationData,
     ) -> Result<Box<dyn OpStore>, StoreLoadError> {
         let op_store_type = read_store_type("operation", store_path.join("type"))?;
@@ -555,10 +598,11 @@ impl StoreFactories {
             .insert(name.to_string(), factory);
     }
 
+    #[cfg(feature = "std")]
     pub fn load_op_heads_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &std::path::Path,
     ) -> Result<Box<dyn OpHeadsStore>, StoreLoadError> {
         let op_heads_store_type = read_store_type("operation heads", store_path.join("type"))?;
         let op_heads_store_factory = self
@@ -575,10 +619,11 @@ impl StoreFactories {
         self.index_store_factories.insert(name.to_string(), factory);
     }
 
+    #[cfg(feature = "std")]
     pub fn load_index_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &std::path::Path,
     ) -> Result<Box<dyn IndexStore>, StoreLoadError> {
         let index_store_type = read_store_type("index", store_path.join("type"))?;
         let index_store_factory = self
@@ -596,10 +641,11 @@ impl StoreFactories {
             .insert(name.to_string(), factory);
     }
 
+    #[cfg(feature = "std")]
     pub fn load_submodule_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &std::path::Path,
     ) -> Result<Box<dyn SubmoduleStore>, StoreLoadError> {
         let submodule_store_type = read_store_type("submodule_store", store_path.join("type"))?;
         let submodule_store_factory = self
@@ -614,12 +660,13 @@ impl StoreFactories {
     }
 }
 
+#[cfg(feature = "std")]
 pub fn read_store_type(
     store: &'static str,
-    path: impl AsRef<Path>,
+    path: impl AsRef<std::path::Path>,
 ) -> Result<String, StoreLoadError> {
     let path = path.as_ref();
-    fs::read_to_string(path)
+    std::fs::read_to_string(path)
         .context(path)
         .map_err(|source| StoreLoadError::ReadError { store, source })
 }
@@ -674,9 +721,10 @@ impl RepoLoader {
     /// Creates a `RepoLoader` for the repo at `repo_path` by reading the
     /// various `.jj/repo/<backend>/type` files and loading the right
     /// backends from `store_factories`.
+    #[cfg(feature = "std")]
     pub fn init_from_file_system(
         settings: &UserSettings,
-        repo_path: &Path,
+        repo_path: &std::path::Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
         let store = Store::new(
@@ -849,7 +897,7 @@ enum Rewrite {
 impl Rewrite {
     fn new_parent_ids(&self) -> &[CommitId] {
         match self {
-            Rewrite::Rewritten(new_parent_id) => std::slice::from_ref(new_parent_id),
+            Rewrite::Rewritten(new_parent_id) => core::slice::from_ref(new_parent_id),
             Rewrite::Divergent(new_parent_ids) => new_parent_ids.as_slice(),
             Rewrite::Abandoned(new_parent_ids) => new_parent_ids.as_slice(),
         }
@@ -1786,6 +1834,7 @@ impl MutableRepo {
         // feasible to walk all added and removed commits.
         // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten commits
         // given `base_heads`, `own_heads` and `other_heads`?
+        #[cfg(feature = "std")]
         if self.index.as_any().is::<DefaultMutableIndex>() {
             self.record_rewrites(&base_heads, &own_heads)?;
             self.record_rewrites(&base_heads, &other_heads)?;
@@ -1796,6 +1845,11 @@ impl MutableRepo {
                 self.view_mut().remove_head(removed_head);
             }
         }
+        #[cfg(not(feature = "std"))]
+        for removed_head in base.heads().difference(other.heads()) {
+           self.view_mut().remove_head(removed_head);
+        }
+
         for added_head in other.heads().difference(base.heads()) {
             self.view_mut().add_head(added_head);
         }
@@ -1959,8 +2013,9 @@ pub enum CheckOutCommitError {
 }
 
 mod dirty_cell {
-    use std::cell::OnceCell;
-    use std::cell::RefCell;
+    use core::cell::OnceCell;
+    use core::cell::RefCell;
+    use alloc::boxed::Box;
 
     /// Cell that lazily updates the value after `mark_dirty()`.
     ///

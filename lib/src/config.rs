@@ -26,8 +26,6 @@ use core::fmt::Display;
 use core::ops::Range;
 use core::slice;
 use core::str::FromStr;
-use std::path::Path;
-use std::path::PathBuf;
 
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
@@ -37,13 +35,21 @@ use thiserror::Error;
 use toml_edit::DocumentMut;
 use toml_edit::ImDocument;
 
+#[cfg(feature = "std")]
 pub use crate::config_resolver::migrate;
+#[cfg(feature = "std")]
 pub use crate::config_resolver::resolve;
+#[cfg(feature = "std")]
 pub use crate::config_resolver::ConfigMigrateError;
+#[cfg(feature = "std")]
 pub use crate::config_resolver::ConfigMigrateLayerError;
+#[cfg(feature = "std")]
 pub use crate::config_resolver::ConfigMigrationRule;
+#[cfg(feature = "std")]
 pub use crate::config_resolver::ConfigResolutionContext;
+#[cfg(feature = "std")]
 use crate::file_util::IoResultExt as _;
+#[cfg(feature = "std")]
 use crate::file_util::PathError;
 
 /// Config value or table node.
@@ -60,6 +66,7 @@ pub type ConfigValue = toml_edit::Value;
 pub enum ConfigLoadError {
     /// Config file or directory cannot be read.
     #[error("Failed to read configuration file")]
+    #[cfg(feature = "std")]
     Read(#[source] PathError),
     /// TOML file or text cannot be parsed.
     #[error("Configuration cannot be parsed as TOML document")]
@@ -68,13 +75,17 @@ pub enum ConfigLoadError {
         #[source]
         error: toml_edit::TomlError,
         /// Source file path.
-        source_path: Option<PathBuf>,
+        #[cfg(feature = "std")]
+        source_path: Option<std::path::PathBuf>,
+        #[cfg(not(feature = "std"))]
+        source_path: Option<()>,
     },
 }
 
 /// Error that can occur when saving config variables to file.
 #[derive(Debug, Error)]
 #[error("Failed to write configuration file")]
+#[cfg(feature = "std")]
 pub struct ConfigFileSaveError(#[source] pub PathError);
 
 /// Error that can occur when looking up config variable.
@@ -93,9 +104,12 @@ pub enum ConfigGetError {
         name: String,
         /// Source error.
         #[source]
-        error: Box<dyn std::error::Error + Send + Sync>,
+        error: Box<dyn core::error::Error + Send + Sync>,
         /// Source file path where the value is defined.
-        source_path: Option<PathBuf>,
+        #[cfg(feature = "std")]
+        source_path: Option<std::path::PathBuf>,
+        #[cfg(not(feature = "std"))]
+        source_path: Option<()>,
     },
 }
 
@@ -316,7 +330,10 @@ pub struct ConfigLayer {
     /// Source type of this layer.
     pub source: ConfigSource,
     /// Source file path of this layer if any.
-    pub path: Option<PathBuf>,
+    #[cfg(feature = "std")]
+    pub path: Option<std::path::PathBuf>,
+    #[cfg(not(feature = "std"))]
+    pub path: Option<()>,
     /// Configuration variables.
     pub data: DocumentMut,
 }
@@ -346,7 +363,11 @@ impl ConfigLayer {
     }
 
     /// Loads TOML file from the specified `path`.
-    pub fn load_from_file(source: ConfigSource, path: PathBuf) -> Result<Self, ConfigLoadError> {
+    #[cfg(feature = "std")]
+    pub fn load_from_file(
+        source: ConfigSource,
+        path: std::path::PathBuf,
+    ) -> Result<Self, ConfigLoadError> {
         let text = std::fs::read_to_string(&path)
             .context(&path)
             .map_err(ConfigLoadError::Read)?;
@@ -361,7 +382,11 @@ impl ConfigLayer {
         })
     }
 
-    fn load_from_dir(source: ConfigSource, path: &Path) -> Result<Vec<Self>, ConfigLoadError> {
+    #[cfg(feature = "std")]
+    fn load_from_dir(
+        source: ConfigSource,
+        path: &std::path::Path,
+    ) -> Result<Vec<Self>, ConfigLoadError> {
         // TODO: Walk the directory recursively?
         let mut file_paths: Vec<_> = path
             .read_dir()
@@ -552,9 +577,10 @@ pub struct ConfigFile {
 impl ConfigFile {
     /// Loads TOML file from the specified `path` if exists. Returns an empty
     /// object if the file doesn't exist.
+    #[cfg(feature = "std")]
     pub fn load_or_empty(
         source: ConfigSource,
-        path: impl Into<PathBuf>,
+        path: impl Into<std::path::PathBuf>,
     ) -> Result<Self, ConfigLoadError> {
         let layer = match ConfigLayer::load_from_file(source, path.into()) {
             Ok(layer) => Arc::new(layer),
@@ -591,6 +617,7 @@ impl ConfigFile {
     }
 
     /// Writes serialized data to the source file.
+    #[cfg(feature = "std")]
     pub fn save(&self) -> Result<(), ConfigFileSaveError> {
         std::fs::write(self.path(), self.layer.data.to_string())
             .context(self.path())
@@ -598,7 +625,8 @@ impl ConfigFile {
     }
 
     /// Source file path.
-    pub fn path(&self) -> &Path {
+    #[cfg(feature = "std")]
+    pub fn path(&self) -> &std::path::Path {
         self.layer.path.as_ref().expect("path must be known")
     }
 
@@ -660,10 +688,11 @@ impl StackedConfig {
 
     /// Loads config file from the specified `path`, inserts it at the position
     /// specified by `source`. The file should exist.
+    #[cfg(feature = "std")]
     pub fn load_file(
         &mut self,
         source: ConfigSource,
-        path: impl Into<PathBuf>,
+        path: impl Into<std::path::PathBuf>,
     ) -> Result<(), ConfigLoadError> {
         let layer = ConfigLayer::load_from_file(source, path.into())?;
         self.add_layer(layer);
@@ -672,10 +701,11 @@ impl StackedConfig {
 
     /// Loads config files from the specified directory `path`, inserts them at
     /// the position specified by `source`. The directory should exist.
+    #[cfg(feature = "std")]
     pub fn load_dir(
         &mut self,
         source: ConfigSource,
-        path: impl AsRef<Path>,
+        path: impl AsRef<std::path::Path>,
     ) -> Result<(), ConfigLoadError> {
         let layers = ConfigLayer::load_from_dir(source, path.as_ref())?;
         self.extend_layers(layers);
@@ -764,7 +794,7 @@ impl StackedConfig {
 
     /// Looks up value from all layers, merges sub fields as needed, then
     /// converts the value by using the given function.
-    pub fn get_value_with<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(
+    pub fn get_value_with<T, E: Into<Box<dyn core::error::Error + Send + Sync>>>(
         &self,
         name: impl ToConfigNamePath,
         convert: impl FnOnce(ConfigValue) -> Result<T, E>,
@@ -791,7 +821,7 @@ impl StackedConfig {
         })
     }
 
-    fn get_item_with<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(
+    fn get_item_with<T, E: Into<Box<dyn core::error::Error + Send + Sync>>>(
         &self,
         name: impl ToConfigNamePath,
         convert: impl FnOnce(ConfigItem) -> Result<T, E>,

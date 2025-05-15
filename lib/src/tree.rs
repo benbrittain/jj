@@ -311,6 +311,7 @@ pub async fn try_resolve_file_conflict(
                 .map_err(|err| BackendError::ReadObject {
                     object_type: file_id.object_type(),
                     hash: file_id.hex(),
+                    #[cfg(feature = "std")]
                     source: err.into(),
                 })?;
             BackendResult::Ok(content)

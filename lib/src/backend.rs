@@ -238,6 +238,7 @@ pub enum BackendError {
     ReadObject {
         object_type: String,
         hash: String,
+        #[cfg(feature = "std")]
         source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Access denied to read object {hash} of type {object_type}")]
@@ -498,5 +499,6 @@ pub trait Backend: Send + Sync + Debug {
     /// All commits found in the `index` won't be removed. In addition to that,
     /// objects created after `keep_newer` will be preserved. This mitigates a
     /// risk of deleting new commits created concurrently by another process.
+    #[cfg(feature = "std")]
     fn gc(&self, index: &dyn Index, keep_newer: std::time::SystemTime) -> BackendResult<()>;
 }

@@ -243,11 +243,13 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
 /// Patterns are provided as `(dir, pattern)` pairs, where `dir` should be the
 /// longest directory path that contains no glob meta characters, and `pattern`
 /// will be evaluated relative to `dir`.
+#[cfg(feature = "std")]
 #[derive(Clone, Debug)]
 pub struct FileGlobsMatcher {
     tree: RepoPathTree<Vec<glob::Pattern>>,
 }
 
+#[cfg(feature = "std")]
 impl FileGlobsMatcher {
     pub fn new<D: AsRef<RepoPath>>(
         dir_patterns: impl IntoIterator<Item = (D, glob::Pattern)>,
@@ -260,6 +262,7 @@ impl FileGlobsMatcher {
     }
 }
 
+#[cfg(feature = "std")]
 impl Matcher for FileGlobsMatcher {
     fn matches(&self, file: &RepoPath) -> bool {
         // TODO: glob::Pattern relies on path::is_separator() internally, but

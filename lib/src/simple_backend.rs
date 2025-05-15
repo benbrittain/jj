@@ -362,6 +362,7 @@ impl Backend for SimpleBackend {
         Ok(Box::pin(stream::empty()))
     }
 
+    #[cfg(feature = "std")]
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
         Ok(())
     }

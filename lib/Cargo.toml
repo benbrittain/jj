@@ -34,19 +34,19 @@ version_check = { workspace = true }
 
 [dependencies]
 async-trait = { workspace = true }
-blake2 = { workspace = true }
+blake2 = { workspace = true, optional = true }
 bstr = { workspace = true }
 chrono = { workspace = true }
-clru = { workspace = true }
+clru = { workspace = true, optional = true }
 digest = { workspace = true }
-dunce = { workspace = true }
+dunce = { workspace = true, optional = true }
 either = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
-glob = { workspace = true }
+glob = { workspace = true, optional = true }
 hashbrown = { workspace = true }
 hex = { workspace = true }
-ignore = { workspace = true }
+ignore = { workspace = true, optional = true }
 indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
@@ -54,19 +54,19 @@ jj-lib-proc-macros = { workspace = true }
 once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
-pollster = { workspace = true }
-prost = { workspace = true }
+pollster = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
-rayon = { workspace = true }
+rayon = { workspace = true, optional = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
-same-file = { workspace = true }
+same-file = { workspace = true, optional = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_json = { workspace = true, optional = true }
 smallvec = { workspace = true }
-strsim = { workspace = true }
-tempfile = { workspace = true }
+strsim = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml_edit = { workspace = true }
@@ -87,15 +87,37 @@ insta = { workspace = true }
 num_cpus = { workspace = true }
 pretty_assertions = { workspace = true }
 sapling-renderdag = { workspace = true }
+tempfile = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
 [features]
-default = ["git"]
-git = ["dep:gix"]
+default = ["git", "std"]
+git = ["dep:gix", "std"]
 watchman = ["dep:watchman_client"]
 testing = ["git"]
+std = [
+    "dep:serde_json",
+    "dep:prost",
+    "dep:same-file",
+    "dep:strsim",
+    "dep:rayon",
+    "dep:blake2",
+    "dep:clru",
+    "dep:glob",
+    "dep:dunce",
+    "dep:tempfile",
+    "dep:ignore",
+    "dep:pollster",
+    "chrono/clock",
+    "hashbrown/rayon",
+    "futures/executor",
+    "indexmap/std",
+    "itertools/use_std",
+    "regex/std",
+    "rand/thread_rng",
+]
 
 [lints]
 workspace = true

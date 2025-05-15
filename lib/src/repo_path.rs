@@ -25,8 +25,11 @@ use core::fmt::Debug;
 use core::fmt::Formatter;
 use core::iter::FusedIterator;
 use core::ops::Deref;
+#[cfg(feature = "std")]
 use std::path::Component;
+#[cfg(feature = "std")]
 use std::path::Path;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
 use itertools::Itertools as _;
@@ -35,6 +38,7 @@ use ref_cast::RefCastCustom;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
+#[cfg(feature = "std")]
 use crate::file_util;
 
 /// Owned `RepoPath` component.
@@ -92,6 +96,7 @@ impl RepoPathComponent {
 
     /// Returns a normal filesystem entry name if this path component is valid
     /// as a file/directory name.
+    #[cfg(feature = "std")]
     pub fn to_fs_name(&self) -> Result<&str, InvalidRepoPathComponentError> {
         let mut components = Path::new(&self.value).components().fuse();
         match (components.next(), components.next()) {
@@ -259,6 +264,7 @@ impl RepoPathBuf {
     /// Converts repo-relative `Path` to `RepoPathBuf`.
     ///
     /// The input path should not contain redundant `.` or `..`.
+    #[cfg(feature = "std")]
     pub fn from_relative_path(
         relative_path: impl AsRef<Path>,
     ) -> Result<Self, RelativePathParseError> {
@@ -298,6 +304,7 @@ impl RepoPathBuf {
     /// The `cwd` and `base` paths are supposed to be absolute and normalized in
     /// the same manner. The `input` path may be either relative to `cwd` or
     /// absolute.
+    #[cfg(feature = "std")]
     pub fn parse_fs_path(
         cwd: &Path,
         base: &Path,
@@ -364,6 +371,7 @@ impl RepoPath {
     ///
     /// The returned path should never contain `..`, `C:` (on Windows), etc.
     /// However, it may contain reserved working-copy directories such as `.jj`.
+    #[cfg(feature = "std")]
     pub fn to_fs_path(&self, base: &Path) -> Result<PathBuf, InvalidRepoPathError> {
         let mut result = PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
         result.push(base);
@@ -381,6 +389,7 @@ impl RepoPath {
     ///
     /// The returned path may point outside of the `base` directory. Use this
     /// function only for displaying or testing purposes.
+    #[cfg(feature = "std")]
     pub fn to_fs_path_unchecked(&self, base: &Path) -> PathBuf {
         let mut result = PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
         result.push(base);
@@ -536,17 +545,20 @@ impl InvalidRepoPathComponentError {
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum RelativePathParseError {
+    #[cfg(feature = "std")]
     #[error(r#"Invalid component "{component}" in repo-relative path "{path}""#)]
     InvalidComponent {
         component: Box<str>,
         path: Box<Path>,
     },
     #[error(r#"Not valid UTF-8 path "{path}""#)]
+    #[cfg(feature = "std")]
     InvalidUtf8 { path: Box<Path> },
 }
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[error(r#"Path "{input}" is not in the repo "{base}""#)]
+#[cfg(feature = "std")]
 pub struct FsPathParseError {
     /// Repository or workspace root path relative to the `cwd`.
     pub base: Box<Path>,
@@ -568,6 +580,7 @@ fn is_valid_repo_path_str(value: &str) -> bool {
 #[derive(Debug, Error)]
 pub enum UiPathParseError {
     #[error(transparent)]
+    #[cfg(feature = "std")]
     Fs(FsPathParseError),
 }
 
@@ -580,15 +593,22 @@ pub enum RepoPathUiConverter {
     ///
     /// The `cwd` and `base` paths are supposed to be absolute and normalized in
     /// the same manner.
-    Fs { cwd: PathBuf, base: PathBuf },
-    // TODO: Add a no-op variant that uses the internal `RepoPath` representation. Can be useful
-    // on a server.
+    #[cfg(feature = "std")]
+    Fs {
+        cwd: PathBuf,
+        base: PathBuf,
+    },
+
+    // Variant that shows the internal `RepoPath` representation. Can be useful on a server.
+    Noop,
 }
 
 impl RepoPathUiConverter {
     /// Format a path for display in the UI.
     pub fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
+            RepoPathUiConverter::Noop => todo!(),
+            #[cfg(feature = "std")]
             RepoPathUiConverter::Fs { cwd, base } => {
                 file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
                     .to_str()
@@ -609,6 +629,8 @@ impl RepoPathUiConverter {
         }
         let mut formatted = String::new();
         match self {
+            RepoPathUiConverter::Noop => todo!(),
+            #[cfg(feature = "std")]
             RepoPathUiConverter::Fs { cwd, base } => {
                 let source_path = file_util::relative_path(cwd, &source.to_fs_path_unchecked(base));
                 let target_path = file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
@@ -673,9 +695,11 @@ impl RepoPathUiConverter {
     /// where relative paths are interpreted as relative to.
     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
         match self {
+            #[cfg(feature = "std")]
             RepoPathUiConverter::Fs { cwd, base } => {
                 RepoPathBuf::parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs)
             }
+            RepoPathUiConverter::Noop => todo!(),
         }
     }
 }

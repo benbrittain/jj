@@ -2,6 +2,8 @@
 
 use alloc::string::String;
 use alloc::vec::Vec;
+
+#[cfg(feature = "std")]
 use blake2::Blake2b512;
 // Re-export DigestUpdate so that the ContentHash proc macro can be used in
 // external crates without directly depending on the digest crate.
@@ -24,6 +26,7 @@ pub trait ContentHash {
 }
 
 /// The 512-bit BLAKE2b content hash
+#[cfg(feature = "std")]
 pub fn blake2b_hash(x: &(impl ContentHash + ?Sized)) -> digest::Output<Blake2b512> {
     use digest::Digest as _;
     let mut hasher = Blake2b512::default();

@@ -14,7 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::sync::Arc;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use futures::StreamExt as _;
 use hashbrown::HashMap;

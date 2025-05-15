@@ -39,6 +39,7 @@ use crate::fileset_parser::FunctionCallNode;
 use crate::fileset_parser::UnaryOp;
 use crate::matchers::DifferenceMatcher;
 use crate::matchers::EverythingMatcher;
+#[cfg(feature = "std")]
 use crate::matchers::FileGlobsMatcher;
 use crate::matchers::FilesMatcher;
 use crate::matchers::IntersectionMatcher;
@@ -66,6 +67,7 @@ pub enum FilePatternParseError {
     RelativePath(#[from] RelativePathParseError),
     /// Failed to parse glob pattern.
     #[error(transparent)]
+    #[cfg(feature = "std")]
     GlobPattern(#[from] glob::PatternError),
 }
 
@@ -77,6 +79,7 @@ pub enum FilePattern {
     /// Matches path prefix.
     PrefixPath(RepoPathBuf),
     /// Matches file (or exact) path with glob pattern.
+    #[cfg(feature = "std")]
     FileGlob {
         /// Prefix directory path where the `pattern` will be evaluated.
         dir: RepoPathBuf,
@@ -112,9 +115,13 @@ impl FilePattern {
         match kind {
             "cwd" => Self::cwd_prefix_path(path_converter, input),
             "cwd-file" | "file" => Self::cwd_file_path(path_converter, input),
+            #[cfg(feature = "std")]
             "cwd-glob" | "glob" => Self::cwd_file_glob(path_converter, input),
+            #[cfg(feature = "std")]
             "root" => Self::root_prefix_path(input),
+            #[cfg(feature = "std")]
             "root-file" => Self::root_file_path(input),
+            #[cfg(feature = "std")]
             "root-glob" => Self::root_file_glob(input),
             _ => Err(FilePatternParseError::InvalidKind(kind.to_owned())),
         }
@@ -139,6 +146,7 @@ impl FilePattern {
     }
 
     /// Pattern that matches cwd-relative file path glob.
+    #[cfg(feature = "std")]
     pub fn cwd_file_glob(
         path_converter: &RepoPathUiConverter,
         input: impl AsRef<str>,
@@ -148,6 +156,7 @@ impl FilePattern {
         Self::file_glob_at(dir, pattern)
     }
 
+    #[cfg(feature = "std")]
     /// Pattern that matches workspace-relative file (or exact) path.
     pub fn root_file_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         // TODO: Let caller pass in converter for root-relative paths too
@@ -156,18 +165,21 @@ impl FilePattern {
     }
 
     /// Pattern that matches workspace-relative path prefix.
+    #[cfg(feature = "std")]
     pub fn root_prefix_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         let path = RepoPathBuf::from_relative_path(input.as_ref())?;
         Ok(FilePattern::PrefixPath(path))
     }
 
     /// Pattern that matches workspace-relative file path glob.
+    #[cfg(feature = "std")]
     pub fn root_file_glob(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         let (dir, pattern) = split_glob_path(input.as_ref());
         let dir = RepoPathBuf::from_relative_path(dir)?;
         Self::file_glob_at(dir, pattern)
     }
 
+    #[cfg(feature = "std")]
     fn file_glob_at(dir: RepoPathBuf, input: &str) -> Result<Self, FilePatternParseError> {
         if input.is_empty() {
             return Ok(FilePattern::FilePath(dir));
@@ -184,12 +196,14 @@ impl FilePattern {
         match self {
             FilePattern::FilePath(path) => Some(path),
             FilePattern::PrefixPath(path) => Some(path),
+            #[cfg(feature = "std")]
             FilePattern::FileGlob { .. } => None,
         }
     }
 }
 
 /// Splits `input` path into literal directory path and glob pattern.
+#[cfg(feature = "std")]
 fn split_glob_path(input: &str) -> (&str, &str) {
     const GLOB_CHARS: &[char] = &['?', '*', '[', ']']; // see glob::Pattern::escape()
     let prefix_len = input
@@ -319,6 +333,7 @@ impl FilesetExpression {
 fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
     let mut file_paths = Vec::new();
     let mut prefix_paths = Vec::new();
+    #[cfg(feature = "std")]
     let mut file_globs = Vec::new();
     let mut matchers: Vec<Option<Box<dyn Matcher>>> = Vec::new();
     for expr in expressions {
@@ -330,6 +345,7 @@ fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
                 match pattern {
                     FilePattern::FilePath(path) => file_paths.push(path),
                     FilePattern::PrefixPath(path) => prefix_paths.push(path),
+                    #[cfg(feature = "std")]
                     FilePattern::FileGlob { dir, pattern } => {
                         file_globs.push((dir, pattern.clone()));
                     }
@@ -358,6 +374,7 @@ fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
     if !prefix_paths.is_empty() {
         matchers.push(Some(Box::new(PrefixMatcher::new(prefix_paths))));
     }
+    #[cfg(feature = "std")]
     if !file_globs.is_empty() {
         matchers.push(Some(Box::new(FileGlobsMatcher::new(file_globs))));
     }

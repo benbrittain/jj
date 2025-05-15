@@ -492,6 +492,7 @@ pub trait OpStore: Send + Sync + Debug {
     /// preserved. This mitigates a risk of deleting new heads created
     /// concurrently by another process.
     // TODO: return stats?
+    #[cfg(feature = "std")]
     fn gc(&self, head_ids: &[OperationId], keep_newer: std::time::SystemTime) -> OpStoreResult<()>;
 }
 

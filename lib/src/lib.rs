@@ -17,6 +17,8 @@
 #![warn(missing_docs)]
 #![deny(unused_must_use)]
 #![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 #[macro_use]
 extern crate alloc;
 
@@ -30,28 +32,38 @@ extern crate self as jj_lib;
 #[macro_use]
 pub mod content_hash;
 
+#[cfg(feature = "std")]
 pub mod absorb;
+#[cfg(feature = "std")]
 pub mod annotate;
 pub mod backend;
 pub mod commit;
 pub mod commit_builder;
 pub mod config;
+#[cfg(feature = "std")]
 mod config_resolver;
+#[cfg(feature = "std")]
 pub mod conflicts;
 pub mod copies;
 pub mod dag_walk;
+#[cfg(feature = "std")]
 pub mod default_index;
+#[cfg(feature = "std")]
 pub mod default_submodule_store;
 pub mod diff;
 pub mod dsl_util;
 pub mod evolution;
+#[cfg(feature = "std")]
 pub mod extensions_map;
+#[cfg(feature = "std")]
 pub mod file_util;
 pub mod files;
 pub mod fileset;
 mod fileset_parser;
+#[cfg(feature = "std")]
 pub mod fix;
 pub mod fmt_util;
+#[cfg(feature = "std")]
 pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
@@ -72,13 +84,17 @@ pub mod git {
 pub mod git_backend;
 #[cfg(feature = "git")]
 mod git_subprocess;
+#[cfg(feature = "git")]
 pub mod gitignore;
+#[cfg(feature = "std")]
 pub mod gpg_signing;
 pub mod graph;
 pub mod hex_util;
 pub mod id_prefix;
 pub mod index;
+#[cfg(feature = "std")]
 pub mod local_working_copy;
+#[cfg(feature = "std")]
 pub mod lock;
 pub mod matchers;
 pub mod merge;
@@ -88,6 +104,7 @@ pub mod op_heads_store;
 pub mod op_store;
 pub mod op_walk;
 pub mod operation;
+#[cfg(feature = "std")]
 #[expect(missing_docs)]
 pub mod protos;
 pub mod ref_name;
@@ -104,10 +121,15 @@ pub mod signing;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g
 // "examples/simple-backend/").
+#[cfg(feature = "std")]
 pub mod simple_backend;
+#[cfg(feature = "std")]
 pub mod simple_op_heads_store;
+#[cfg(feature = "std")]
 pub mod simple_op_store;
+#[cfg(feature = "std")]
 pub mod ssh_signing;
+#[cfg(feature = "std")]
 pub mod stacked_table;
 pub mod store;
 pub mod str_util;
@@ -115,14 +137,18 @@ pub mod submodule_store;
 #[cfg(feature = "testing")]
 pub mod test_signing_backend;
 pub mod time_util;
+#[cfg(feature = "std")]
 pub mod trailer;
 pub mod transaction;
 pub mod tree;
 pub mod tree_builder;
+#[cfg(feature = "std")]
 pub mod union_find;
 pub mod util;
 pub mod view;
+#[cfg(feature = "std")]
 pub mod working_copy;
+#[cfg(feature = "std")]
 pub mod workspace;
 
 #[cfg(test)]

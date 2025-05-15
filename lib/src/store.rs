@@ -23,6 +23,7 @@ use core::fmt::Debug;
 use core::fmt::Formatter;
 use core::pin::Pin;
 
+#[cfg(feature = "std")]
 use clru::CLruCache;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
@@ -61,7 +62,9 @@ const TREE_CACHE_CAPACITY: usize = 1000;
 pub struct Store {
     backend: Box<dyn Backend>,
     signer: Signer,
+    #[cfg(feature = "std")]
     commit_cache: std::sync::Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
+    #[cfg(feature = "std")]
     tree_cache: std::sync::Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
 }
 
@@ -78,9 +81,11 @@ impl Store {
         Arc::new(Store {
             backend,
             signer,
+            #[cfg(feature = "std")]
             commit_cache: std::sync::Mutex::new(CLruCache::new(
                 COMMIT_CACHE_CAPACITY.try_into().unwrap(),
             )),
+            #[cfg(feature = "std")]
             tree_cache: std::sync::Mutex::new(CLruCache::new(
                 TREE_CACHE_CAPACITY.try_into().unwrap(),
             )),
@@ -150,6 +155,7 @@ impl Store {
     }
 
     async fn get_backend_commit(&self, id: &CommitId) -> BackendResult<Arc<backend::Commit>> {
+        #[cfg(feature = "std")]
         {
             let mut locked_cache = self.commit_cache.lock().unwrap();
             if let Some(data) = locked_cache.get(id).cloned() {
@@ -158,7 +164,9 @@ impl Store {
         }
         let commit = self.backend.read_commit(id).await?;
         let data = Arc::new(commit);
+        #[cfg(feature = "std")]
         let mut locked_cache = self.commit_cache.lock().unwrap();
+        #[cfg(feature = "std")]
         locked_cache.put(id.clone(), data.clone());
         Ok(data)
     }
@@ -172,6 +180,7 @@ impl Store {
 
         let (commit_id, commit) = self.backend.write_commit(commit, sign_with).await?;
         let data = Arc::new(commit);
+        #[cfg(feature = "std")]
         {
             let mut locked_cache = self.commit_cache.lock().unwrap();
             locked_cache.put(commit_id.clone(), data.clone());
@@ -199,6 +208,7 @@ impl Store {
         id: &TreeId,
     ) -> BackendResult<Arc<backend::Tree>> {
         let key = (dir.to_owned(), id.clone());
+        #[cfg(feature = "std")]
         {
             let mut locked_cache = self.tree_cache.lock().unwrap();
             if let Some(data) = locked_cache.get(&key).cloned() {
@@ -207,8 +217,11 @@ impl Store {
         }
         let data = self.backend.read_tree(dir, id).await?;
         let data = Arc::new(data);
-        let mut locked_cache = self.tree_cache.lock().unwrap();
-        locked_cache.put(key, data.clone());
+        #[cfg(feature = "std")]
+        {
+            let mut locked_cache = self.tree_cache.lock().unwrap();
+            locked_cache.put(key, data.clone());
+        }
         Ok(data)
     }
 
@@ -232,6 +245,7 @@ impl Store {
     ) -> BackendResult<Tree> {
         let tree_id = self.backend.write_tree(path, &tree).await?;
         let data = Arc::new(tree);
+        #[cfg(feature = "std")]
         {
             let mut locked_cache = self.tree_cache.lock().unwrap();
             locked_cache.put((path.to_owned(), tree_id.clone()), data.clone());
@@ -286,6 +300,7 @@ impl Store {
         TreeBuilder::new(self.clone(), base_tree_id)
     }
 
+    #[cfg(feature = "std")]
     pub fn gc(&self, index: &dyn Index, keep_newer: std::time::SystemTime) -> BackendResult<()> {
         self.backend.gc(index, keep_newer)
     }

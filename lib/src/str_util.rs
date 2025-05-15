@@ -33,6 +33,7 @@ pub enum StringPatternParseError {
     #[error("Invalid string pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse glob pattern.
+    #[cfg(feature = "std")]
     #[error(transparent)]
     GlobPattern(glob::PatternError),
     /// Failed to parse regular expression.
@@ -42,20 +43,24 @@ pub enum StringPatternParseError {
 
 /// A wrapper for [`glob::Pattern`] with a more concise Debug impl
 #[derive(Clone)]
+#[cfg(feature = "std")]
 pub struct GlobPattern(pub glob::Pattern);
 
+#[cfg(feature = "std")]
 impl GlobPattern {
     fn as_str(&self) -> &str {
         self.0.as_str()
     }
 }
 
+#[cfg(feature = "std")]
 impl Debug for GlobPattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("GlobPattern").field(&self.as_str()).finish()
     }
 }
 
+#[cfg(feature = "std")]
 fn parse_glob(src: &str) -> Result<GlobPattern, StringPatternParseError> {
     glob::Pattern::new(src)
         .map(GlobPattern)
@@ -75,8 +80,10 @@ pub enum StringPattern {
     /// Matches strings that case‐insensitively contain a substring.
     SubstringI(String),
     /// Matches with a Unix‐style shell wildcard pattern.
+    #[cfg(feature = "std")]
     Glob(GlobPattern),
     /// Matches with a case‐insensitive Unix‐style shell wildcard pattern.
+    #[cfg(feature = "std")]
     GlobI(GlobPattern),
     /// Matches substrings with a regular expression.
     Regex(regex::Regex),
@@ -124,6 +131,7 @@ impl StringPattern {
     }
 
     /// Parses the given string as a glob pattern.
+    #[cfg(feature = "std")]
     pub fn glob(src: &str) -> Result<Self, StringPatternParseError> {
         // TODO: might be better to do parsing and compilation separately since
         // not all backends would use the compiled pattern object.
@@ -132,6 +140,7 @@ impl StringPattern {
     }
 
     /// Parses the given string as a case‐insensitive glob pattern.
+    #[cfg(feature = "std")]
     pub fn glob_i(src: &str) -> Result<Self, StringPatternParseError> {
         Ok(StringPattern::GlobI(parse_glob(src)?))
     }
@@ -149,7 +158,9 @@ impl StringPattern {
             "exact-i" => Ok(StringPattern::exact_i(src)),
             "substring" => Ok(StringPattern::substring(src)),
             "substring-i" => Ok(StringPattern::substring_i(src)),
+            #[cfg(feature = "std")]
             "glob" => StringPattern::glob(src),
+            #[cfg(feature = "std")]
             "glob-i" => StringPattern::glob_i(src),
             "regex" => StringPattern::regex(src),
             _ => Err(StringPatternParseError::InvalidKind(kind.to_owned())),
@@ -181,7 +192,9 @@ impl StringPattern {
             StringPattern::ExactI(literal) => literal,
             StringPattern::Substring(needle) => needle,
             StringPattern::SubstringI(needle) => needle,
+            #[cfg(feature = "std")]
             StringPattern::Glob(pattern) => pattern.as_str(),
+            #[cfg(feature = "std")]
             StringPattern::GlobI(pattern) => pattern.as_str(),
             StringPattern::Regex(pattern) => pattern.as_str(),
         }
@@ -189,6 +202,7 @@ impl StringPattern {
 
     /// Converts this pattern to a glob string. Returns `None` if the pattern
     /// can't be represented as a glob.
+    #[cfg(feature = "std")]
     pub fn to_glob(&self) -> Option<Cow<'_, str>> {
         // TODO: Handle trivial case‐insensitive patterns here? It might make people
         // expect they can use case‐insensitive patterns in contexts where they
@@ -237,7 +251,9 @@ impl StringPattern {
             StringPattern::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
                 .contains(&needle.to_ascii_lowercase()),
+            #[cfg(feature = "std")]
             StringPattern::Glob(pattern) => pattern.0.matches(haystack),
+            #[cfg(feature = "std")]
             StringPattern::GlobI(pattern) => pattern.0.matches_with(
                 haystack,
                 glob::MatchOptions {

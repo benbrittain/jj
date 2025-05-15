@@ -21,14 +21,18 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::fmt::Display;
 
+#[cfg(feature = "std")]
 use clru::CLruCache;
 use thiserror::Error;
 
 use crate::backend::CommitId;
 use crate::config::ConfigGetError;
+#[cfg(feature = "std")]
 use crate::gpg_signing::GpgBackend;
+#[cfg(feature = "std")]
 use crate::gpg_signing::GpgsmBackend;
 use crate::settings::UserSettings;
+#[cfg(feature = "std")]
 use crate::ssh_signing::SshBackend;
 use crate::store::COMMIT_CACHE_CAPACITY;
 #[cfg(feature = "testing")]
@@ -173,6 +177,7 @@ pub struct Signer {
     /// Main backend is also used for verification, but it's not in this list
     /// for ownership reasons.
     backends: Vec<Box<dyn SigningBackend>>,
+    #[cfg(feature = "std")]
     cache: std::sync::Mutex<CLruCache<CommitId, Verification>>,
 }
 
@@ -181,8 +186,11 @@ impl Signer {
     /// chooses one of them to be used for signing depending on the config.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, SignInitError> {
         let mut backends: Vec<Box<dyn SigningBackend>> = vec![
+            #[cfg(feature = "std")]
             Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
+            #[cfg(feature = "std")]
             Box::new(GpgsmBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
+            #[cfg(feature = "std")]
             Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             #[cfg(feature = "testing")]
             Box::new(TestSigningBackend),
@@ -211,6 +219,7 @@ impl Signer {
         Self {
             main_backend,
             backends: other_backends,
+            #[cfg(feature = "std")]
             cache: std::sync::Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
         }
     }
@@ -237,7 +246,9 @@ impl Signer {
         data: &[u8],
         signature: &[u8],
     ) -> SignResult<Verification> {
+        #[cfg(feature = "std")]
         let cached = self.cache.lock().unwrap().get(commit_id).cloned();
+        #[cfg(feature = "std")]
         if let Some(check) = cached {
             return Ok(check);
         }
@@ -261,6 +272,7 @@ impl Signer {
             // realistically this is unlikely, but technically
             // it's correct to not cache unknowns here
             if verification.status != SigStatus::Unknown {
+                #[cfg(feature = "std")]
                 self.cache
                     .lock()
                     .unwrap()
@@ -272,6 +284,7 @@ impl Signer {
             // have a backend that knows how to handle this signature
             //
             // not sure about how much of an optimization this is
+            #[cfg(feature = "std")]
             self.cache
                 .lock()
                 .unwrap()
