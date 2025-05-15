@@ -74,8 +74,14 @@ pub struct Timestamp {
 }
 
 impl Timestamp {
+    #[cfg(feature = "std")]
     pub fn now() -> Self {
         Self::from_datetime(chrono::offset::Local::now())
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn now() -> Self {
+        todo!("bwb")
     }
 
     pub fn from_datetime<Tz: chrono::TimeZone<Offset = chrono::offset::FixedOffset>>(

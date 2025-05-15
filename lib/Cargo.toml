@@ -113,7 +113,6 @@ std = [
     "no_std_io/std",
     "chrono/clock",
     "hashbrown/rayon",
-    "no_std_io/std",
     "futures/executor",
     "indexmap/std",
     "itertools/use_std",

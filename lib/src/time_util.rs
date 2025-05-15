@@ -19,6 +19,7 @@ use alloc::string::String;
 
 use chrono::DateTime;
 use chrono::FixedOffset;
+#[cfg(feature = "std")]
 use chrono::Local;
 use chrono::TimeZone;
 use interim::parse_date_string;
@@ -33,6 +34,7 @@ use crate::backend::Timestamp;
 #[derive(Copy, Clone, Debug)]
 pub enum DatePatternContext {
     /// Interpret date patterns using the local machine's time zone
+    #[cfg(feature = "std")]
     Local(DateTime<Local>),
     /// Interpret date patterns using any FixedOffset time zone
     Fixed(DateTime<FixedOffset>),
@@ -46,12 +48,14 @@ impl DatePatternContext {
         kind: &str,
     ) -> Result<DatePattern, DatePatternParseError> {
         match *self {
+            #[cfg(feature = "std")]
             DatePatternContext::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
             DatePatternContext::Fixed(dt) => DatePattern::from_str_kind(s, kind, dt),
         }
     }
 }
 
+#[cfg(feature = "std")]
 impl From<DateTime<Local>> for DatePatternContext {
     fn from(value: DateTime<Local>) -> Self {
         DatePatternContext::Local(value)
