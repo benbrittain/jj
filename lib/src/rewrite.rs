@@ -18,12 +18,29 @@ use alloc::borrow::ToOwned;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::hash::BuildHasherDefault;
+use core::hash::Hasher;
+
+#[derive(Default)]
+pub struct BadHasher(u64);
+
+impl Hasher for BadHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.0 += byte as u64
+        }
+    }
+}
+
+pub type IndexMap<K, V> = indexmap::IndexMap<K, V, BuildHasherDefault<BadHasher>>;
+pub type IndexSet<K> = indexmap::IndexSet<K, BuildHasherDefault<BadHasher>>;
 
 use futures::StreamExt as _;
 use hashbrown::HashMap;
 use hashbrown::HashSet;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
@@ -434,7 +451,7 @@ pub struct ComputedMoveCommits {
 impl ComputedMoveCommits {
     fn empty() -> Self {
         ComputedMoveCommits {
-            target_commit_ids: IndexSet::new(),
+            target_commit_ids: IndexSet::default(),
             descendants: vec![],
             commit_new_parents_map: HashMap::new(),
             to_abandon: HashSet::new(),
@@ -542,7 +559,7 @@ pub fn compute_move_commits(
     let mut target_commits_external_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for id in target_commit_ids.iter().rev() {
         let commit = repo.store().get_commit(id)?;
-        let mut new_parents = IndexSet::new();
+        let mut new_parents = IndexSet::default();
         for old_parent in commit.parent_ids() {
             if let Some(parents) = target_commits_external_parents.get(old_parent) {
                 new_parents.extend(parents.iter().cloned());
@@ -598,9 +615,9 @@ pub fn compute_move_commits(
         for commit in &target_commits_descendants {
             if !target_commit_external_descendants.contains_key(commit.id()) {
                 let children = if target_commit_ids.contains(commit.id()) {
-                    IndexSet::new()
+                    IndexSet::default()
                 } else {
-                    IndexSet::from([commit.clone()])
+                    IndexSet::from_iter([commit.clone()].iter().cloned())
                 };
                 target_commit_external_descendants.insert(commit.id().clone(), children);
             }
@@ -651,7 +668,7 @@ pub fn compute_move_commits(
         new_children
             .iter()
             .map(|child_commit| {
-                let mut new_child_parent_ids = IndexSet::new();
+                let mut new_child_parent_ids = IndexSet::default();
                 for old_child_parent_id in child_commit.parent_ids() {
                     // Replace target commits with their parents outside the target set.
                     let old_child_parent_ids = if let Some(parents) =
@@ -862,7 +879,7 @@ pub fn duplicate_commits(
         return Ok(DuplicateCommitsStats::default());
     }
 
-    let mut duplicated_old_to_new: IndexMap<CommitId, Commit> = IndexMap::new();
+    let mut duplicated_old_to_new: IndexMap<CommitId, Commit> = IndexMap::default();
     let mut num_rebased = 0;
 
     let target_commit_ids: IndexSet<_> = target_commit_ids.iter().cloned().collect();
@@ -949,7 +966,7 @@ pub fn duplicate_commits(
     let children_commit_ids_set: HashSet<CommitId> = children_commit_ids.iter().cloned().collect();
     mut_repo.transform_descendants(children_commit_ids.to_vec(), |mut rewriter| {
         if children_commit_ids_set.contains(rewriter.old_commit().id()) {
-            let mut child_new_parent_ids = IndexSet::new();
+            let mut child_new_parent_ids = IndexSet::default();
             for old_parent_id in rewriter.old_commit().parent_ids() {
                 // If the original parents of the new children are the new parents of
                 // `target_head_ids`, replace them with `target_head_ids` since we are
@@ -995,7 +1012,7 @@ pub fn duplicate_commits_onto_parents(
         return Ok(DuplicateCommitsStats::default());
     }
 
-    let mut duplicated_old_to_new: IndexMap<CommitId, Commit> = IndexMap::new();
+    let mut duplicated_old_to_new: IndexMap<CommitId, Commit> = IndexMap::default();
 
     // Topological order ensures that any parents of the original commit are
     // either not in `target_commits` or were already duplicated.
