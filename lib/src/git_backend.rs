@@ -15,7 +15,7 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;

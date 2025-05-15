@@ -18,14 +18,14 @@
 //! TODO: Add support for different blame layers with a trait in the future.
 //! Like commit metadata and more.
 
-use std::collections::hash_map;
-use std::collections::HashMap;
 use std::iter;
 use std::ops::Range;
 use std::rc::Rc;
 
 use bstr::BStr;
 use bstr::BString;
+use hashbrown::hash_map;
+use hashbrown::HashMap;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 

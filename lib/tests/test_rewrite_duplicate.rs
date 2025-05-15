@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;

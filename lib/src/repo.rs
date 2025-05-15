@@ -14,10 +14,7 @@
 
 #![allow(missing_docs)]
 
-use std::collections::hash_map::Entry;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
@@ -25,6 +22,9 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use hashbrown::hash_map::Entry;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
 use thiserror::Error;

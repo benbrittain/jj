@@ -15,14 +15,14 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use std::collections::hash_map;
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use hashbrown::hash_map;
+use hashbrown::HashMap;
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use thiserror::Error;
@@ -657,7 +657,7 @@ pub type RevsetFunction = fn(
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError>;
 
 static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy::new(|| {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using crate::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map: HashMap<&'static str, RevsetFunction> = HashMap::new();
     map.insert("parents", |diagnostics, function, context| {

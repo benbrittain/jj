@@ -16,12 +16,12 @@
 
 use std::any::Any;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::iter;
 use std::time::SystemTime;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use thiserror::Error;
@@ -494,7 +494,7 @@ pub trait OpStore: Send + Sync + Debug {
 
 #[cfg(test)]
 mod tests {
-    use maplit::btreemap;
+    use crate::util::btreemap;
 
     use super::*;
 

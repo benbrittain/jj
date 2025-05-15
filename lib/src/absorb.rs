@@ -16,7 +16,7 @@
 //! ancestors, 'absorbing' them away.
 
 use std::cmp;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -342,7 +342,7 @@ fn to_file_value(value: MaterializedTreeValue) -> Result<Option<MaterializedFile
 
 #[cfg(test)]
 mod tests {
-    use maplit::hashmap;
+    use crate::util::hashmap;
 
     use super::*;
 

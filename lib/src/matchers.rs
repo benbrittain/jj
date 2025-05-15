@@ -14,12 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::iter;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use tracing::instrument;
 
@@ -511,7 +511,7 @@ impl<V: Debug> Debug for RepoPathTree<V> {
 
 #[cfg(test)]
 mod tests {
-    use maplit::hashset;
+    use crate::util::hashset;
 
     use super::*;
 

@@ -15,8 +15,8 @@
 #![allow(missing_docs)]
 
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use thiserror::Error;
 

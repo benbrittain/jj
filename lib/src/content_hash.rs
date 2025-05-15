@@ -109,7 +109,7 @@ impl<T: ContentHash> ContentHash for Option<T> {
     }
 }
 
-impl<K, V> ContentHash for std::collections::HashMap<K, V>
+impl<K, V> ContentHash for hashbrown::HashMap<K, V>
 where
     K: ContentHash + Ord,
     V: ContentHash,
@@ -124,8 +124,7 @@ where
         }
     }
 }
-
-impl<K> ContentHash for std::collections::HashSet<K>
+impl<K> ContentHash for hashbrown::HashSet<K>
 where
     K: ContentHash + Ord,
 {
@@ -154,7 +153,8 @@ where
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::collections::HashMap;
+
+    use hashbrown::HashMap;
 
     use super::*;
 

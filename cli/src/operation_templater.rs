@@ -260,7 +260,7 @@ impl OperationTemplateBuildFnTable {
 }
 
 fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = OperationTemplateBuildMethodFnMap::<Operation>::new();
     map.insert(
@@ -352,7 +352,7 @@ impl Template for OperationId {
 }
 
 fn builtin_operation_id_methods() -> OperationTemplateBuildMethodFnMap<OperationId> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = OperationTemplateBuildMethodFnMap::<OperationId>::new();
     map.insert(

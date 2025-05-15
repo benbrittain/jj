@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use jj_lib::commit::Commit;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
-use maplit::hashmap;
-use maplit::hashset;
+use jj_lib::util::hashmap;
+use jj_lib::util::hashset;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 

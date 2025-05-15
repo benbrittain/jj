@@ -17,7 +17,7 @@
 use std::any::Any;
 use std::cmp::max;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::io;
 use std::io::Write as _;
 use std::ops::Bound;

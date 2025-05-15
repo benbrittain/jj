@@ -14,11 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashSet;
 use std::error;
 use std::mem;
 use std::str::FromStr;
 
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use pest::iterators::Pair;
@@ -843,9 +843,8 @@ pub(super) fn expect_expression_with<T>(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use assert_matches::assert_matches;
+    use hashbrown::HashMap;
 
     use super::*;
     use crate::dsl_util::KeywordArgument;

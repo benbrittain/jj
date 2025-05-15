@@ -16,7 +16,7 @@
 
 use std::any::Any;
 use std::any::TypeId;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 /// Type-safe map that stores objects of arbitrary types.
 ///

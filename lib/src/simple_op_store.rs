@@ -16,8 +16,6 @@
 
 use std::any::Any;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fs;
 use std::io;
@@ -27,6 +25,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
@@ -439,7 +439,11 @@ fn operation_metadata_to_proto(
         hostname: metadata.hostname.clone(),
         username: metadata.username.clone(),
         is_snapshot: metadata.is_snapshot,
-        tags: metadata.tags.clone(),
+        tags: metadata
+            .tags
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<std::collections::HashMap<_, _>>(),
     }
 }
 
@@ -455,7 +459,11 @@ fn operation_metadata_from_proto(
         hostname: proto.hostname,
         username: proto.username,
         is_snapshot: proto.is_snapshot,
-        tags: proto.tags,
+        tags: proto
+            .tags
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<hashbrown::HashMap<_, _>>(),
     }
 }
 
@@ -785,12 +793,12 @@ fn remote_ref_state_from_proto(proto_value: Option<i32>) -> Option<RemoteRefStat
 mod tests {
     use insta::assert_snapshot;
     use itertools::Itertools as _;
-    use maplit::btreemap;
-    use maplit::hashmap;
-    use maplit::hashset;
 
     use super::*;
     use crate::tests::new_temp_dir;
+    use crate::util::btreemap;
+    use crate::util::hashmap;
+    use crate::util::hashset;
 
     fn create_view() -> View {
         let new_remote_ref = |target: &RefTarget| RemoteRef {

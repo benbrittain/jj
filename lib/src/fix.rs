@@ -15,8 +15,8 @@
 //! API for transforming file content, for example to apply formatting, and
 //! propagate those changes across revisions.
 
-use std::collections::HashMap;
-use std::collections::HashSet;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use std::sync::mpsc::channel;
 
 use futures::StreamExt as _;

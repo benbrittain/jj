@@ -17,7 +17,7 @@
 use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::collections::VecDeque;
 
 use super::composite::CompositeIndex;

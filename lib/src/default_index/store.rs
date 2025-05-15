@@ -15,7 +15,6 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::io::Write as _;
@@ -24,6 +23,7 @@ use std::path::PathBuf;
 use std::slice;
 use std::sync::Arc;
 
+use hashbrown::HashMap;
 use itertools::Itertools as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;

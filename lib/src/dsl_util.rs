@@ -15,9 +15,9 @@
 //! Domain-specific language helpers.
 
 use std::ascii;
-use std::collections::HashMap;
 use std::fmt;
 use std::slice;
+use hashbrown::HashMap;
 
 use itertools::Itertools as _;
 use pest::iterators::Pair;

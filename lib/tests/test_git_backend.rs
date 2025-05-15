@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
-use std::collections::HashSet;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -32,8 +32,8 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
-use maplit::hashmap;
-use maplit::hashset;
+use jj_lib::util::hashmap;
+use jj_lib::util::hashset;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;

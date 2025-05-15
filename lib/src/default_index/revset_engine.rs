@@ -19,7 +19,7 @@ use std::cmp::Ordering;
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::fmt;
 use std::iter;
 use std::ops::Range;

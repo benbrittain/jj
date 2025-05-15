@@ -15,7 +15,7 @@
 //! This module implements a [`UnionFind<T>`] type which can be used to
 //! efficiently calculate disjoint sets for any data type.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::hash::Hash;
 
 #[derive(Clone, Copy)]

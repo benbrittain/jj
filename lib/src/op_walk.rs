@@ -15,11 +15,11 @@
 //! Utility for operation id resolution and traversal.
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use thiserror::Error;
 

@@ -14,10 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 
 /// Node and edges pair of type `N` and `ID` respectively.
 ///

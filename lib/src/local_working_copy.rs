@@ -17,7 +17,7 @@
 
 use std::any::Any;
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::error::Error;
 use std::fs;
 use std::fs::DirEntry;
@@ -2408,7 +2408,7 @@ impl LockedLocalWorkingCopy {
 
 #[cfg(test)]
 mod tests {
-    use maplit::hashset;
+    use crate::util::hashset;
 
     use super::*;
 

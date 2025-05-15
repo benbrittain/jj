@@ -776,7 +776,7 @@ impl<'repo> CommitKeywordCache<'repo> {
 }
 
 fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Commit> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<Commit>::new();
     map.insert(
@@ -1346,7 +1346,7 @@ impl Template for Vec<Rc<CommitRef>> {
 }
 
 fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<Rc<CommitRef>>::new();
     map.insert(
@@ -1539,7 +1539,7 @@ impl Template for RepoPathBuf {
 }
 
 fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<RepoPathBuf>::new();
     map.insert(
@@ -1628,7 +1628,7 @@ fn builtin_commit_or_change_id_methods<'repo, O>() -> CommitTemplateBuildMethodF
 where
     O: Display + ShortestIdPrefixLen + 'repo,
 {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<O>::new();
     map.insert(
@@ -1724,7 +1724,7 @@ impl ShortestIdPrefix {
 
 fn builtin_shortest_id_prefix_methods<'repo>(
 ) -> CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<ShortestIdPrefix>::new();
     map.insert(
@@ -1833,7 +1833,7 @@ where
 
 fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeDiff> {
     type P<'repo> = CommitTemplatePropertyKind<'repo>;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<TreeDiff>::new();
     map.insert(
@@ -2025,7 +2025,7 @@ impl TreeDiffEntry {
 
 fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>
 {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<TreeDiffEntry>::new();
     map.insert(
@@ -2072,7 +2072,7 @@ pub struct TreeEntry {
 }
 
 fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeEntry> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<TreeEntry>::new();
     map.insert(
@@ -2148,7 +2148,7 @@ impl Template for DiffStatsFormatted<'_> {
 }
 
 fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, DiffStats> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<DiffStats>::new();
     // TODO: add files() -> List<DiffStatEntry> ?
@@ -2209,7 +2209,7 @@ impl CryptographicSignature {
 
 fn builtin_cryptographic_signature_methods<'repo>(
 ) -> CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<CryptographicSignature>::new();
     map.insert(

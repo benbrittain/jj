@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::collections::BTreeMap;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::fs;
 use std::io::Write as _;
 use std::iter;
@@ -70,8 +70,8 @@ use jj_lib::signing::Signer;
 use jj_lib::str_util::StringPattern;
 use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::workspace::Workspace;
-use maplit::btreemap;
-use maplit::hashset;
+use jj_lib::util::btreemap;
+use jj_lib::util::hashset;
 use tempfile::TempDir;
 use test_case::test_case;
 use testutils::base_user_config;

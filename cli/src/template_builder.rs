@@ -848,7 +848,7 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateBuildMethodFnMap<'a, L, String> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, String>::new();
     map.insert(
@@ -1033,7 +1033,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             .map_err(|err| TemplatePropertyError(err.message().into()))
     }
 
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, ConfigValue>::new();
     // These methods are called "as_<type>", not "to_<type>" to clarify that
@@ -1079,7 +1079,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateBuildMethodFnMap<'a, L, Signature> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Signature>::new();
     map.insert(
@@ -1127,7 +1127,7 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateBuildMethodFnMap<'a, L, Email> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Email>::new();
     map.insert(
@@ -1157,7 +1157,7 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateBuildMethodFnMap<'a, L, SizeHint> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, SizeHint>::new();
     map.insert(
@@ -1201,7 +1201,7 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateBuildMethodFnMap<'a, L, Timestamp> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Timestamp>::new();
     map.insert(
@@ -1285,7 +1285,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateBuildMethodFnMap<'a, L, TimestampRange> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, TimestampRange>::new();
     map.insert(
@@ -1317,7 +1317,7 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 
 fn builtin_list_template_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> BuildListTemplateMethodFnMap<'a, L> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = BuildListTemplateMethodFnMap::<L>::new();
     map.insert(
@@ -1363,7 +1363,7 @@ where
     L::Property: WrapTemplateProperty<'a, O> + WrapTemplateProperty<'a, Vec<O>>,
     O: Clone + 'a,
 {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Vec<O>>::new();
     map.insert(
@@ -1494,7 +1494,7 @@ fn build_lambda_expression<'i, P, T>(
 }
 
 fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFunctionFnMap<'a, L> {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using jj_lib::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildFunctionFnMap::<L>::new();
     map.insert("fill", |language, diagnostics, build_ctx, function| {

@@ -67,11 +67,11 @@ etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
 glob = { workspace = true }
+hashbrown = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 jj-lib = { workspace = true }
-maplit = { workspace = true }
 once_cell = { workspace = true }
 os_pipe = { workspace = true }
 pest = { workspace = true }

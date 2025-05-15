@@ -16,7 +16,6 @@
 //! some common types of merged values.
 
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write as _;
@@ -27,6 +26,7 @@ use std::slice;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
+use hashbrown::HashMap;
 use itertools::Itertools as _;
 use smallvec::smallvec_inline;
 use smallvec::SmallVec;

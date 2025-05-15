@@ -24,7 +24,7 @@
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;

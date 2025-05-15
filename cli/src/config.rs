@@ -897,7 +897,7 @@ mod tests {
     use std::fmt::Write as _;
 
     use indoc::indoc;
-    use maplit::hashmap;
+    use jj_lib::util::hashmap;
     use test_case::test_case;
 
     use super::*;

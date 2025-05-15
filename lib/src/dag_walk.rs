@@ -15,13 +15,13 @@
 //! General-purpose DAG algorithms.
 
 use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::convert::Infallible;
 use std::hash::Hash;
 use std::iter;
 use std::mem;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 
 /// Traverses nodes from `start` in depth-first order.
@@ -263,7 +263,8 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
             Ok((mut node_map, neighbor_ids_map, remainder)) => {
                 self.start = remainder;
                 let sorted_ids =
-                    topo_order_forward(&start_ids, |id| *id, |id| &neighbor_ids_map[id]);
+                    topo_order_forward(&start_ids, |id| *id, |id| &neighbor_ids_map[*id]);
+
                 self.result.reserve(sorted_ids.len());
                 for id in sorted_ids {
                     let (id, node) = node_map.remove_entry(id).unwrap();
@@ -598,10 +599,9 @@ fn to_ok_iter<T>(iter: impl IntoIterator<Item = T>) -> impl Iterator<Item = Resu
 mod tests {
     use std::panic;
 
-    use maplit::hashmap;
-    use maplit::hashset;
-
     use super::*;
+    use crate::util::hashmap;
+    use crate::util::hashset;
 
     #[test]
     fn test_dfs_ok() {

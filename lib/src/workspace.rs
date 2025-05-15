@@ -14,7 +14,7 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io;

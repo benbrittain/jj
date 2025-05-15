@@ -76,7 +76,7 @@ impl DiffWorkingCopies {
                 .strip_prefix(self.temp_dir())
                 .expect("path should be relative to temp_dir");
         }
-        let mut result = maplit::hashmap! {
+        let mut result = jj_lib::util::hashmap! {
             "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
             "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
         };

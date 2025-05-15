@@ -19,7 +19,7 @@ use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::iter;
 use std::sync::Arc;
 use std::sync::Mutex;

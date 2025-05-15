@@ -17,8 +17,8 @@
 use std::cmp::max;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use std::iter::Fuse;
 use std::iter::FusedIterator;
 use std::ops::Range;

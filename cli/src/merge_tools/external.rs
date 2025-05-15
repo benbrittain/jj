@@ -216,7 +216,7 @@ fn run_mergetool_external_single_file(
         BString::default()
     };
     assert_eq!(file.contents.num_sides(), 2);
-    let files: HashMap<&str, &[u8]> = maplit::hashmap! {
+    let files: HashMap<&str, &[u8]> = jj_lib::util::hashmap! {
         "base" => file.contents.get_remove(0).unwrap().as_slice(),
         "left" => file.contents.get_add(0).unwrap().as_slice(),
         "right" => file.contents.get_add(1).unwrap().as_slice(),
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_interpolate_variables() {
-        let patterns = maplit::hashmap! {
+        let patterns = jj_lib::util::hashmap! {
             "left" => "LEFT",
             "right" => "RIGHT",
             "left_right" => "$left $right",

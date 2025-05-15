@@ -37,8 +37,8 @@ use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
-use maplit::hashmap;
-use maplit::hashset;
+use jj_lib::util::hashmap;
+use jj_lib::util::hashset;
 use test_case::test_case;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
@@ -1125,6 +1125,14 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
     );
 }
 
+fn hashbrown_counts<T: std::hash::Hash + Eq>(
+    iter: impl Iterator<Item = T>,
+) -> hashbrown::HashMap<T, usize> {
+    let mut counts = hashbrown::HashMap::new();
+    iter.for_each(|item| *counts.entry(item).or_default() += 1);
+    counts
+}
+
 #[test]
 fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     let test_repo = TestRepo::init();
@@ -1194,12 +1202,13 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     // If the bookmark were moved at each rewrite point, there would be separate
     // negative terms: { commit_b => 2, commit_b4 => 1 }. Since we flatten
     // intermediate rewrites, commit_b4 doesn't appear in the removed_ids.
+
     assert_eq!(
-        main_target.removed_ids().counts(),
+        hashbrown_counts(main_target.removed_ids()),
         hashmap! { commit_b.id() => 3 },
     );
     assert_eq!(
-        main_target.added_ids().counts(),
+        hashbrown_counts(main_target.added_ids()),
         hashmap! {
             commit_b2.id() => 1,
             commit_b3.id() => 1,
@@ -1275,11 +1284,11 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     let target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(target.has_conflict());
     assert_eq!(
-        target.removed_ids().counts(),
+        hashbrown_counts(target.removed_ids()),
         hashmap! { commit_a.id() => 1, commit_b.id() => 1 },
     );
     assert_eq!(
-        target.added_ids().counts(),
+        hashbrown_counts(target.added_ids()),
         hashmap! {
             commit_c.id() => 1,
             commit_b2.id() => 1,

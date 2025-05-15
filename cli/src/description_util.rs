@@ -470,7 +470,7 @@ pub fn description_template(
 mod tests {
     use indexmap::indexmap;
     use indoc::indoc;
-    use maplit::hashmap;
+    use jj_lib::util::hashmap;
 
     use super::parse_bulk_edit_message;
     use crate::description_util::ParseBulkEditMessageError;

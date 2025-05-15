@@ -16,8 +16,8 @@
 
 use std::borrow::Borrow;
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use std::default::Default;
 use std::fs::File;
 use std::num::NonZeroU32;

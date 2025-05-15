@@ -14,11 +14,11 @@
 
 //! Functional language for selecting a set of paths.
 
-use std::collections::HashMap;
 use std::iter;
 use std::path;
 use std::slice;
 
+use hashbrown::HashMap;
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use thiserror::Error;
@@ -386,7 +386,7 @@ type FilesetFunction = fn(
 ) -> FilesetParseResult<FilesetExpression>;
 
 static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, FilesetFunction>> = Lazy::new(|| {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // Not using crate::util::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map: HashMap<&'static str, FilesetFunction> = HashMap::new();
     map.insert("none", |_diagnostics, _path_converter, function| {

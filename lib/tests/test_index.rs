@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::fs;
 use std::sync::Arc;
 
@@ -41,7 +41,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedExpression;
 use jj_lib::revset::GENERATION_RANGE_FULL;
-use maplit::hashset;
+use jj_lib::util::hashset;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::test_backend::TestBackend;

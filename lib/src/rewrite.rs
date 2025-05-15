@@ -14,11 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
