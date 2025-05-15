@@ -33,6 +33,7 @@ harness = false
 version_check = { workspace = true }
 
 [dependencies]
+ahash = { workspace = true }
 async-trait = { workspace = true }
 blake2 = { workspace = true, optional = true }
 bstr = { workspace = true }
@@ -110,6 +111,7 @@ std = [
     "dep:dunce",
     "dep:tempfile",
     "dep:ignore",
+    "ahash/std",
     "no_std_io/std",
     "chrono/clock",
     "hashbrown/rayon",
