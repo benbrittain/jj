@@ -14,18 +14,21 @@
 
 //! A lazily merged view of a set of trees.
 
-use std::borrow::Borrow;
-use std::cmp::max;
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::iter;
-use std::iter::zip;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::Context;
-use std::task::Poll;
-use std::vec;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::cmp::max;
+use core::cmp::Ordering;
+use core::iter;
+use core::iter::zip;
+use core::pin::Pin;
+use core::task::Context;
+use core::task::Poll;
 
 use either::Either;
 use futures::future::BoxFuture;

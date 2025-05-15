@@ -14,11 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::iter;
-use std::time::SystemTime;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::fmt::Debug;
+use core::iter;
 
 use hashbrown::HashMap;
 use hashbrown::HashSet;
@@ -442,21 +445,21 @@ pub enum OpStoreError {
     ObjectNotFound {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Error when reading object {hash} of type {object_type}")]
     ReadObject {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Could not write object of type {object_type}")]
     WriteObject {
         object_type: &'static str,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
 pub type OpStoreResult<T> = Result<T, OpStoreError>;
@@ -489,14 +492,13 @@ pub trait OpStore: Send + Sync + Debug {
     /// preserved. This mitigates a risk of deleting new heads created
     /// concurrently by another process.
     // TODO: return stats?
-    fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
+    fn gc(&self, head_ids: &[OperationId], keep_newer: std::time::SystemTime) -> OpStoreResult<()>;
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::util::btreemap;
-
     use super::*;
+    use crate::util::btreemap;
 
     #[test]
     fn test_merge_join_bookmark_views() {

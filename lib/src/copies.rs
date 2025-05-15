@@ -14,10 +14,11 @@
 
 //! Code for working with copies and renames.
 
-use std::pin::Pin;
-use std::task::ready;
-use std::task::Context;
-use std::task::Poll;
+use alloc::vec::Vec;
+use core::pin::Pin;
+use core::task::ready;
+use core::task::Context;
+use core::task::Poll;
 
 use futures::Stream;
 use hashbrown::HashMap;

@@ -14,7 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::sync::Arc;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use itertools::Itertools as _;
 use thiserror::Error;

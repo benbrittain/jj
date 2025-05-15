@@ -14,9 +14,13 @@
 
 //! Domain-specific language helpers.
 
-use std::ascii;
-use std::fmt;
-use std::slice;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::ascii;
+use core::fmt;
+use core::slice;
 use hashbrown::HashMap;
 
 use itertools::Itertools as _;

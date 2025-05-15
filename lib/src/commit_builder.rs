@@ -14,9 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::sync::Arc;
 
 use pollster::FutureExt as _;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use crate::backend;
 use crate::backend::BackendResult;

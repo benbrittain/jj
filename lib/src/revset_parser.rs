@@ -14,9 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::error;
-use std::mem;
-use std::str::FromStr;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::vec::Vec;
+use core::error;
+use core::mem;
+use core::str::FromStr;
 
 use hashbrown::HashSet;
 use itertools::Itertools as _;

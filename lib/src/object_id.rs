@@ -14,6 +14,10 @@
 
 #![allow(missing_docs)]
 
+use alloc::borrow::ToOwned as _;
+use alloc::string::String;
+use alloc::vec::Vec;
+
 pub trait ObjectId {
     fn object_type(&self) -> String;
     fn as_bytes(&self) -> &[u8];
@@ -71,15 +75,15 @@ macro_rules! impl_id_type {
             }
         }
 
-        impl std::fmt::Debug for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        impl core::fmt::Debug for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
                 // TODO: should we use $hex_method here?
                 f.debug_tuple(stringify!($name)).field(&self.hex()).finish()
             }
         }
 
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        impl core::fmt::Display for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
                 f.pad(&self.$hex_method())
             }
         }

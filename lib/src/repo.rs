@@ -14,13 +14,18 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::fmt::Formatter;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::slice;
 use std::fs;
 use std::path::Path;
-use std::slice;
-use std::sync::Arc;
 
 use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;

@@ -14,13 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::SystemTime;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::sync::Arc;
+use core::any::Any;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::pin::Pin;
 
 use clru::CLruCache;
 use futures::stream::BoxStream;
@@ -60,12 +61,12 @@ const TREE_CACHE_CAPACITY: usize = 1000;
 pub struct Store {
     backend: Box<dyn Backend>,
     signer: Signer,
-    commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
-    tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    commit_cache: std::sync::Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
+    tree_cache: std::sync::Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
 }
 
 impl Debug for Store {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("Store")
             .field("backend", &self.backend)
             .finish_non_exhaustive()
@@ -77,8 +78,12 @@ impl Store {
         Arc::new(Store {
             backend,
             signer,
-            commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
-            tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            commit_cache: std::sync::Mutex::new(CLruCache::new(
+                COMMIT_CACHE_CAPACITY.try_into().unwrap(),
+            )),
+            tree_cache: std::sync::Mutex::new(CLruCache::new(
+                TREE_CACHE_CAPACITY.try_into().unwrap(),
+            )),
         })
     }
 
@@ -281,7 +286,7 @@ impl Store {
         TreeBuilder::new(self.clone(), base_tree_id)
     }
 
-    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
+    pub fn gc(&self, index: &dyn Index, keep_newer: std::time::SystemTime) -> BackendResult<()> {
         self.backend.gc(index, keep_newer)
     }
 }

@@ -14,12 +14,14 @@
 
 //! String helpers.
 
-use std::borrow::Borrow;
-use std::borrow::Cow;
-use std::collections::BTreeMap;
-use std::fmt;
-use std::fmt::Debug;
-use std::ops::Deref;
+use alloc::borrow::Cow;
+use alloc::borrow::ToOwned as _;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::borrow::Borrow;
+use core::fmt;
+use core::fmt::Debug;
+use core::ops::Deref;
 
 use either::Either;
 use thiserror::Error;

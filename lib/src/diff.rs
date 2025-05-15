@@ -14,14 +14,15 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
-use std::hash::BuildHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
+use core::hash::BuildHasher;
+use core::hash::Hash;
+use core::hash::Hasher;
+use core::iter;
+use core::ops::Range;
+use core::slice;
 use std::hash::RandomState;
-use std::iter;
-use std::ops::Range;
-use std::slice;
 
 use bstr::BStr;
 use hashbrown::HashTable;

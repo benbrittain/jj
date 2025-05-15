@@ -14,9 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::fmt;
-use std::fmt::Debug;
-use std::iter;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use core::fmt;
+use core::fmt::Debug;
+use core::iter;
 
 use hashbrown::HashMap;
 use hashbrown::HashSet;

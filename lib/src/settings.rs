@@ -14,9 +14,13 @@
 
 #![allow(missing_docs)]
 
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::sync::Arc;
+use core::str::FromStr;
 use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::Arc;
 use std::sync::Mutex;
 
 use chrono::DateTime;
@@ -279,7 +283,7 @@ impl UserSettings {
     }
 
     /// Looks up value by `name`, converts it by using the given function.
-    pub fn get_value_with<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(
+    pub fn get_value_with<T, E: Into<Box<dyn core::error::Error + Send + Sync>>>(
         &self,
         name: impl ToConfigNamePath,
         convert: impl FnOnce(ConfigValue) -> Result<T, E>,

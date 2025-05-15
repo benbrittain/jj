@@ -14,9 +14,12 @@
 
 //! Functional language for selecting a set of paths.
 
-use std::iter;
-use std::path;
-use std::slice;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::iter;
+use core::slice;
 
 use hashbrown::HashMap;
 use itertools::Itertools as _;
@@ -190,7 +193,7 @@ impl FilePattern {
 fn split_glob_path(input: &str) -> (&str, &str) {
     const GLOB_CHARS: &[char] = &['?', '*', '[', ']']; // see glob::Pattern::escape()
     let prefix_len = input
-        .split_inclusive(path::is_separator)
+        .split_inclusive(std::path::is_separator)
         .take_while(|component| !component.contains(GLOB_CHARS))
         .map(|component| component.len())
         .sum();

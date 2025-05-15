@@ -14,10 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
 use pollster::FutureExt as _;
+use alloc::borrow::ToOwned as _;
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 
 use crate::backend;
 use crate::backend::BackendResult;

@@ -15,9 +15,11 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
-use std::fmt::Debug;
-use std::fmt::Display;
-use std::sync::Mutex;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::fmt::Display;
 
 use clru::CLruCache;
 use thiserror::Error;
@@ -44,7 +46,7 @@ pub enum SigStatus {
 }
 
 impl Display for SigStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             SigStatus::Good => "good",
             SigStatus::Unknown => "unknown",
@@ -124,7 +126,7 @@ pub enum SignError {
     InvalidSignatureFormat,
     /// A generic error from the backend impl.
     #[error("Signing error")]
-    Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
+    Backend(#[source] Box<dyn core::error::Error + Send + Sync>),
 }
 
 /// A result type for the signing/verifying operations
@@ -171,7 +173,7 @@ pub struct Signer {
     /// Main backend is also used for verification, but it's not in this list
     /// for ownership reasons.
     backends: Vec<Box<dyn SigningBackend>>,
-    cache: Mutex<CLruCache<CommitId, Verification>>,
+    cache: std::sync::Mutex<CLruCache<CommitId, Verification>>,
 }
 
 impl Signer {
@@ -209,7 +211,7 @@ impl Signer {
         Self {
             main_backend,
             backends: other_backends,
-            cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
+            cache: std::sync::Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
         }
     }
 

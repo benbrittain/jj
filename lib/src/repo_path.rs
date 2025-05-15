@@ -14,13 +14,17 @@
 
 #![allow(missing_docs)]
 
-use std::borrow::Borrow;
-use std::cmp::Ordering;
-use std::fmt;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::iter::FusedIterator;
-use std::ops::Deref;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use core::borrow::Borrow;
+use core::cmp::Ordering;
+use core::fmt;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::iter::FusedIterator;
+use core::ops::Deref;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;

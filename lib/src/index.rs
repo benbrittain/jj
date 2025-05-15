@@ -14,9 +14,11 @@
 
 //! Interfaces for indexes of the commits in a repository.
 
-use std::any::Any;
-use std::fmt::Debug;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::fmt::Debug;
 
 use thiserror::Error;
 
@@ -34,17 +36,17 @@ use crate::store::Store;
 /// Returned if an error occurs while reading an index from the [`IndexStore`].
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct IndexReadError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct IndexReadError(pub Box<dyn core::error::Error + Send + Sync>);
 
 /// Returned if an error occurs while writing an index to the [`IndexStore`].
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct IndexWriteError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct IndexWriteError(pub Box<dyn core::error::Error + Send + Sync>);
 
 /// Returned by [`Index`] backend in case of an error.
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct IndexError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct IndexError(pub Box<dyn core::error::Error + Send + Sync>);
 
 /// An error returned if `Index::all_heads_for_gc()` is not supported by the
 /// index backend.

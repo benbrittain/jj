@@ -14,11 +14,12 @@
 
 //! General-purpose DAG algorithms.
 
-use std::collections::BinaryHeap;
-use std::convert::Infallible;
-use std::hash::Hash;
-use std::iter;
-use std::mem;
+use alloc::collections::BinaryHeap;
+use alloc::vec::Vec;
+use core::convert::Infallible;
+use core::hash::Hash;
+use core::iter;
+use core::mem;
 
 use hashbrown::HashMap;
 use hashbrown::HashSet;

@@ -14,18 +14,20 @@
 
 //! Configuration store helpers.
 
-use std::borrow::Borrow;
-use std::convert::Infallible;
-use std::fmt;
-use std::fmt::Display;
-use std::fs;
-use std::io;
-use std::ops::Range;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::convert::Infallible;
+use core::fmt;
+use core::fmt::Display;
+use core::ops::Range;
+use core::slice;
+use core::str::FromStr;
 use std::path::Path;
 use std::path::PathBuf;
-use std::slice;
-use std::str::FromStr;
-use std::sync::Arc;
 
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
@@ -345,7 +347,7 @@ impl ConfigLayer {
 
     /// Loads TOML file from the specified `path`.
     pub fn load_from_file(source: ConfigSource, path: PathBuf) -> Result<Self, ConfigLoadError> {
-        let text = fs::read_to_string(&path)
+        let text = std::fs::read_to_string(&path)
             .context(&path)
             .map_err(ConfigLoadError::Read)?;
         let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
@@ -557,7 +559,7 @@ impl ConfigFile {
         let layer = match ConfigLayer::load_from_file(source, path.into()) {
             Ok(layer) => Arc::new(layer),
             Err(ConfigLoadError::Read(PathError { path, error }))
-                if error.kind() == io::ErrorKind::NotFound =>
+                if error.kind() == std::io::ErrorKind::NotFound =>
             {
                 let mut data = DocumentMut::new();
                 data.insert(
@@ -590,7 +592,7 @@ impl ConfigFile {
 
     /// Writes serialized data to the source file.
     pub fn save(&self) -> Result<(), ConfigFileSaveError> {
-        fs::write(self.path(), self.layer.data.to_string())
+        std::fs::write(self.path(), self.layer.data.to_string())
             .context(self.path())
             .map_err(ConfigFileSaveError)
     }

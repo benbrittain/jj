@@ -14,9 +14,12 @@
 
 //! Utility for operation id resolution and traversal.
 
-use std::cmp::Ordering;
-use std::slice;
-use std::sync::Arc;
+use alloc::borrow::ToOwned as _;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+use core::slice;
 
 use hashbrown::HashMap;
 use hashbrown::HashSet;

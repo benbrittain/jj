@@ -1,5 +1,7 @@
 //! Portable, stable hashing suitable for identifying values
 
+use alloc::string::String;
+use alloc::vec::Vec;
 use blake2::Blake2b512;
 // Re-export DigestUpdate so that the ContentHash proc macro can be used in
 // external crates without directly depending on the digest crate.
@@ -136,7 +138,7 @@ where
     }
 }
 
-impl<K, V> ContentHash for std::collections::BTreeMap<K, V>
+impl<K, V> ContentHash for alloc::collections::BTreeMap<K, V>
 where
     K: ContentHash,
     V: ContentHash,
@@ -246,7 +248,7 @@ mod tests {
     }
 
     // Test that the derived version of `ContentHash` matches the that's
-    // manually implemented for `std::Option`.
+    // manually implemented for `core::Option`.
     #[test]
     fn derive_for_enum() {
         #[derive(ContentHash)]

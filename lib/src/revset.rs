@@ -14,12 +14,17 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::convert::Infallible;
-use std::fmt;
-use std::ops::Range;
-use std::rc::Rc;
-use std::sync::Arc;
+use alloc::borrow::ToOwned as _;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::convert::Infallible;
+use core::fmt;
+use core::ops::Range;
 
 use hashbrown::hash_map;
 use hashbrown::HashMap;
@@ -90,7 +95,7 @@ pub enum RevsetResolutionError {
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     #[error(transparent)]
-    Other(#[from] Box<dyn std::error::Error + Send + Sync>),
+    Other(#[from] Box<dyn core::error::Error + Send + Sync>),
 }
 
 /// Error occurred during revset evaluation.
@@ -99,7 +104,7 @@ pub enum RevsetEvaluationError {
     #[error("Unexpected error from commit backend")]
     Backend(#[from] BackendError),
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
 impl RevsetEvaluationError {
@@ -147,7 +152,7 @@ pub enum RevsetCommitRef {
 }
 
 /// A custom revset filter expression, defined by an extension.
-pub trait RevsetFilterExtension: std::fmt::Debug + Any {
+pub trait RevsetFilterExtension: core::fmt::Debug + Any {
     fn as_any(&self) -> &dyn Any;
 
     /// Returns true iff this filter matches the specified commit.
@@ -990,7 +995,7 @@ pub fn expect_date_pattern(
         diagnostics,
         "date pattern",
         node,
-        |_diagnostics, value, kind| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
+        |_diagnostics, value, kind| -> Result<_, Box<dyn core::error::Error + Send + Sync>> {
             match kind {
                 None => Err("Date pattern must specify 'after' or 'before'".into()),
                 Some(kind) => Ok(context.parse_relative(value, kind)?),
@@ -1190,7 +1195,7 @@ fn transform_expression_bottom_up<St: ExpressionState>(
 /// the original expression node will be reused.
 ///
 /// If no nodes rewritten, this function returns `None`.
-/// `std::iter::successors()` could be used if the transformation needs to be
+/// `core::iter::successors()` could be used if the transformation needs to be
 /// applied repeatedly until converged.
 fn try_transform_expression<St: ExpressionState, E>(
     expression: &Rc<RevsetExpression<St>>,

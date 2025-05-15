@@ -14,6 +14,9 @@
 
 //! Provides support for parsing and matching date ranges.
 
+use alloc::borrow::ToOwned as _;
+use alloc::string::String;
+
 use chrono::DateTime;
 use chrono::FixedOffset;
 use chrono::Local;

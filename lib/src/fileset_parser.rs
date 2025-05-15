@@ -14,8 +14,13 @@
 
 //! Parser for the fileset language.
 
-use std::error;
+use alloc::borrow::ToOwned as _;
+use alloc::string::String;
+use alloc::string::ToString as _;
+use alloc::vec::Vec;
+use core::error;
 
+use alloc::boxed::Box;
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use pest::iterators::Pair;

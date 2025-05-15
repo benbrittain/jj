@@ -31,10 +31,12 @@
 //! let _: &RemoteName = RefName::new("main").as_ref();
 //! ```
 
-use std::borrow::Borrow;
-use std::fmt;
-use std::fmt::Display;
-use std::ops::Deref;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use core::borrow::Borrow;
+use core::fmt;
+use core::fmt::Display;
+use core::ops::Deref;
 
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;

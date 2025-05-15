@@ -14,8 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::collections::VecDeque;
-use std::hash::Hash;
+use alloc::collections::VecDeque;
+use alloc::vec::Vec;
+use core::hash::Hash;
+
 use hashbrown::HashMap;
 use hashbrown::HashSet;
 

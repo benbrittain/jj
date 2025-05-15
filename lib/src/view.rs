@@ -14,7 +14,9 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
+use alloc::borrow::ToOwned as _;
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
 
 use hashbrown::HashSet;
 use itertools::Itertools as _;
