@@ -23,7 +23,6 @@ use core::slice;
 
 use hashbrown::HashMap;
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::dsl_util::collect_similar;
@@ -405,9 +404,7 @@ type FilesetFunction = fn(
     &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression>;
 
-static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, FilesetFunction>> = Lazy::new(|| {
-    // Not using crate::util::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
+fn builtin_function_map() -> HashMap<&'static str, FilesetFunction> {
     let mut map: HashMap<&'static str, FilesetFunction> = HashMap::new();
     map.insert("none", |_diagnostics, _path_converter, function| {
         function.expect_no_arguments()?;
@@ -418,20 +415,20 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, FilesetFunction>> = Lazy
         Ok(FilesetExpression::all())
     });
     map
-});
+}
 
 fn resolve_function(
     diagnostics: &mut FilesetDiagnostics,
     path_converter: &RepoPathUiConverter,
     function: &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression> {
-    if let Some(func) = BUILTIN_FUNCTION_MAP.get(function.name) {
+    if let Some(func) = builtin_function_map().get(function.name) {
         func(diagnostics, path_converter, function)
     } else {
         Err(FilesetParseError::new(
             FilesetParseErrorKind::NoSuchFunction {
                 name: function.name.to_owned(),
-                candidates: collect_similar(function.name, BUILTIN_FUNCTION_MAP.keys()),
+                candidates: collect_similar(function.name, builtin_function_map().keys()),
             },
             function.name_span,
         ))
