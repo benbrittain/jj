@@ -15,31 +15,31 @@
 #![allow(missing_docs)]
 #![allow(clippy::let_unit_value)]
 
-use std::any::Any;
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::error::Error;
-use std::fs;
-use std::fs::DirEntry;
-use std::fs::File;
-use std::fs::Metadata;
-use std::fs::OpenOptions;
-use std::io;
-use std::io::Read;
-use std::io::Write as _;
-use std::iter;
-use std::mem;
-use std::ops::Range;
+use core::any::Any;
+use core::cmp::Ordering;
+use core::collections::HashSet;
+use core::error::Error;
+use core::fs;
+use core::fs::DirEntry;
+use core::fs::File;
+use core::fs::Metadata;
+use core::fs::OpenOptions;
+use core::io;
+use core::io::Read;
+use core::io::Write as _;
+use core::iter;
+use core::mem;
+use core::ops::Range;
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt as _;
-use std::path::Path;
-use std::path::PathBuf;
-use std::slice;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::Sender;
-use std::sync::Arc;
-use std::sync::OnceLock;
-use std::time::UNIX_EPOCH;
+use core::os::unix::fs::PermissionsExt as _;
+use core::path::Path;
+use core::path::PathBuf;
+use core::slice;
+use core::sync::mpsc::channel;
+use core::sync::mpsc::Sender;
+use core::sync::Arc;
+use core::sync::OnceLock;
+use core::time::UNIX_EPOCH;
 
 use either::Either;
 use futures::StreamExt as _;

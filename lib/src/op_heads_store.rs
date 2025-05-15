@@ -14,10 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::fmt::Debug;
+use hashbrown::HashSet;
 
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -31,14 +33,14 @@ use crate::operation::Operation;
 #[derive(Debug, Error)]
 pub enum OpHeadsStoreError {
     #[error("Failed to read operation heads")]
-    Read(#[source] Box<dyn std::error::Error + Send + Sync>),
+    Read(#[source] Box<dyn core::error::Error + Send + Sync>),
     #[error("Failed to record operation head {new_op_id}")]
     Write {
         new_op_id: OperationId,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Failed to lock operation heads store")]
-    Lock(#[source] Box<dyn std::error::Error + Send + Sync>),
+    Lock(#[source] Box<dyn core::error::Error + Send + Sync>),
 }
 
 #[derive(Debug, Error)]

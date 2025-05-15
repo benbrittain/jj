@@ -14,12 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::fs;
-use std::fs::File;
-use std::io;
-use std::path::Component;
-use std::path::Path;
-use std::path::PathBuf;
+use core::fs;
+use core::fs::File;
+use core::io;
+use core::path::Component;
+use core::path::Path;
+use core::path::PathBuf;
 
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
@@ -76,7 +76,7 @@ pub fn remove_dir_contents(dirname: &Path) -> Result<(), PathError> {
 /// Expands "~/" to "$HOME/".
 pub fn expand_home_path(path_str: &str) -> PathBuf {
     if let Some(remainder) = path_str.strip_prefix("~/") {
-        if let Ok(home_dir_str) = std::env::var("HOME") {
+        if let Ok(home_dir_str) = core::env::var("HOME") {
             return PathBuf::from(home_dir_str).join(remainder);
         }
     }
@@ -94,7 +94,7 @@ pub fn relative_path(from: &Path, to: &Path) -> PathBuf {
             if i == 0 && suffix.as_os_str().is_empty() {
                 return ".".into();
             } else {
-                let mut result = PathBuf::from_iter(std::iter::repeat_n("..", i));
+                let mut result = PathBuf::from_iter(core::iter::repeat_n("..", i));
                 result.push(suffix);
                 return result;
             }
@@ -164,9 +164,9 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
 
 #[cfg(unix)]
 mod platform {
-    use std::io;
-    use std::os::unix::fs::symlink;
-    use std::path::Path;
+    use core::io;
+    use core::os::unix::fs::symlink;
+    use core::path::Path;
 
     /// Symlinks are always available on UNIX
     pub fn check_symlink_support() -> io::Result<bool> {
@@ -180,9 +180,9 @@ mod platform {
 
 #[cfg(windows)]
 mod platform {
-    use std::io;
-    use std::os::windows::fs::symlink_file;
-    use std::path::Path;
+    use core::io;
+    use core::os::windows::fs::symlink_file;
+    use core::path::Path;
 
     use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
@@ -210,7 +210,7 @@ mod platform {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write as _;
+    use core::io::Write as _;
 
     use test_case::test_case;
 

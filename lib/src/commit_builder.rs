@@ -14,9 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::sync::Arc;
-
-use pollster::FutureExt as _;
+// use pollster::FutureExt as _;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -397,7 +398,8 @@ fn write_to_store(
     // if we're rewriting a signed commit
     commit.secure_sig = None;
 
-    store
-        .write_commit(commit, should_sign.then_some(&mut &sign_fn))
-        .block_on()
+    todo!("bwb")
+    // store
+    //     .write_commit(commit, should_sign.then_some(&mut &sign_fn))
+    //     .block_on()
 }

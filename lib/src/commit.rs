@@ -14,13 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::fmt::Error;
-use std::fmt::Formatter;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::sync::Arc;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+use core::fmt::Debug;
+use core::fmt::Error;
+use core::fmt::Formatter;
+use core::hash::Hash;
+use core::hash::Hasher;
 
 use itertools::Itertools as _;
 

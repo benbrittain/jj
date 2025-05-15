@@ -14,15 +14,15 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::cmp::max;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::io;
-use std::io::Write as _;
-use std::ops::Bound;
-use std::path::Path;
-use std::sync::Arc;
+use core::any::Any;
+use core::cmp::max;
+use core::collections::BTreeMap;
+use core::collections::HashMap;
+use core::io;
+use core::io::Write as _;
+use core::ops::Bound;
+use core::path::Path;
+use core::sync::Arc;
 
 use blake2::Blake2b512;
 use digest::Digest as _;

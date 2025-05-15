@@ -14,14 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::ffi::OsString;
-use std::fmt::Debug;
-use std::io;
-use std::io::Write as _;
-use std::process::Command;
-use std::process::ExitStatus;
-use std::process::Stdio;
-use std::str;
+use core::ffi::OsString;
+use core::fmt::Debug;
+use core::io;
+use core::io::Write as _;
+use core::process::Command;
+use core::process::ExitStatus;
+use core::process::Stdio;
+use core::str;
 
 use thiserror::Error;
 
@@ -126,7 +126,7 @@ pub enum GpgError {
         stderr: String,
     },
     #[error("Failed to run GPG")]
-    Io(#[from] std::io::Error),
+    Io(#[from] core::io::Error),
 }
 
 impl From<GpgError> for SignError {
@@ -163,7 +163,7 @@ impl GpgBackend {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use core::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
@@ -251,7 +251,7 @@ impl GpgsmBackend {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use core::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             command.creation_flags(CREATE_NO_WINDOW);
         }

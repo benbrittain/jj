@@ -14,17 +14,18 @@
 
 #![allow(missing_docs)]
 
-use std::fmt::Debug;
-use std::fmt::Error;
-use std::fmt::Formatter;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::io::Read as _;
-use std::sync::Arc;
+// use core::io::Read as _;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::fmt::Error;
+use core::fmt::Formatter;
+use core::hash::Hash;
+use core::hash::Hasher;
 
 use itertools::Itertools as _;
-use tracing::instrument;
 
+// use tracing::instrument;
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -184,7 +185,7 @@ impl Tree {
         conflicts
     }
 
-    #[instrument]
+    // #[instrument]
     pub fn conflicts(&self) -> Vec<(RepoPathBuf, ConflictId)> {
         self.conflicts_matching(&EverythingMatcher)
     }
@@ -304,13 +305,12 @@ pub async fn try_resolve_file_conflict(
         .try_map_async(|file_id| async {
             let mut content = vec![];
             let mut reader = store.read_file_async(filename, file_id).await?;
-            reader
-                .read_to_end(&mut content)
-                .map_err(|err| BackendError::ReadObject {
-                    object_type: file_id.object_type(),
-                    hash: file_id.hex(),
-                    source: err.into(),
-                })?;
+            reader.read_to_end(&mut content).unwrap();
+            // .map_err(|err| BackendError::ReadObject {
+            //     object_type: file_id.object_type(),
+            //     hash: file_id.hex(),
+            //     // source: err.into(),
+            // })?;
             BackendResult::Ok(content)
         })
         .await?;

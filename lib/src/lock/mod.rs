@@ -18,8 +18,8 @@ mod fallback;
 #[cfg(unix)]
 mod unix;
 
-use std::io;
-use std::path::PathBuf;
+use core::io;
+use core::path::PathBuf;
 
 use thiserror::Error;
 
@@ -39,10 +39,10 @@ pub struct FileLockError {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::max;
-    use std::fs;
-    use std::thread;
-    use std::time::Duration;
+    use core::cmp::max;
+    use core::fs;
+    use core::thread;
+    use core::time::Duration;
 
     use test_case::test_case;
 

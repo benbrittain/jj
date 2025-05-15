@@ -15,11 +15,11 @@
 //! Defines the interface for the working copy. See `LocalWorkingCopy` for the
 //! default local-disk implementation.
 
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::ffi::OsString;
-use std::path::PathBuf;
-use std::sync::Arc;
+use core::any::Any;
+use core::collections::BTreeMap;
+use core::ffi::OsString;
+use core::path::PathBuf;
+use core::sync::Arc;
 
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -191,7 +191,7 @@ pub enum SnapshotError {
         message: String,
         /// The underlying error.
         #[source]
-        err: Box<dyn std::error::Error + Send + Sync>,
+        err: Box<dyn core::error::Error + Send + Sync>,
     },
 }
 
@@ -303,7 +303,7 @@ pub enum CheckoutError {
     #[error("Current working-copy commit not found")]
     SourceNotFound {
         /// The underlying error.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     /// Another process checked out a commit while the current process was
     /// running (after the working copy was read by the current process).
@@ -330,7 +330,7 @@ pub enum CheckoutError {
         message: String,
         /// The underlying error.
         #[source]
-        err: Box<dyn std::error::Error + Send + Sync>,
+        err: Box<dyn core::error::Error + Send + Sync>,
     },
 }
 
@@ -342,7 +342,7 @@ pub enum ResetError {
     #[error("Current working-copy commit not found")]
     SourceNotFound {
         /// The underlying error.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     /// Reading or writing from the commit backend failed.
     #[error("Internal error")]
@@ -354,7 +354,7 @@ pub enum ResetError {
         message: String,
         /// The underlying error.
         #[source]
-        err: Box<dyn std::error::Error + Send + Sync>,
+        err: Box<dyn core::error::Error + Send + Sync>,
     },
 }
 
@@ -468,5 +468,5 @@ pub struct WorkingCopyStateError {
     pub message: String,
     /// The underlying error.
     #[source]
-    pub err: Box<dyn std::error::Error + Send + Sync>,
+    pub err: Box<dyn core::error::Error + Send + Sync>,
 }

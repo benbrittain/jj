@@ -14,13 +14,13 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::fs;
-use std::io;
-use std::path::Path;
-use std::path::PathBuf;
+use core::any::Any;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::fs;
+use core::io;
+use core::path::Path;
+use core::path::PathBuf;
 
 use thiserror::Error;
 
@@ -50,7 +50,7 @@ pub struct SimpleOpHeadsStore {
 }
 
 impl Debug for SimpleOpHeadsStore {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SimpleOpHeadsStore")
             .field("dir", &self.dir)
             .finish()
@@ -74,11 +74,11 @@ impl SimpleOpHeadsStore {
     }
 
     fn add_op_head(&self, id: &OperationId) -> io::Result<()> {
-        std::fs::write(self.dir.join(id.hex()), "")
+        core::fs::write(self.dir.join(id.hex()), "")
     }
 
     fn remove_op_head(&self, id: &OperationId) -> io::Result<()> {
-        std::fs::remove_file(self.dir.join(id.hex())).or_else(|err| {
+        core::fs::remove_file(self.dir.join(id.hex())).or_else(|err| {
             if err.kind() == io::ErrorKind::NotFound {
                 // It's fine if the old head was not found. It probably means
                 // that we're on a distributed file system where the locking
@@ -131,7 +131,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
     fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError> {
         let mut op_heads = vec![];
         for op_head_entry in
-            std::fs::read_dir(&self.dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
+            core::fs::read_dir(&self.dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
         {
             let op_head_file_name = op_head_entry
                 .map_err(|err| OpHeadsStoreError::Read(err.into()))?

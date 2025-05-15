@@ -14,10 +14,14 @@
 
 //! Domain-specific language helpers.
 
-use std::ascii;
-use std::collections::HashMap;
-use std::fmt;
-use std::slice;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::ascii;
+use core::fmt;
+use core::slice;
+use hashbrown::HashMap;
 
 use itertools::Itertools as _;
 use pest::iterators::Pair;
@@ -860,10 +864,10 @@ where
 {
     candidates
         .into_iter()
-        .filter(|cand| {
-            // The parameter is borrowed from clap f5540d26
-            strsim::jaro(name, cand.as_ref()) > 0.7
-        })
+        // .filter(|cand| {
+        //     // The parameter is borrowed from clap f5540d26
+        //     strsim::jaro(name, cand.as_ref()) > 0.7
+        // })
         .map(|s| s.as_ref().to_owned())
         .sorted_unstable()
         .collect()

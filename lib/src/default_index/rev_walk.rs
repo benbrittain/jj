@@ -14,14 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::max;
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::iter::Fuse;
-use std::iter::FusedIterator;
-use std::ops::Range;
+use core::cmp::max;
+use core::cmp::Reverse;
+use core::collections::BinaryHeap;
+use core::collections::HashMap;
+use core::collections::HashSet;
+use core::iter::Fuse;
+use core::iter::FusedIterator;
+use core::ops::Range;
 
 use smallvec::SmallVec;
 

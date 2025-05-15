@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io;
-use std::io::BufReader;
-use std::io::Read;
-use std::num::NonZeroU32;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Child;
-use std::process::Command;
-use std::process::Output;
-use std::process::Stdio;
-use std::thread;
+use core::io;
+use core::io::BufReader;
+use core::io::Read;
+use core::num::NonZeroU32;
+use core::path::Path;
+use core::path::PathBuf;
+use core::process::Child;
+use core::process::Command;
+use core::process::Output;
+use core::process::Stdio;
+use core::thread;
 
 use bstr::ByteSlice as _;
 use itertools::Itertools as _;
@@ -55,16 +55,16 @@ pub enum GitSubprocessError {
     SpawnInPath {
         path: PathBuf,
         #[source]
-        error: std::io::Error,
+        error: core::io::Error,
     },
     #[error("Could not execute git process at specified path '{path}'")]
     Spawn {
         path: PathBuf,
         #[source]
-        error: std::io::Error,
+        error: core::io::Error,
     },
     #[error("Failed to wait for the git process")]
-    Wait(std::io::Error),
+    Wait(core::io::Error),
     #[error(
         "Git does not recognize required option: {0} (note: supported version is \
          {MINIMUM_GIT_VERSION})"
@@ -101,7 +101,7 @@ impl<'a> GitSubprocessContext<'a> {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use core::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             git_cmd.creation_flags(CREATE_NO_WINDOW);
         }

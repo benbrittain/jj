@@ -14,12 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fmt;
-use std::fmt::Debug;
-use std::iter;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use core::fmt;
+use core::fmt::Debug;
+use core::iter;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use tracing::instrument;
 
@@ -236,66 +238,66 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
     Visit::sets(dirs, files)
 }
 
-/// Matches file paths with glob patterns.
-///
-/// Patterns are provided as `(dir, pattern)` pairs, where `dir` should be the
-/// longest directory path that contains no glob meta characters, and `pattern`
-/// will be evaluated relative to `dir`.
-#[derive(Clone, Debug)]
-pub struct FileGlobsMatcher {
-    tree: RepoPathTree<Vec<glob::Pattern>>,
-}
+// /// Matches file paths with glob patterns.
+// ///
+// /// Patterns are provided as `(dir, pattern)` pairs, where `dir` should be
+// the /// longest directory path that contains no glob meta characters, and
+// `pattern` /// will be evaluated relative to `dir`.
+// #[derive(Clone, Debug)]
+// pub struct FileGlobsMatcher {
+//     tree: RepoPathTree<Vec<glob::Pattern>>,
+// }
 
-impl FileGlobsMatcher {
-    pub fn new<D: AsRef<RepoPath>>(
-        dir_patterns: impl IntoIterator<Item = (D, glob::Pattern)>,
-    ) -> Self {
-        let mut tree: RepoPathTree<Vec<glob::Pattern>> = Default::default();
-        for (dir, pattern) in dir_patterns {
-            tree.add(dir.as_ref()).value.push(pattern);
-        }
-        FileGlobsMatcher { tree }
-    }
-}
+// impl FileGlobsMatcher {
+//     pub fn new<D: AsRef<RepoPath>>(
+//         dir_patterns: impl IntoIterator<Item = (D, glob::Pattern)>,
+//     ) -> Self {
+//         let mut tree: RepoPathTree<Vec<glob::Pattern>> = Default::default();
+//         for (dir, pattern) in dir_patterns {
+//             tree.add(dir.as_ref()).value.push(pattern);
+//         }
+//         FileGlobsMatcher { tree }
+//     }
+// }
 
-impl Matcher for FileGlobsMatcher {
-    fn matches(&self, file: &RepoPath) -> bool {
-        // TODO: glob::Pattern relies on path::is_separator() internally, but
-        // RepoPath separator should be '/'. One way to address this problem is
-        // to switch to globset::Glob, and use the underlying regex pattern.
-        const OPTIONS: glob::MatchOptions = glob::MatchOptions {
-            case_sensitive: true,
-            require_literal_separator: true,
-            require_literal_leading_dot: false,
-        };
-        // check if any ancestor (dir, patterns) matches 'file'
-        self.tree
-            .walk_to(file)
-            .take_while(|(_, tail_path)| !tail_path.is_root()) // only dirs
-            .any(|(sub, tail_path)| {
-                let name = tail_path.as_internal_file_string();
-                sub.value.iter().any(|pat| pat.matches_with(name, OPTIONS))
-            })
-    }
+// impl Matcher for FileGlobsMatcher {
+//     fn matches(&self, file: &RepoPath) -> bool {
+//         // TODO: glob::Pattern relies on path::is_separator() internally, but
+//         // RepoPath separator should be '/'. One way to address this problem
+// is         // to switch to globset::Glob, and use the underlying regex
+// pattern.         const OPTIONS: glob::MatchOptions = glob::MatchOptions {
+//             case_sensitive: true,
+//             require_literal_separator: true,
+//             require_literal_leading_dot: false,
+//         };
+//         // check if any ancestor (dir, patterns) matches 'file'
+//         self.tree
+//             .walk_to(file)
+//             .take_while(|(_, tail_path)| !tail_path.is_root()) // only dirs
+//             .any(|(sub, tail_path)| {
+//                 let name = tail_path.as_internal_file_string();
+//                 sub.value.iter().any(|pat| pat.matches_with(name, OPTIONS))
+//             })
+//     }
 
-    fn visit(&self, dir: &RepoPath) -> Visit {
-        for (sub, tail_path) in self.tree.walk_to(dir) {
-            // ancestor of 'dir' has patterns, can't narrow visit anymore
-            if !sub.value.is_empty() {
-                return Visit::Specific {
-                    dirs: VisitDirs::All,
-                    files: VisitFiles::All,
-                };
-            }
-            // 'dir' found, and is an ancestor of pattern paths
-            if tail_path.is_root() {
-                let sub_dirs = sub.entries.keys().cloned().collect();
-                return Visit::sets(sub_dirs, HashSet::new());
-            }
-        }
-        Visit::Nothing
-    }
-}
+//     fn visit(&self, dir: &RepoPath) -> Visit {
+//         for (sub, tail_path) in self.tree.walk_to(dir) {
+//             // ancestor of 'dir' has patterns, can't narrow visit anymore
+//             if !sub.value.is_empty() {
+//                 return Visit::Specific {
+//                     dirs: VisitDirs::All,
+//                     files: VisitFiles::All,
+//                 };
+//             }
+//             // 'dir' found, and is an ancestor of pattern paths
+//             if tail_path.is_root() {
+//                 let sub_dirs = sub.entries.keys().cloned().collect();
+//                 return Visit::sets(sub_dirs, HashSet::new());
+//             }
+//         }
+//         Visit::Nothing
+//     }
+// }
 
 /// Matches paths that are matched by any of the input matchers.
 #[derive(Clone, Debug)]

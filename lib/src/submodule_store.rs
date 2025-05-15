@@ -14,7 +14,7 @@
 
 #![allow(missing_docs)]
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 pub trait SubmoduleStore: Send + Sync + Debug {
     fn name(&self) -> &str;

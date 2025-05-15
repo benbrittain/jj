@@ -15,19 +15,21 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
-use std::fmt::Debug;
-use std::fmt::Display;
-use std::sync::Mutex;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::fmt::Display;
 
-use clru::CLruCache;
+// use clru::CLruCache;
 use thiserror::Error;
 
 use crate::backend::CommitId;
 use crate::config::ConfigGetError;
-use crate::gpg_signing::GpgBackend;
-use crate::gpg_signing::GpgsmBackend;
+// use crate::gpg_signing::GpgBackend;
+// use crate::gpg_signing::GpgsmBackend;
 use crate::settings::UserSettings;
-use crate::ssh_signing::SshBackend;
+// use crate::ssh_signing::SshBackend;
 use crate::store::COMMIT_CACHE_CAPACITY;
 #[cfg(feature = "testing")]
 use crate::test_signing_backend::TestSigningBackend;
@@ -44,7 +46,7 @@ pub enum SigStatus {
 }
 
 impl Display for SigStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             SigStatus::Good => "good",
             SigStatus::Unknown => "unknown",
@@ -124,7 +126,7 @@ pub enum SignError {
     InvalidSignatureFormat,
     /// A generic error from the backend impl.
     #[error("Signing error")]
-    Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
+    Backend(#[source] Box<dyn core::error::Error + Send + Sync>),
 }
 
 /// A result type for the signing/verifying operations
@@ -171,7 +173,7 @@ pub struct Signer {
     /// Main backend is also used for verification, but it's not in this list
     /// for ownership reasons.
     backends: Vec<Box<dyn SigningBackend>>,
-    cache: Mutex<CLruCache<CommitId, Verification>>,
+    // cache: Mutex<CLruCache<CommitId, Verification>>,
 }
 
 impl Signer {
@@ -179,9 +181,11 @@ impl Signer {
     /// chooses one of them to be used for signing depending on the config.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, SignInitError> {
         let mut backends: Vec<Box<dyn SigningBackend>> = vec![
-            Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
-            Box::new(GpgsmBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
-            Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
+            // Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?
+            // ), Box::new(GpgsmBackend::from_settings(settings).
+            // map_err(SignInitError::BackendConfig)?),
+            // Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?
+            // ),
             #[cfg(feature = "testing")]
             Box::new(TestSigningBackend),
         ];
@@ -209,7 +213,7 @@ impl Signer {
         Self {
             main_backend,
             backends: other_backends,
-            cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
+            // cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
         }
     }
 
@@ -235,10 +239,10 @@ impl Signer {
         data: &[u8],
         signature: &[u8],
     ) -> SignResult<Verification> {
-        let cached = self.cache.lock().unwrap().get(commit_id).cloned();
-        if let Some(check) = cached {
-            return Ok(check);
-        }
+        // let cached = self.cache.lock().unwrap().get(commit_id).cloned();
+        // if let Some(check) = cached {
+        //     return Ok(check);
+        // }
 
         let verification = self
             .main_backend
@@ -258,22 +262,22 @@ impl Signer {
             // a key might get imported before next call?.
             // realistically this is unlikely, but technically
             // it's correct to not cache unknowns here
-            if verification.status != SigStatus::Unknown {
-                self.cache
-                    .lock()
-                    .unwrap()
-                    .put(commit_id.clone(), verification.clone());
-            }
+            // if verification.status != SigStatus::Unknown {
+            //     self.cache
+            //         .lock()
+            //         .unwrap()
+            //         .put(commit_id.clone(), verification.clone());
+            // }
             Ok(verification)
         } else {
             // now here it's correct to cache unknowns, as we don't
             // have a backend that knows how to handle this signature
             //
             // not sure about how much of an optimization this is
-            self.cache
-                .lock()
-                .unwrap()
-                .put(commit_id.clone(), Verification::unknown());
+            // self.cache
+            //     .lock()
+            //     .unwrap()
+            //     .put(commit_id.clone(), Verification::unknown());
             Ok(Verification::unknown())
         }
     }

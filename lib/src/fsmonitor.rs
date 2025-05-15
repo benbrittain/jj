@@ -22,7 +22,7 @@
 
 #![warn(missing_docs)]
 
-use std::path::PathBuf;
+use core::path::PathBuf;
 
 use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
@@ -82,8 +82,8 @@ impl FsmonitorSettings {
 /// installed on the system.
 #[cfg(feature = "watchman")]
 pub mod watchman {
-    use std::path::Path;
-    use std::path::PathBuf;
+    use core::path::Path;
+    use core::path::PathBuf;
 
     use itertools::Itertools as _;
     use thiserror::Error;
@@ -153,7 +153,7 @@ pub mod watchman {
         WatchmanConnectError(#[source] watchman_client::Error),
 
         #[error("Could not canonicalize working copy root path")]
-        CanonicalizeRootError(#[source] std::io::Error),
+        CanonicalizeRootError(#[source] core::io::Error),
 
         #[error("Watchman failed to resolve the working copy root path")]
         ResolveRootError(#[source] watchman_client::Error),

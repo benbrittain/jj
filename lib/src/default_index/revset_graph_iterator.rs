@@ -14,11 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::min;
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
+use core::cmp::min;
+use core::cmp::Ordering;
+use core::collections::BTreeMap;
+use core::collections::HashSet;
+use core::collections::VecDeque;
 
 use super::composite::CompositeIndex;
 use super::entry::IndexEntry;

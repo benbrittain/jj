@@ -14,13 +14,18 @@
 
 #![allow(missing_docs)]
 
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::Mutex;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString;
+// use core::path::PathBuf;
+use alloc::sync::Arc;
+use core::str::FromStr;
 
+// use core::sync::Mutex;
 use chrono::DateTime;
 use rand::prelude::*;
+use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
 
@@ -35,7 +40,7 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
-use crate::fsmonitor::FsmonitorSettings;
+// use crate::fsmonitor::FsmonitorSettings;
 use crate::signing::SignBehavior;
 
 #[derive(Debug, Clone)]
@@ -57,35 +62,36 @@ struct UserSettingsData {
     signing_key: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct GitSettings {
-    pub auto_local_bookmark: bool,
-    pub abandon_unreachable_commits: bool,
-    pub executable_path: PathBuf,
-    pub write_change_id_header: bool,
-}
+// #[derive(Debug, Clone)]
+// pub struct GitSettings {
+//     pub auto_local_bookmark: bool,
+//     pub abandon_unreachable_commits: bool,
+//     pub executable_path: PathBuf,
+//     pub write_change_id_header: bool,
+// }
 
-impl GitSettings {
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(GitSettings {
-            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
-            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
-            executable_path: settings.get("git.executable-path")?,
-            write_change_id_header: settings.get("git.write-change-id-header")?,
-        })
-    }
-}
+// impl GitSettings {
+//     pub fn from_settings(settings: &UserSettings) -> Result<Self,
+// ConfigGetError> {         Ok(GitSettings {
+//             auto_local_bookmark:
+// settings.get_bool("git.auto-local-bookmark")?,
+// abandon_unreachable_commits:
+// settings.get_bool("git.abandon-unreachable-commits")?,
+// executable_path: settings.get("git.executable-path")?,
+// write_change_id_header: settings.get("git.write-change-id-header")?,  https://login.tailscale.com/a/l122ffa1f014ba6        })
+//     }
+// }
 
-impl Default for GitSettings {
-    fn default() -> Self {
-        GitSettings {
-            auto_local_bookmark: false,
-            abandon_unreachable_commits: true,
-            executable_path: PathBuf::from("git"),
-            write_change_id_header: true,
-        }
-    }
-}
+// impl Default for GitSettings {
+//     fn default() -> Self {
+//         GitSettings {
+//             auto_local_bookmark: false,
+//             abandon_unreachable_commits: true,
+//             executable_path: PathBuf::from("git"),
+//             write_change_id_header: true,
+//         }
+//     }
+// }
 
 /// Commit signing settings, describes how to and if to sign commits.
 #[derive(Debug, Clone)]
@@ -114,19 +120,21 @@ impl SignSettings {
     }
 }
 
-fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Error + Send + Sync>> {
+fn to_timestamp(
+    value: ConfigValue,
+) -> Result<Timestamp, Box<dyn core::error::Error + Send + Sync>> {
     // Since toml_edit::Datetime isn't the date-time type used across our code
     // base, we accept both string and date-time types.
-    if let Some(s) = value.as_str() {
-        Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(s)?))
-    } else if let Some(d) = value.as_datetime() {
-        // It's easier to re-parse the TOML date-time expression.
-        let s = d.to_string();
-        Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(&s)?))
-    } else {
-        let ty = value.type_name();
-        Err(format!("invalid type: {ty}, expected a date-time").into())
-    }
+    // if let Some(s) = value.as_str() {
+    //     Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(s)?))
+    // } else if let Some(d) = value.as_datetime() {
+    //     // It's easier to re-parse the TOML date-time expression.
+    //     let s = d.to_string();
+    //     Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(&s)?))
+    // } else {
+    //     let ty = value.type_name();
+    Err(format!("invalid type: expected a date-time").into())
+    // }
 }
 
 impl UserSettings {
@@ -188,9 +196,9 @@ impl UserSettings {
         &self.data.user_email
     }
 
-    pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError> {
-        FsmonitorSettings::from_settings(self)
-    }
+    // pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError>
+    // {     FsmonitorSettings::from_settings(self)
+    // }
 
     // Must not be changed to avoid git pushing older commits with no set email
     // address
@@ -213,7 +221,7 @@ impl UserSettings {
     }
 
     pub fn signature(&self) -> Signature {
-        let timestamp = self.data.commit_timestamp.unwrap_or_else(Timestamp::now);
+        let timestamp = self.data.commit_timestamp.unwrap(); //_or_else(Timestamp::now);
         Signature {
             name: self.user_name().to_owned(),
             email: self.user_email().to_owned(),
@@ -228,9 +236,9 @@ impl UserSettings {
         &self.config
     }
 
-    pub fn git_settings(&self) -> Result<GitSettings, ConfigGetError> {
-        GitSettings::from_settings(self)
-    }
+    // pub fn git_settings(&self) -> Result<GitSettings, ConfigGetError> {
+    //     GitSettings::from_settings(self)
+    // }
 
     // separate from sign_settings as those two are needed in pretty different
     // places
@@ -279,7 +287,7 @@ impl UserSettings {
     }
 
     /// Looks up value by `name`, converts it by using the given function.
-    pub fn get_value_with<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(
+    pub fn get_value_with<T, E: Into<Box<dyn core::error::Error + Send + Sync>>>(
         &self,
         name: impl ToConfigNamePath,
         convert: impl FnOnce(ConfigValue) -> Result<T, E>,
@@ -305,24 +313,26 @@ impl UserSettings {
 /// immutable reference. It also fixes a specific seedable RNG for
 /// reproducibility.
 #[derive(Debug)]
-pub struct JJRng(Mutex<ChaCha20Rng>);
+pub struct JJRng(spin::Mutex<ChaCha20Rng>);
 impl JJRng {
     pub fn new_change_id(&self, length: usize) -> ChangeId {
-        let mut rng = self.0.lock().unwrap();
-        let random_bytes = (0..length).map(|_| rng.gen::<u8>()).collect();
-        ChangeId::new(random_bytes)
+        todo!()
+        // let mut rng = self.0.lock(); //.unwrap();
+        // let random_bytes = (0..length).map(|_| rng.gen::<u8>()).collect();
+        // ChangeId::new(random_bytes)
     }
 
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
     /// RNGs references to point to the same RNG.
     fn new(seed: Option<u64>) -> Self {
-        Self(Mutex::new(JJRng::internal_rng_from_seed(seed)))
+        Self(spin::Mutex::new(JJRng::internal_rng_from_seed(seed)))
     }
 
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
         match seed {
             Some(seed) => ChaCha20Rng::seed_from_u64(seed),
-            None => ChaCha20Rng::from_entropy(),
+            _ => todo!(),
+            // None => ChaCha20Rng::from_entropy(),
         }
     }
 }
@@ -331,8 +341,8 @@ impl JJRng {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct HumanByteSize(pub u64);
 
-impl std::fmt::Display for HumanByteSize {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for HumanByteSize {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> alloc::fmt::Result {
         let (value, prefix) = binary_prefix(self.0 as f32);
         write!(f, "{value:.1}{prefix}B")
     }

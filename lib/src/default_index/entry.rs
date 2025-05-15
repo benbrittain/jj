@@ -14,10 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::hash::Hash;
-use std::hash::Hasher;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::hash::Hash;
+use core::hash::Hasher;
 
 use smallvec::SmallVec;
 
@@ -54,7 +54,7 @@ pub struct IndexEntry<'a> {
 }
 
 impl Debug for IndexEntry<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("IndexEntry")
             .field("pos", &self.pos)
             .field("local_pos", &self.local_pos)

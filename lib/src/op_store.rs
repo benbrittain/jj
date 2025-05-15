@@ -14,16 +14,19 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::iter;
-use std::time::SystemTime;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::fmt::Debug;
+use core::iter;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
+use once_cell::race::OnceBox;
 use thiserror::Error;
 
 use crate::backend::CommitId;
@@ -67,8 +70,11 @@ impl RefTarget {
     ///
     /// This will typically be used in place of `None` returned by map lookup.
     pub fn absent_ref() -> &'static Self {
-        static TARGET: Lazy<RefTarget> = Lazy::new(RefTarget::absent);
-        &TARGET
+        // &RefTarget::absent()
+        static TARGET: OnceBox<RefTarget> = OnceBox::new();
+        // cRefTarget::absent);
+        TARGET.get().unwrap()
+        // &TARGET.get_or_init(RefTarget::absent)
     }
 
     /// Creates non-conflicting target that optionally points to a commit.
@@ -152,8 +158,9 @@ impl RemoteRef {
     ///
     /// This will typically be used in place of `None` returned by map lookup.
     pub fn absent_ref() -> &'static Self {
-        static TARGET: Lazy<RemoteRef> = Lazy::new(RemoteRef::absent);
-        &TARGET
+        static TARGET: OnceBox<RemoteRef> = OnceBox::new();
+        // RemoteRef::absent);
+        TARGET.get().unwrap()
     }
 
     /// Returns true if the target points to no commit.
@@ -421,21 +428,21 @@ pub enum OpStoreError {
     ObjectNotFound {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Error when reading object {hash} of type {object_type}")]
     ReadObject {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Could not write object of type {object_type}")]
     WriteObject {
         object_type: &'static str,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
 pub type OpStoreResult<T> = Result<T, OpStoreError>;
@@ -461,14 +468,15 @@ pub trait OpStore: Send + Sync + Debug {
         prefix: &HexPrefix,
     ) -> OpStoreResult<PrefixResolution<OperationId>>;
 
-    /// Prunes unreachable operations and views.
-    ///
-    /// All operations and views reachable from the `head_ids` won't be
-    /// removed. In addition to that, objects created after `keep_newer` will be
-    /// preserved. This mitigates a risk of deleting new heads created
-    /// concurrently by another process.
+    // /// Prunes unreachable operations and views.
+    // ///
+    // /// All operations and views reachable from the `head_ids` won't be
+    // /// removed. In addition to that, objects created after `keep_newer` will be
+    // /// preserved. This mitigates a risk of deleting new heads created
+    // /// concurrently by another process.
     // TODO: return stats?
-    fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
+    // fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) ->
+    // OpStoreResult<()>;
 }
 
 #[cfg(test)]

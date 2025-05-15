@@ -14,14 +14,15 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
-use std::hash::BuildHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::hash::RandomState;
-use std::iter;
-use std::ops::Range;
-use std::slice;
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
+use core::hash::BuildHasher;
+use core::hash::Hash;
+use core::hash::Hasher;
+// use core::hash::RandomState;
+use core::iter;
+use core::ops::Range;
+use core::slice;
 
 use bstr::BStr;
 use hashbrown::HashTable;
@@ -192,22 +193,22 @@ struct HashedWord<'input> {
 
 /// Compares words (or tokens) under a certain hasher configuration.
 #[derive(Clone, Debug, Default)]
-struct WordComparator<C, S> {
+struct WordComparator<C> {
     compare: C,
-    hash_builder: S,
+    hash_builder: ahash::RandomState,
 }
 
-impl<C: CompareBytes> WordComparator<C, RandomState> {
+impl<C: CompareBytes> WordComparator<C> {
     fn new(compare: C) -> Self {
         WordComparator {
             compare,
             // TODO: switch to ahash for better performance?
-            hash_builder: RandomState::new(),
+            hash_builder: ahash::RandomState::new(),
         }
     }
 }
 
-impl<C: CompareBytes, S: BuildHasher> WordComparator<C, S> {
+impl<C: CompareBytes> WordComparator<C> {
     fn eq(&self, left: &[u8], right: &[u8]) -> bool {
         self.compare.eq(left, right)
     }
@@ -239,10 +240,10 @@ struct DiffSource<'input, 'aux> {
 }
 
 impl<'input, 'aux> DiffSource<'input, 'aux> {
-    fn new<T: AsRef<[u8]> + ?Sized, C: CompareBytes, S: BuildHasher>(
+    fn new<T: AsRef<[u8]> + ?Sized, C: CompareBytes>(
         text: &'input T,
         ranges: &'aux [Range<usize>],
-        comp: &WordComparator<C, S>,
+        comp: &WordComparator<C>,
     ) -> Self {
         let text = BStr::new(text);
         let hashes = ranges
@@ -313,9 +314,9 @@ struct Histogram<'input> {
 type HistogramEntry<'input> = (HashedWord<'input>, SmallVec<[LocalWordPosition; 2]>);
 
 impl<'input> Histogram<'input> {
-    fn calculate<C: CompareBytes, S: BuildHasher>(
+    fn calculate<C: CompareBytes>(
         source: &LocalDiffSource<'input, '_>,
-        comp: &WordComparator<C, S>,
+        comp: &WordComparator<C>,
         max_occurrences: usize,
     ) -> Self {
         let mut word_to_positions: HashTable<HistogramEntry> = HashTable::new();
@@ -349,10 +350,10 @@ impl<'input> Histogram<'input> {
         count_to_entries
     }
 
-    fn positions_by_word<C: CompareBytes, S: BuildHasher>(
+    fn positions_by_word<C: CompareBytes>(
         &self,
         word: HashedWord<'input>,
-        comp: &WordComparator<C, S>,
+        comp: &WordComparator<C>,
     ) -> Option<&[LocalWordPosition]> {
         let (_, positions) = self
             .word_to_positions
@@ -419,11 +420,11 @@ fn find_lcs(input: &[usize]) -> Vec<(usize, usize)> {
 
 /// Finds unchanged word (or token) positions among the ones given as
 /// arguments. The data between those words is ignored.
-fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
+fn collect_unchanged_words<C: CompareBytes>(
     found_positions: &mut Vec<(WordPosition, WordPosition)>,
     left: &LocalDiffSource,
     right: &LocalDiffSource,
-    comp: &WordComparator<C, S>,
+    comp: &WordComparator<C>,
 ) {
     if left.ranges.is_empty() || right.ranges.is_empty() {
         return;
@@ -464,11 +465,11 @@ fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
     ));
 }
 
-fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
+fn collect_unchanged_words_lcs<C: CompareBytes>(
     found_positions: &mut Vec<(WordPosition, WordPosition)>,
     left: &LocalDiffSource,
     right: &LocalDiffSource,
-    comp: &WordComparator<C, S>,
+    comp: &WordComparator<C>,
 ) {
     let max_occurrences = 100;
     let left_histogram = Histogram::calculate(left, comp, max_occurrences);
@@ -626,7 +627,7 @@ impl<'input> Diff<'input> {
         // ignore-whitespace. They are tokenized as [] and [" "] respectively.
         if base_input.is_empty() || other_inputs.iter().any(|input| input.is_empty()) {
             base_token_ranges = vec![];
-            other_token_ranges = std::iter::repeat_n(vec![], other_inputs.len()).collect();
+            other_token_ranges = core::iter::repeat_n(vec![], other_inputs.len()).collect();
         } else {
             base_token_ranges = tokenizer(base_input);
             other_token_ranges = other_inputs
@@ -1028,7 +1029,8 @@ mod tests {
     use super::*;
 
     // Extracted to a function because type inference is ambiguous due to
-    // `impl PartialEq<aho_corasick::util::search::Span> for std::ops::Range<usize>`
+    // `impl PartialEq<aho_corasick::util::search::Span> for
+    // core::ops::Range<usize>`
     fn no_ranges() -> Vec<Range<usize>> {
         vec![]
     }

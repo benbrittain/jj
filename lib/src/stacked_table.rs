@@ -22,16 +22,16 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io;
-use std::io::Read;
-use std::io::Write as _;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::RwLock;
+use core::cmp::Ordering;
+use core::collections::BTreeMap;
+use core::collections::HashMap;
+use core::fs::File;
+use core::io;
+use core::io::Read;
+use core::io::Write as _;
+use core::path::PathBuf;
+use core::sync::Arc;
+use core::sync::RwLock;
 
 use blake2::Blake2b512;
 use blake2::Digest as _;
@@ -406,7 +406,7 @@ pub struct TableStore {
 
 impl TableStore {
     pub fn init(dir: PathBuf, key_size: usize) -> Self {
-        std::fs::create_dir(dir.join("heads")).unwrap();
+        core::fs::create_dir(dir.join("heads")).unwrap();
         TableStore {
             dir,
             key_size,
@@ -415,7 +415,7 @@ impl TableStore {
     }
 
     pub fn reinit(&self) {
-        std::fs::remove_dir_all(self.dir.join("heads")).unwrap();
+        core::fs::remove_dir_all(self.dir.join("heads")).unwrap();
         TableStore::init(self.dir.clone(), self.key_size);
     }
 
@@ -448,7 +448,7 @@ impl TableStore {
     }
 
     fn add_head(&self, table: &Arc<ReadonlyTable>) -> TableStoreResult<()> {
-        std::fs::write(self.dir.join("heads").join(&table.name), "")
+        core::fs::write(self.dir.join("heads").join(&table.name), "")
             .map_err(TableStoreError::SaveHeads)
     }
 
@@ -457,7 +457,7 @@ impl TableStore {
         // that we're on a distributed file system where the locking
         // doesn't work. We'll probably end up with two current
         // heads. We'll detect that next time we load the table.
-        std::fs::remove_file(self.dir.join("heads").join(&table.name)).ok();
+        core::fs::remove_file(self.dir.join("heads").join(&table.name)).ok();
     }
 
     fn lock(&self) -> TableStoreResult<FileLock> {
@@ -488,7 +488,7 @@ impl TableStore {
     fn get_head_tables(&self) -> TableStoreResult<Vec<Arc<ReadonlyTable>>> {
         let mut tables = vec![];
         for head_entry in
-            std::fs::read_dir(self.dir.join("heads")).map_err(TableStoreError::LoadHeads)?
+            core::fs::read_dir(self.dir.join("heads")).map_err(TableStoreError::LoadHeads)?
         {
             let head_file_name = head_entry.map_err(TableStoreError::LoadHeads)?.file_name();
             let table = self.load_table(head_file_name.to_str().unwrap().to_string())?;

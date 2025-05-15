@@ -14,17 +14,20 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::collections::hash_map;
-use std::collections::HashMap;
-use std::convert::Infallible;
-use std::fmt;
-use std::ops::Range;
-use std::rc::Rc;
-use std::sync::Arc;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::convert::Infallible;
+use core::fmt;
+use core::ops::Range;
 
+use hashbrown::HashMap;
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -90,7 +93,7 @@ pub enum RevsetResolutionError {
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     #[error(transparent)]
-    Other(#[from] Box<dyn std::error::Error + Send + Sync>),
+    Other(#[from] Box<dyn core::error::Error + Send + Sync>),
 }
 
 /// Error occurred during revset evaluation.
@@ -99,7 +102,7 @@ pub enum RevsetEvaluationError {
     #[error("Unexpected error from commit backend")]
     Backend(#[from] BackendError),
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
 impl RevsetEvaluationError {
@@ -147,7 +150,7 @@ pub enum RevsetCommitRef {
 }
 
 /// A custom revset filter expression, defined by an extension.
-pub trait RevsetFilterExtension: std::fmt::Debug + Any {
+pub trait RevsetFilterExtension: core::fmt::Debug + Any {
     fn as_any(&self) -> &dyn Any;
 
     /// Returns true iff this filter matches the specified commit.
@@ -656,7 +659,7 @@ pub type RevsetFunction = fn(
     &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError>;
 
-static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy::new(|| {
+fn builtin_function_map() -> HashMap<&'static str, RevsetFunction> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map: HashMap<&'static str, RevsetFunction> = HashMap::new();
@@ -942,7 +945,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         Ok(RevsetExpression::coalesce(&expressions))
     });
     map
-});
+}
 
 /// Parses the given `node` as a fileset expression.
 pub fn expect_fileset_expression(
@@ -990,7 +993,7 @@ pub fn expect_date_pattern(
         diagnostics,
         "date pattern",
         node,
-        |_diagnostics, value, kind| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
+        |_diagnostics, value, kind| -> Result<_, Box<dyn core::error::Error + Send + Sync>> {
             match kind {
                 None => Err("Date pattern must specify 'after' or 'before'".into()),
                 Some(kind) => Ok(context.parse_relative(value, kind)?),
@@ -1190,7 +1193,7 @@ fn transform_expression_bottom_up<St: ExpressionState>(
 /// the original expression node will be reused.
 ///
 /// If no nodes rewritten, this function returns `None`.
-/// `std::iter::successors()` could be used if the transformation needs to be
+/// `core::iter::successors()` could be used if the transformation needs to be
 /// applied repeatedly until converged.
 fn try_transform_expression<St: ExpressionState, E>(
     expression: &Rc<RevsetExpression<St>>,
@@ -2138,7 +2141,7 @@ fn resolve_commit_ref(
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
-                .filter(|&(symbol, _)| !crate::git::is_special_git_remote(symbol.remote))
+                // .filter(|&(symbol, _)| !crate::git::is_special_git_remote(symbol.remote))
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
                 .cloned()
                 .collect();
@@ -2552,7 +2555,7 @@ impl RevsetExtensions {
     pub fn new() -> Self {
         Self {
             symbol_resolvers: vec![],
-            function_map: BUILTIN_FUNCTION_MAP.clone(),
+            function_map: builtin_function_map().clone(),
         }
     }
 
@@ -2566,10 +2569,10 @@ impl RevsetExtensions {
 
     pub fn add_custom_function(&mut self, name: &'static str, func: RevsetFunction) {
         match self.function_map.entry(name) {
-            hash_map::Entry::Occupied(_) => {
+            hashbrown::hash_map::Entry::Occupied(_) => {
                 panic!("Conflict registering revset function '{name}'")
             }
-            hash_map::Entry::Vacant(v) => v.insert(func),
+            hashbrown::hash_map::Entry::Vacant(v) => v.insert(func),
         };
     }
 }
@@ -2661,7 +2664,7 @@ pub fn format_remote_symbol(name: &str, remote: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use core::path::PathBuf;
 
     use assert_matches::assert_matches;
 

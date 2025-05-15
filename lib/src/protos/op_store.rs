@@ -93,7 +93,7 @@ pub struct View {
     #[prost(bytes = "vec", tag = "2")]
     pub wc_commit_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(map = "string, bytes", tag = "8")]
-    pub wc_commit_ids: ::std::collections::HashMap<
+    pub wc_commit_ids: ::core::collections::HashMap<
         ::prost::alloc::string::String,
         ::prost::alloc::vec::Vec<u8>,
     >,
@@ -145,7 +145,7 @@ pub struct OperationMetadata {
     #[prost(bool, tag = "7")]
     pub is_snapshot: bool,
     #[prost(map = "string, string", tag = "6")]
-    pub tags: ::std::collections::HashMap<
+    pub tags: ::core::collections::HashMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,

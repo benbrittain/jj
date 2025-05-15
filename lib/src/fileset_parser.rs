@@ -14,10 +14,14 @@
 
 //! Parser for the fileset language.
 
-use std::error;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+use core::error;
 
+use alloc::boxed::Box;
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
@@ -278,14 +282,12 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
 
 fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::expression);
-    static PRATT: Lazy<PrattParser<Rule>> = Lazy::new(|| {
-        PrattParser::new()
-            .op(Op::infix(Rule::union_op, Assoc::Left))
-            .op(Op::infix(Rule::intersection_op, Assoc::Left)
-                | Op::infix(Rule::difference_op, Assoc::Left))
-            .op(Op::prefix(Rule::negate_op))
-    });
-    PRATT
+    let pratt = PrattParser::new()
+        .op(Op::infix(Rule::union_op, Assoc::Left))
+        .op(Op::infix(Rule::intersection_op, Assoc::Left)
+            | Op::infix(Rule::difference_op, Assoc::Left))
+        .op(Op::prefix(Rule::negate_op));
+    pratt
         .map_primary(parse_primary_node)
         .map_prefix(|op, rhs| {
             let op_kind = match op.as_rule() {

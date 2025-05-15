@@ -14,7 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::sync::Arc;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -141,7 +146,8 @@ impl Transaction {
         let operation = {
             let view_id = base_repo.op_store().write_view(view.store_view())?;
             self.op_metadata.description = description.into();
-            self.op_metadata.end_time = self.end_time.unwrap_or_else(Timestamp::now);
+            // self.op_metadata.end_time = self.end_time.unwrap_or_else(Timestamp::now);
+            self.op_metadata.end_time = self.end_time.unwrap();
             let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
             let store_operation = op_store::Operation {
                 view_id,
@@ -163,9 +169,8 @@ pub fn create_op_metadata(
     description: String,
     is_snapshot: bool,
 ) -> OperationMetadata {
-    let start_time = user_settings
-        .operation_timestamp()
-        .unwrap_or_else(Timestamp::now);
+    let start_time = user_settings.operation_timestamp().unwrap();
+    // .unwrap_or_else(Timestamp::now);
     let end_time = start_time;
     let hostname = user_settings.operation_hostname().to_owned();
     let username = user_settings.operation_username().to_owned();

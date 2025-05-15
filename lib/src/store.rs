@@ -14,18 +14,19 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::io::Read;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::SystemTime;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+// use core::io::Read;
+use alloc::sync::Arc;
+use core::any::Any;
+use core::fmt::Debug;
+use core::fmt::Formatter;
 
-use clru::CLruCache;
 use futures::stream::BoxStream;
-use pollster::FutureExt as _;
+use no_std_io::io::Read;
 
+// use pollster::FutureExt as _;
 use crate::backend;
 use crate::backend::Backend;
 use crate::backend::BackendResult;
@@ -59,12 +60,12 @@ const TREE_CACHE_CAPACITY: usize = 1000;
 pub struct Store {
     backend: Box<dyn Backend>,
     signer: Signer,
-    commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
-    tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    // commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
+    // tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
 }
 
 impl Debug for Store {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("Store")
             .field("backend", &self.backend)
             .finish_non_exhaustive()
@@ -76,8 +77,8 @@ impl Store {
         Arc::new(Store {
             backend,
             signer,
-            commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
-            tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            // commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
+            // tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
         })
     }
 
@@ -135,7 +136,7 @@ impl Store {
     }
 
     pub fn get_commit(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
-        self.get_commit_async(id).block_on()
+        todo!();
     }
 
     pub async fn get_commit_async(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
@@ -144,16 +145,16 @@ impl Store {
     }
 
     async fn get_backend_commit(&self, id: &CommitId) -> BackendResult<Arc<backend::Commit>> {
-        {
-            let mut locked_cache = self.commit_cache.lock().unwrap();
-            if let Some(data) = locked_cache.get(id).cloned() {
-                return Ok(data);
-            }
-        }
+        // {
+        //     let mut locked_cache = self.commit_cache.lock().unwrap();
+        //     if let Some(data) = locked_cache.get(id).cloned() {
+        //         return Ok(data);
+        //     }
+        // }
         let commit = self.backend.read_commit(id).await?;
         let data = Arc::new(commit);
-        let mut locked_cache = self.commit_cache.lock().unwrap();
-        locked_cache.put(id.clone(), data.clone());
+        // let mut locked_cache = self.commit_cache.lock().unwrap();
+        // locked_cache.put(id.clone(), data.clone());
         Ok(data)
     }
 
@@ -166,16 +167,17 @@ impl Store {
 
         let (commit_id, commit) = self.backend.write_commit(commit, sign_with).await?;
         let data = Arc::new(commit);
-        {
-            let mut locked_cache = self.commit_cache.lock().unwrap();
-            locked_cache.put(commit_id.clone(), data.clone());
-        }
+        // {
+        // let mut locked_cache = self.commit_cache.lock().unwrap();
+        // locked_cache.put(commit_id.clone(), data.clone());
+        // }
 
         Ok(Commit::new(self.clone(), commit_id, data))
     }
 
     pub fn get_tree(self: &Arc<Self>, dir: RepoPathBuf, id: &TreeId) -> BackendResult<Tree> {
-        self.get_tree_async(dir, id).block_on()
+        todo!()
+        // self.get_tree_async(dir, id).block_on()
     }
 
     pub async fn get_tree_async(
@@ -193,16 +195,16 @@ impl Store {
         id: &TreeId,
     ) -> BackendResult<Arc<backend::Tree>> {
         let key = (dir.to_owned(), id.clone());
-        {
-            let mut locked_cache = self.tree_cache.lock().unwrap();
-            if let Some(data) = locked_cache.get(&key).cloned() {
-                return Ok(data);
-            }
-        }
+        // {
+        //     let mut locked_cache = self.tree_cache.lock().unwrap();
+        //     if let Some(data) = locked_cache.get(&key).cloned() {
+        //         return Ok(data);
+        //     }
+        // }
         let data = self.backend.read_tree(dir, id).await?;
         let data = Arc::new(data);
-        let mut locked_cache = self.tree_cache.lock().unwrap();
-        locked_cache.put(key, data.clone());
+        // let mut locked_cache = self.tree_cache.lock().unwrap();
+        // locked_cache.put(key, data.clone());
         Ok(data)
     }
 
@@ -226,17 +228,17 @@ impl Store {
     ) -> BackendResult<Tree> {
         let tree_id = self.backend.write_tree(path, &tree).await?;
         let data = Arc::new(tree);
-        {
-            let mut locked_cache = self.tree_cache.lock().unwrap();
-            locked_cache.put((path.to_owned(), tree_id.clone()), data.clone());
-        }
+        // {
+        //     let mut locked_cache = self.tree_cache.lock().unwrap();
+        //     locked_cache.put((path.to_owned(), tree_id.clone()), data.clone());
+        // }
 
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
 
-    pub fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        self.read_file_async(path, id).block_on()
-    }
+    // pub fn read_file(&self, path: &RepoPath, id: &FileId) ->
+    // BackendResult<Box<dyn Read>> {     self.read_file_async(path,
+    // id).block_on() }
 
     pub async fn read_file_async(
         &self,
@@ -255,7 +257,8 @@ impl Store {
     }
 
     pub fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
-        self.read_symlink_async(path, id).block_on()
+        todo!()
+        // self.read_symlink_async(path, id).block_on()
     }
 
     pub async fn read_symlink_async(
@@ -292,7 +295,7 @@ impl Store {
         TreeBuilder::new(self.clone(), base_tree_id)
     }
 
-    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
-        self.backend.gc(index, keep_newer)
-    }
+    // pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) ->
+    // BackendResult<()> {     self.backend.gc(index, keep_newer)
+    // }
 }

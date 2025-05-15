@@ -45,7 +45,7 @@ pub use self::store::DefaultIndexStoreInitError;
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use core::sync::Arc;
 
     use itertools::Itertools as _;
     use smallvec::smallvec_inline;

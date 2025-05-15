@@ -14,14 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::collections::HashSet;
-use std::fs;
-use std::io;
-use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
+use core::any::Any;
+use core::collections::HashSet;
+use core::fs;
+use core::io;
+use core::io::Write as _;
+use core::path::Path;
+use core::path::PathBuf;
+use core::sync::Arc;
 
 use itertools::Itertools as _;
 use tempfile::NamedTempFile;

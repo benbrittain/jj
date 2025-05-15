@@ -14,14 +14,15 @@
 
 //! General-purpose DAG algorithms.
 
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::convert::Infallible;
-use std::hash::Hash;
-use std::iter;
-use std::mem;
+use alloc::collections::BinaryHeap;
+use alloc::vec::Vec;
+use core::convert::Infallible;
+use core::hash::Hash;
+use core::iter;
+use core::mem;
 
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 
 /// Traverses nodes from `start` in depth-first order.
@@ -54,21 +55,25 @@ where
     NI: IntoIterator<Item = Result<T, E>>,
 {
     let mut work: Vec<Result<T, E>> = start.into_iter().collect();
-    let mut visited: HashSet<ID> = HashSet::new();
+    // let mut visited: HashSet<ID> = todo!("bwb");
+    //
+    // todo!();
     iter::from_fn(move || loop {
-        let c = match work.pop() {
-            Some(Ok(c)) => c,
-            r @ (Some(Err(_)) | None) => return r,
-        };
-        let id = id_fn(&c);
-        if visited.contains(&id) {
-            continue;
-        }
-        for p in neighbors_fn(&c) {
-            work.push(p);
-        }
-        visited.insert(id);
-        return Some(Ok(c));
+        //     let c = match work.pop() {
+        //         Some(Ok(c)) => c,
+        //         r @ (Some(Err(_)) | None) => return r,
+        //     };
+        //     let id = id_fn(&c);
+        //     if visited.contains(&id) {
+        //         continue;
+        //     }
+        //     for p in neighbors_fn(&c) {
+        //         work.push(p);
+        //     }
+        //     visited.insert(id);
+        //     return Some(Ok(c));
+        todo!("bwb");
+        return work.pop();
     })
 }
 
@@ -247,33 +252,36 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
         if let Some(res) = self.result.pop() {
             return Some(res);
         }
+        todo!("bwb");
+        return None;
 
-        // Fast path for linear DAG
-        if self.start.len() <= 1 {
-            let node = self.start.pop()?;
-            self.extend(neighbors_fn(&node));
-            assert!(self.emitted.insert(id_fn(&node)), "graph has cycle");
-            return Some(Ok(node));
-        }
+        // // Fast path for linear DAG
+        // if self.start.len() <= 1 {
+        //     let node = self.start.pop()?;
+        //     self.extend(neighbors_fn(&node));
+        //     assert!(self.emitted.insert(id_fn(&node)), "graph has cycle");
+        //     return Some(Ok(node));
+        // }
 
-        // Extract graph nodes based on T's order, and sort them by using ids
-        // (because we wouldn't want to clone T itself)
-        let start_ids = self.start.iter().map(&id_fn).collect_vec();
-        match look_ahead_sub_graph(mem::take(&mut self.start), &id_fn, &mut neighbors_fn) {
-            Ok((mut node_map, neighbor_ids_map, remainder)) => {
-                self.start = remainder;
-                let sorted_ids =
-                    topo_order_forward(&start_ids, |id| *id, |id| &neighbor_ids_map[id]);
-                self.result.reserve(sorted_ids.len());
-                for id in sorted_ids {
-                    let (id, node) = node_map.remove_entry(id).unwrap();
-                    assert!(self.emitted.insert(id), "graph has cycle");
-                    self.result.push(Ok(node));
-                }
-                self.result.pop()
-            }
-            Err(err) => Some(Err(err)),
-        }
+        // // Extract graph nodes based on T's order, and sort them by using ids
+        // // (because we wouldn't want to clone T itself)
+        // let start_ids = self.start.iter().map(&id_fn).collect_vec();
+        // match look_ahead_sub_graph(mem::take(&mut self.start), &id_fn, &mut
+        // neighbors_fn) {     Ok((mut node_map, neighbor_ids_map,
+        // remainder)) => {         self.start = remainder;
+        //         todo!();
+        //         // let sorted_ids =
+        //         //     topo_order_forward(&start_ids, |id| *id, |id|
+        // &neighbor_ids_map[id]);         self.result.
+        // reserve(sorted_ids.len());         for id in sorted_ids {
+        //             let (id, node) = node_map.remove_entry(id).unwrap();
+        //             assert!(self.emitted.insert(id), "graph has cycle");
+        //             self.result.push(Ok(node));
+        //         }
+        //         self.result.pop()
+        //     }
+        //     Err(err) => Some(Err(err)),
+        // }
     }
 }
 
@@ -596,7 +604,7 @@ fn to_ok_iter<T>(iter: impl IntoIterator<Item = T>) -> impl Iterator<Item = Resu
 
 #[cfg(test)]
 mod tests {
-    use std::panic;
+    use core::panic;
 
     use maplit::hashmap;
     use maplit::hashset;

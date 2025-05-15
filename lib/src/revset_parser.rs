@@ -14,13 +14,17 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashSet;
-use std::error;
-use std::mem;
-use std::str::FromStr;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+use core::error;
+use core::mem;
+use core::str::FromStr;
 
+use hashbrown::HashSet;
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
@@ -535,30 +539,27 @@ fn parse_expression_node(pairs: Pairs<Rule>) -> Result<ExpressionNode, RevsetPar
         )
     }
 
-    static PRATT: Lazy<PrattParser<Rule>> = Lazy::new(|| {
-        PrattParser::new()
-            .op(Op::infix(Rule::union_op, Assoc::Left)
-                | Op::infix(Rule::compat_add_op, Assoc::Left))
-            .op(Op::infix(Rule::intersection_op, Assoc::Left)
-                | Op::infix(Rule::difference_op, Assoc::Left)
-                | Op::infix(Rule::compat_sub_op, Assoc::Left))
-            .op(Op::prefix(Rule::negate_op))
-            // Ranges can't be nested without parentheses. Associativity doesn't matter.
-            .op(Op::infix(Rule::dag_range_op, Assoc::Left)
-                | Op::infix(Rule::compat_dag_range_op, Assoc::Left)
-                | Op::infix(Rule::range_op, Assoc::Left))
-            .op(Op::prefix(Rule::dag_range_pre_op)
-                | Op::prefix(Rule::compat_dag_range_pre_op)
-                | Op::prefix(Rule::range_pre_op))
-            .op(Op::postfix(Rule::dag_range_post_op)
-                | Op::postfix(Rule::compat_dag_range_post_op)
-                | Op::postfix(Rule::range_post_op))
-            // Neighbors
-            .op(Op::postfix(Rule::parents_op)
-                | Op::postfix(Rule::children_op)
-                | Op::postfix(Rule::compat_parents_op))
-    });
-    PRATT
+    let pratt = PrattParser::new()
+        .op(Op::infix(Rule::union_op, Assoc::Left) | Op::infix(Rule::compat_add_op, Assoc::Left))
+        .op(Op::infix(Rule::intersection_op, Assoc::Left)
+            | Op::infix(Rule::difference_op, Assoc::Left)
+            | Op::infix(Rule::compat_sub_op, Assoc::Left))
+        .op(Op::prefix(Rule::negate_op))
+        // Ranges can't be nested without parentheses. Associativity doesn't matter.
+        .op(Op::infix(Rule::dag_range_op, Assoc::Left)
+            | Op::infix(Rule::compat_dag_range_op, Assoc::Left)
+            | Op::infix(Rule::range_op, Assoc::Left))
+        .op(Op::prefix(Rule::dag_range_pre_op)
+            | Op::prefix(Rule::compat_dag_range_pre_op)
+            | Op::prefix(Rule::range_pre_op))
+        .op(Op::postfix(Rule::dag_range_post_op)
+            | Op::postfix(Rule::compat_dag_range_post_op)
+            | Op::postfix(Rule::range_post_op))
+        // Neighbors
+        .op(Op::postfix(Rule::parents_op)
+            | Op::postfix(Rule::children_op)
+            | Op::postfix(Rule::compat_parents_op));
+    pratt
         .map_primary(|primary| {
             let expr = match primary.as_rule() {
                 Rule::primary => return parse_primary_node(primary),
@@ -734,7 +735,9 @@ impl AliasDeclarationParser for RevsetAliasParser {
                         r => panic!("unexpected formal parameter rule {r:?}"),
                     })
                     .collect_vec();
-                if params.iter().all_unique() {
+
+                let mut used = HashSet::new();
+                if params.iter().all(move |elt| used.insert(elt)) {
                     Ok(AliasDeclaration::Function(name, params))
                 } else {
                     Err(RevsetParseError::with_span(
@@ -843,7 +846,7 @@ pub(super) fn expect_expression_with<T>(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use core::collections::HashMap;
 
     use assert_matches::assert_matches;
 

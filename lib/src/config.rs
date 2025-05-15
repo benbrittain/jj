@@ -14,35 +14,35 @@
 
 //! Configuration store helpers.
 
-use std::borrow::Borrow;
-use std::convert::Infallible;
-use std::fmt;
-use std::fmt::Display;
-use std::fs;
-use std::io;
-use std::ops::Range;
-use std::path::Path;
-use std::path::PathBuf;
-use std::slice;
-use std::str::FromStr;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::convert::Infallible;
+use core::error;
+use core::fmt;
+use core::fmt::Display;
+use core::ops::Range;
+use core::slice;
+use core::str::FromStr;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
 use thiserror::Error;
 use toml_edit::DocumentMut;
 use toml_edit::ImDocument;
 
-pub use crate::config_resolver::migrate;
-pub use crate::config_resolver::resolve;
-pub use crate::config_resolver::ConfigMigrateError;
-pub use crate::config_resolver::ConfigMigrateLayerError;
-pub use crate::config_resolver::ConfigMigrationRule;
-pub use crate::config_resolver::ConfigResolutionContext;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
+// pub use crate::config_resolver::migrate;
+// pub use crate::config_resolver::resolve;
+// pub use crate::config_resolver::ConfigMigrateError;
+// pub use crate::config_resolver::ConfigMigrateLayerError;
+// pub use crate::config_resolver::ConfigMigrationRule;
+// pub use crate::config_resolver::ConfigResolutionContext;
+// use crate::file_util::IoResultExt as _;
+// use crate::file_util::PathError;
 
 /// Config value or table node.
 pub type ConfigItem = toml_edit::Item;
@@ -57,23 +57,28 @@ pub type ConfigValue = toml_edit::Value;
 #[derive(Debug, Error)]
 pub enum ConfigLoadError {
     /// Config file or directory cannot be read.
-    #[error("Failed to read configuration file")]
-    Read(#[source] PathError),
+    // #[error("Failed to read configuration file")]
+    // Read(#[source] PathError),
     /// TOML file or text cannot be parsed.
     #[error("Configuration cannot be parsed as TOML document")]
     Parse {
         /// Source error.
         #[source]
         error: toml_edit::TomlError,
-        /// Source file path.
-        source_path: Option<PathBuf>,
+        // /// Source file path.
+        // source_path: Option<PathBuf>,
     },
 }
 
+// /// Error that can occur when saving config variables to file.
+// #[derive(Debug, Error)]
+// #[error("Failed to write configuration file")]
+// pub struct ConfigFileSaveError(#[source] pub PathError);
+
 /// Error that can occur when saving config variables to file.
-#[derive(Debug, Error)]
-#[error("Failed to write configuration file")]
-pub struct ConfigFileSaveError(#[source] pub PathError);
+// #[derive(Debug, Error)]
+// #[error("Failed to write configuration file")]
+// pub struct ConfigFileSaveError(#[source] pub ());
 
 /// Error that can occur when looking up config variable.
 #[derive(Debug, Error)]
@@ -91,9 +96,9 @@ pub enum ConfigGetError {
         name: String,
         /// Source error.
         #[source]
-        error: Box<dyn std::error::Error + Send + Sync>,
-        /// Source file path where the value is defined.
-        source_path: Option<PathBuf>,
+        error: Box<dyn core::error::Error + Send + Sync>,
+        // /// Source file path where the value is defined.
+        // source_path: Option<PathBuf>,
     },
 }
 
@@ -313,8 +318,8 @@ impl Display for ConfigSource {
 pub struct ConfigLayer {
     /// Source type of this layer.
     pub source: ConfigSource,
-    /// Source file path of this layer if any.
-    pub path: Option<PathBuf>,
+    // /// Source file path of this layer if any.
+    // pub path: Option<PathBuf>,
     /// Configuration variables.
     pub data: DocumentMut,
 }
@@ -329,7 +334,7 @@ impl ConfigLayer {
     pub fn with_data(source: ConfigSource, data: DocumentMut) -> Self {
         ConfigLayer {
             source,
-            path: None,
+            // path: None,
             data,
         }
     }
@@ -338,45 +343,45 @@ impl ConfigLayer {
     pub fn parse(source: ConfigSource, text: &str) -> Result<Self, ConfigLoadError> {
         let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
             error,
-            source_path: None,
+            // source_path: None,
         })?;
         Ok(Self::with_data(source, data.into_mut()))
     }
 
-    /// Loads TOML file from the specified `path`.
-    pub fn load_from_file(source: ConfigSource, path: PathBuf) -> Result<Self, ConfigLoadError> {
-        let text = fs::read_to_string(&path)
-            .context(&path)
-            .map_err(ConfigLoadError::Read)?;
-        let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
-            error,
-            source_path: Some(path.clone()),
-        })?;
-        Ok(ConfigLayer {
-            source,
-            path: Some(path),
-            data: data.into_mut(),
-        })
-    }
+    // /// Loads TOML file from the specified `path`.
+    // pub fn load_from_file(source: ConfigSource, path: PathBuf) -> Result<Self,
+    // ConfigLoadError> {     let text = fs::read_to_string(&path)
+    //         .context(&path)
+    //         .map_err(ConfigLoadError::Read)?;
+    //     let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse
+    // {         error,
+    //         source_path: Some(path.clone()),
+    //     })?;
+    //     Ok(ConfigLayer {
+    //         source,
+    //         path: Some(path),
+    //         data: data.into_mut(),
+    //     })
+    // }
 
-    fn load_from_dir(source: ConfigSource, path: &Path) -> Result<Vec<Self>, ConfigLoadError> {
-        // TODO: Walk the directory recursively?
-        let mut file_paths: Vec<_> = path
-            .read_dir()
-            .and_then(|dir_entries| {
-                dir_entries
-                    .map(|entry| Ok(entry?.path()))
-                    .filter_ok(|path| path.is_file() && path.extension() == Some("toml".as_ref()))
-                    .try_collect()
-            })
-            .context(path)
-            .map_err(ConfigLoadError::Read)?;
-        file_paths.sort_unstable();
-        file_paths
-            .into_iter()
-            .map(|path| Self::load_from_file(source, path))
-            .try_collect()
-    }
+    // fn load_from_dir(source: ConfigSource, path: &Path) -> Result<Vec<Self>,
+    // ConfigLoadError> { TODO: Walk the directory recursively?
+    //     let mut file_paths: Vec<_> = path
+    //         .read_dir()
+    //         .and_then(|dir_entries| {
+    //             dir_entries
+    //                 .map(|entry| Ok(entry?.path()))
+    //                 .filter_ok(|path| path.is_file() && path.extension() ==
+    // Some("toml".as_ref()))                 .try_collect()
+    //         })
+    //         .context(path)
+    //         .map_err(ConfigLoadError::Read)?;
+    //     file_paths.sort_unstable();
+    //     file_paths
+    //         .into_iter()
+    //         .map(|path| Self::load_from_file(source, path))
+    // .try_collect()
+    // }
 
     /// Returns true if the table has no configuration variables.
     pub fn is_empty(&self) -> bool {
@@ -548,57 +553,57 @@ pub struct ConfigFile {
 }
 
 impl ConfigFile {
-    /// Loads TOML file from the specified `path` if exists. Returns an empty
-    /// object if the file doesn't exist.
-    pub fn load_or_empty(
-        source: ConfigSource,
-        path: impl Into<PathBuf>,
-    ) -> Result<Self, ConfigLoadError> {
-        let layer = match ConfigLayer::load_from_file(source, path.into()) {
-            Ok(layer) => Arc::new(layer),
-            Err(ConfigLoadError::Read(PathError { path, error }))
-                if error.kind() == io::ErrorKind::NotFound =>
-            {
-                let mut data = DocumentMut::new();
-                data.insert(
-                    "$schema",
-                    toml_edit::Item::Value(
-                        "https://jj-vcs.github.io/jj/latest/config-schema.json".into(),
-                    ),
-                );
-                let layer = ConfigLayer {
-                    source,
-                    path: Some(path),
-                    data,
-                };
-                Arc::new(layer)
-            }
-            Err(err) => return Err(err),
-        };
-        Ok(ConfigFile { layer })
-    }
+    // /// Loads TOML file from the specified `path` if exists. Returns an empty
+    // /// object if the file doesn't exist.
+    // pub fn load_or_empty(
+    //     source: ConfigSource,
+    //     path: impl Into<PathBuf>,
+    // ) -> Result<Self, ConfigLoadError> {
+    //     let layer = match ConfigLayer::load_from_file(source, path.into()) {
+    //         Ok(layer) => Arc::new(layer),
+    //         Err(ConfigLoadError::Read(PathError { path, error }))
+    //             if error.kind() == io::ErrorKind::NotFound =>
+    //         {
+    //             let mut data = DocumentMut::new();
+    //             data.insert(
+    //                 "$schema",
+    //                 toml_edit::Item::Value(
+    //                     "https://jj-vcs.github.io/jj/latest/config-schema.json".into(),
+    //                 ),
+    //             );
+    //             let layer = ConfigLayer {
+    //                 source,
+    //                 path: Some(path),
+    //                 data,
+    //             };
+    //             Arc::new(layer)
+    //         }
+    //         Err(err) => return Err(err),
+    //     };
+    //     Ok(ConfigFile { layer })
+    // }
 
-    /// Wraps file-based [`ConfigLayer`] for modification. Returns `Err(layer)`
-    /// if the source `path` is unknown.
-    pub fn from_layer(layer: Arc<ConfigLayer>) -> Result<Self, Arc<ConfigLayer>> {
-        if layer.path.is_some() {
-            Ok(ConfigFile { layer })
-        } else {
-            Err(layer)
-        }
-    }
+    //  Wraps file-based [`ConfigLayer`] for modification. Returns `Err(layer)`
+    //  if the source `path` is unknown.
+    // pub fn from_layer(layer: Arc<ConfigLayer>) -> Result<Self, Arc<ConfigLayer>>
+    // {     if layer.path.is_some() {
+    //         Ok(ConfigFile { layer })
+    //     } else {
+    //         Err(layer)
+    //     }
+    // }
 
-    /// Writes serialized data to the source file.
-    pub fn save(&self) -> Result<(), ConfigFileSaveError> {
-        fs::write(self.path(), self.layer.data.to_string())
-            .context(self.path())
-            .map_err(ConfigFileSaveError)
-    }
+    // /// Writes serialized data to the source file.
+    // pub fn save(&self) -> Result<(), ConfigFileSaveError> {
+    //     fs::write(self.path(), self.layer.data.to_string())
+    //         .context(self.path())
+    //         .map_err(ConfigFileSaveError)
+    // }
 
-    /// Source file path.
-    pub fn path(&self) -> &Path {
-        self.layer.path.as_ref().expect("path must be known")
-    }
+    // /// Source file path.
+    // pub fn path(&self) -> &Path {
+    //     self.layer.path.as_ref().expect("path must be known")
+    // }
 
     /// Returns the underlying config layer.
     pub fn layer(&self) -> &Arc<ConfigLayer> {
@@ -651,34 +656,32 @@ impl StackedConfig {
     /// Creates a stack of configuration layers containing the default variables
     /// referred to by `jj-lib`.
     pub fn with_defaults() -> Self {
-        StackedConfig {
-            layers: DEFAULT_CONFIG_LAYERS.to_vec(),
-        }
+        StackedConfig { layers: vec![] }
     }
 
-    /// Loads config file from the specified `path`, inserts it at the position
-    /// specified by `source`. The file should exist.
-    pub fn load_file(
-        &mut self,
-        source: ConfigSource,
-        path: impl Into<PathBuf>,
-    ) -> Result<(), ConfigLoadError> {
-        let layer = ConfigLayer::load_from_file(source, path.into())?;
-        self.add_layer(layer);
-        Ok(())
-    }
+    // /// Loads config file from the specified `path`, inserts it at the position
+    // /// specified by `source`. The file should exist.
+    // pub fn load_file(
+    //     &mut self,
+    //     source: ConfigSource,
+    //     path: impl Into<PathBuf>,
+    // ) -> Result<(), ConfigLoadError> {
+    //     let layer = ConfigLayer::load_from_file(source, path.into())?;
+    //     self.add_layer(layer);
+    //     Ok(())
+    // }
 
-    /// Loads config files from the specified directory `path`, inserts them at
-    /// the position specified by `source`. The directory should exist.
-    pub fn load_dir(
-        &mut self,
-        source: ConfigSource,
-        path: impl AsRef<Path>,
-    ) -> Result<(), ConfigLoadError> {
-        let layers = ConfigLayer::load_from_dir(source, path.as_ref())?;
-        self.extend_layers(layers);
-        Ok(())
-    }
+    // /// Loads config files from the specified directory `path`, inserts them at
+    // /// the position specified by `source`. The directory should exist.
+    // pub fn load_dir(
+    //     &mut self,
+    //     source: ConfigSource,
+    //     path: impl AsRef<Path>,
+    // ) -> Result<(), ConfigLoadError> {
+    //     let layers = ConfigLayer::load_from_dir(source, path.as_ref())?;
+    //     self.extend_layers(layers);
+    //     Ok(())
+    // }
 
     /// Inserts new layer at the position specified by `layer.source`.
     pub fn add_layer(&mut self, layer: impl Into<Arc<ConfigLayer>>) {
@@ -762,7 +765,7 @@ impl StackedConfig {
 
     /// Looks up value from all layers, merges sub fields as needed, then
     /// converts the value by using the given function.
-    pub fn get_value_with<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(
+    pub fn get_value_with<T, E: Into<Box<dyn core::error::Error + Send + Sync>>>(
         &self,
         name: impl ToConfigNamePath,
         convert: impl FnOnce(ConfigValue) -> Result<T, E>,
@@ -789,7 +792,7 @@ impl StackedConfig {
         })
     }
 
-    fn get_item_with<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(
+    fn get_item_with<T, E: Into<Box<dyn core::error::Error + Send + Sync>>>(
         &self,
         name: impl ToConfigNamePath,
         convert: impl FnOnce(ConfigItem) -> Result<T, E>,
@@ -808,7 +811,7 @@ impl StackedConfig {
         convert(item).map_err(|err| ConfigGetError::Type {
             name: name.to_string(),
             error: err.into(),
-            source_path: self.layers[layer_index].path.clone(),
+            // source_path: self.layers[layer_index].path.clone(),
         })
     }
 
@@ -822,7 +825,8 @@ impl StackedConfig {
             .into_iter()
             .rev()
             .flat_map(|table| table.iter().map(|(k, _)| k))
-            .unique()
+        // TODO
+        // .unique()
     }
 }
 
@@ -896,11 +900,6 @@ fn merge_items(lower_item: &mut ConfigItem, upper_item: &ConfigItem) {
         };
     }
 }
-
-static DEFAULT_CONFIG_LAYERS: Lazy<[Arc<ConfigLayer>; 1]> = Lazy::new(|| {
-    let parse = |text: &str| Arc::new(ConfigLayer::parse(ConfigSource::Default, text).unwrap());
-    [parse(include_str!("config/misc.toml"))]
-});
 
 #[cfg(test)]
 mod tests {

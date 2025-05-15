@@ -14,15 +14,15 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::fmt::Debug;
-use std::fs;
-use std::fs::File;
-use std::io::Read;
-use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
-use std::time::SystemTime;
+use core::any::Any;
+use core::fmt::Debug;
+use core::fs;
+use core::fs::File;
+use core::io::Read;
+use core::io::Write as _;
+use core::path::Path;
+use core::path::PathBuf;
+use core::time::SystemTime;
 
 use async_trait::async_trait;
 use blake2::Blake2b512;
@@ -67,8 +67,8 @@ use crate::repo_path::RepoPathComponentBuf;
 const COMMIT_ID_LENGTH: usize = 64;
 const CHANGE_ID_LENGTH: usize = 16;
 
-fn map_not_found_err(err: std::io::Error, id: &impl ObjectId) -> BackendError {
-    if err.kind() == std::io::ErrorKind::NotFound {
+fn map_not_found_err(err: core::io::Error, id: &impl ObjectId) -> BackendError {
+    if err.kind() == core::io::ErrorKind::NotFound {
         BackendError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
@@ -83,7 +83,7 @@ fn map_not_found_err(err: std::io::Error, id: &impl ObjectId) -> BackendError {
     }
 }
 
-fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> BackendError {
+fn to_other_err(err: impl Into<Box<dyn core::error::Error + Send + Sync>>) -> BackendError {
     BackendError::Other(err.into())
 }
 

@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::path::PathBuf;
-use std::time::Duration;
+use core::fs::File;
+use core::fs::OpenOptions;
+use core::path::PathBuf;
+use core::time::Duration;
 
 use tracing::instrument;
 
@@ -69,12 +69,12 @@ impl FileLock {
                     return Ok(FileLock { path, _file: file });
                 }
                 Err(err)
-                    if err.kind() == std::io::ErrorKind::AlreadyExists
+                    if err.kind() == core::io::ErrorKind::AlreadyExists
                         || (cfg!(windows)
-                            && err.kind() == std::io::ErrorKind::PermissionDenied) =>
+                            && err.kind() == core::io::ErrorKind::PermissionDenied) =>
                 {
                     if let Some(duration) = backoff_iterator.next() {
-                        std::thread::sleep(duration);
+                        core::thread::sleep(duration);
                     } else {
                         return Err(FileLockError {
                             message: "Timed out while trying to create lock file",
@@ -98,7 +98,7 @@ impl FileLock {
 impl Drop for FileLock {
     #[instrument(skip_all)]
     fn drop(&mut self) {
-        std::fs::remove_file(&self.path)
+        core::fs::remove_file(&self.path)
             .inspect_err(|err| tracing::warn!(?err, ?self.path, "Failed to delete lock file"))
             .ok();
     }

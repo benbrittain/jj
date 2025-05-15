@@ -14,18 +14,18 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::fs;
-use std::io;
-use std::io::ErrorKind;
-use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
-use std::time::SystemTime;
+use core::any::Any;
+use core::collections::BTreeMap;
+use core::collections::HashMap;
+use core::collections::HashSet;
+use core::fmt::Debug;
+use core::fs;
+use core::io;
+use core::io::ErrorKind;
+use core::io::Write as _;
+use core::path::Path;
+use core::path::PathBuf;
+use core::time::SystemTime;
 
 use itertools::Itertools as _;
 use prost::Message as _;
@@ -370,7 +370,7 @@ fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
 }
 
 fn to_read_error(
-    source: Box<dyn std::error::Error + Send + Sync>,
+    source: Box<dyn core::error::Error + Send + Sync>,
     id: &impl ObjectId,
 ) -> OpStoreError {
     OpStoreError::ReadObject {

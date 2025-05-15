@@ -14,12 +14,14 @@
 
 //! String helpers.
 
-use std::borrow::Borrow;
-use std::borrow::Cow;
-use std::collections::BTreeMap;
-use std::fmt;
-use std::fmt::Debug;
-use std::ops::Deref;
+use alloc::borrow::Cow;
+use alloc::borrow::ToOwned;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::borrow::Borrow;
+use core::fmt;
+use core::fmt::Debug;
+use core::ops::Deref;
 
 use either::Either;
 use thiserror::Error;
@@ -30,35 +32,32 @@ pub enum StringPatternParseError {
     /// Unknown pattern kind is specified.
     #[error("Invalid string pattern kind `{0}:`")]
     InvalidKind(String),
-    /// Failed to parse glob pattern.
-    #[error(transparent)]
-    GlobPattern(glob::PatternError),
     /// Failed to parse regular expression.
-    #[error(transparent)]
+    #[error("regex: {0}")]
     Regex(regex::Error),
 }
 
-/// A wrapper for [`glob::Pattern`] with a more concise Debug impl
-#[derive(Clone)]
-pub struct GlobPattern(pub glob::Pattern);
+// /// A wrapper for [`glob::Pattern`] with a more concise Debug impl
+// #[derive(Clone)]
+// pub struct GlobPattern(pub glob::Pattern);
 
-impl GlobPattern {
-    fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
+// impl GlobPattern {
+//     fn as_str(&self) -> &str {
+//         self.0.as_str()
+//     }
+// }
 
-impl Debug for GlobPattern {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("GlobPattern").field(&self.as_str()).finish()
-    }
-}
+// impl Debug for GlobPattern {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_tuple("GlobPattern").field(&self.as_str()).finish()
+//     }
+// }
 
-fn parse_glob(src: &str) -> Result<GlobPattern, StringPatternParseError> {
-    glob::Pattern::new(src)
-        .map(GlobPattern)
-        .map_err(StringPatternParseError::GlobPattern)
-}
+// fn parse_glob(src: &str) -> Result<GlobPattern, StringPatternParseError> {
+//     glob::Pattern::new(src)
+//         .map(GlobPattern)
+//         .map_err(StringPatternParseError::GlobPattern)
+// }
 
 /// Pattern to be tested against string property like commit description or
 /// bookmark name.
@@ -73,9 +72,9 @@ pub enum StringPattern {
     /// Matches strings that case‐insensitively contain a substring.
     SubstringI(String),
     /// Matches with a Unix‐style shell wildcard pattern.
-    Glob(GlobPattern),
+    Glob(u32),
     /// Matches with a case‐insensitive Unix‐style shell wildcard pattern.
-    GlobI(GlobPattern),
+    GlobI(u32),
     /// Matches substrings with a regular expression.
     Regex(regex::Regex),
     // TODO: Should we add RegexI and "regex-i" prefix?
@@ -123,15 +122,17 @@ impl StringPattern {
 
     /// Parses the given string as a glob pattern.
     pub fn glob(src: &str) -> Result<Self, StringPatternParseError> {
+        todo!()
         // TODO: might be better to do parsing and compilation separately since
         // not all backends would use the compiled pattern object.
         // TODO: if no meta character found, it can be mapped to Exact.
-        Ok(StringPattern::Glob(parse_glob(src)?))
+        // Ok(StringPattern::Glob(parse_glob(src)?))
     }
 
     /// Parses the given string as a case‐insensitive glob pattern.
     pub fn glob_i(src: &str) -> Result<Self, StringPatternParseError> {
-        Ok(StringPattern::GlobI(parse_glob(src)?))
+        todo!()
+        // Ok(StringPattern::GlobI(parse_glob(src)?))
     }
 
     /// Parses the given string as a regular expression.
@@ -179,33 +180,37 @@ impl StringPattern {
             StringPattern::ExactI(literal) => literal,
             StringPattern::Substring(needle) => needle,
             StringPattern::SubstringI(needle) => needle,
-            StringPattern::Glob(pattern) => pattern.as_str(),
-            StringPattern::GlobI(pattern) => pattern.as_str(),
-            StringPattern::Regex(pattern) => pattern.as_str(),
+            _ => todo!(), /* StringPattern::Glob(pattern) => pattern.as_str(),
+                           * StringPattern::GlobI(pattern) => pattern.as_str(),
+                           * StringPattern::Regex(pattern) => pattern.as_str(), */
         }
     }
 
     /// Converts this pattern to a glob string. Returns `None` if the pattern
     /// can't be represented as a glob.
     pub fn to_glob(&self) -> Option<Cow<'_, str>> {
-        // TODO: Handle trivial case‐insensitive patterns here? It might make people
-        // expect they can use case‐insensitive patterns in contexts where they
-        // generally can’t.
-        match self {
-            StringPattern::Exact(literal) => Some(glob::Pattern::escape(literal).into()),
-            StringPattern::Substring(needle) => {
-                if needle.is_empty() {
-                    Some("*".into())
-                } else {
-                    Some(format!("*{}*", glob::Pattern::escape(needle)).into())
-                }
-            }
-            StringPattern::Glob(pattern) => Some(pattern.as_str().into()),
-            StringPattern::ExactI(_) => None,
-            StringPattern::SubstringI(_) => None,
-            StringPattern::GlobI(_) => None,
-            StringPattern::Regex(_) => None,
-        }
+        todo!()
+        // // TODO: Handle trivial case‐insensitive patterns here? It might make
+        // people // expect they can use case‐insensitive patterns in
+        // contexts where they // generally can’t.
+        // match self {
+        //     StringPattern::Exact(literal) =>
+        // Some(glob::Pattern::escape(literal).into()),
+        //     StringPattern::Substring(needle) => {
+        //         if needle.is_empty() {
+        //             Some("*".into())
+        //         } else {
+        //             todo!();
+        //             // Some(format!("*{}*",
+        //             // glob::Pattern::escape(needle)).into())
+        //         }
+        //     }
+        //     StringPattern::Glob(pattern) => Some(pattern.as_str().into()),
+        //     StringPattern::ExactI(_) => None,
+        //     StringPattern::SubstringI(_) => None,
+        //     StringPattern::GlobI(_) => None,
+        //     StringPattern::Regex(_) => None,
+        // }
     }
 
     /// Returns true if this pattern matches the `haystack`.
@@ -235,14 +240,8 @@ impl StringPattern {
             StringPattern::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
                 .contains(&needle.to_ascii_lowercase()),
-            StringPattern::Glob(pattern) => pattern.0.matches(haystack),
-            StringPattern::GlobI(pattern) => pattern.0.matches_with(
-                haystack,
-                glob::MatchOptions {
-                    case_sensitive: false,
-                    ..glob::MatchOptions::new()
-                },
-            ),
+            StringPattern::Glob(pattern) => todo!(),
+            StringPattern::GlobI(pattern) => todo!(),
             StringPattern::Regex(pattern) => pattern.is_match(haystack),
         }
     }

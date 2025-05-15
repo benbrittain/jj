@@ -1,5 +1,3 @@
-// Copyright 2020 The Jujutsu Authors
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,24 +12,28 @@
 
 #![allow(missing_docs)]
 
-use std::borrow::Borrow;
-use std::cmp::Ordering;
-use std::fmt;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::iter::FusedIterator;
-use std::ops::Deref;
-use std::path::Component;
-use std::path::Path;
-use std::path::PathBuf;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString;
+use core::borrow::Borrow;
+use core::cmp::Ordering;
+use core::fmt;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::iter::FusedIterator;
+use core::ops::Deref;
 
+// use core::path::Component;
+// use core::path::Path;
+// use core::path::PathBuf;
 use itertools::Itertools as _;
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
-use crate::file_util;
+// use crate::file_util;
 
 /// Owned `RepoPath` component.
 #[derive(ContentHash, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -86,20 +88,20 @@ impl RepoPathComponent {
         &self.value
     }
 
-    /// Returns a normal filesystem entry name if this path component is valid
-    /// as a file/directory name.
-    pub fn to_fs_name(&self) -> Result<&str, InvalidRepoPathComponentError> {
-        let mut components = Path::new(&self.value).components().fuse();
-        match (components.next(), components.next()) {
-            // Trailing "." can be normalized by Path::components(), so compare
-            // component name. e.g. "foo\." (on Windows) should be rejected.
-            (Some(Component::Normal(name)), None) if name == &self.value => Ok(&self.value),
-            // e.g. ".", "..", "foo\bar" (on Windows)
-            _ => Err(InvalidRepoPathComponentError {
-                component: self.value.into(),
-            }),
-        }
-    }
+    // Returns a normal filesystem entry name if this path component is valid
+    // as a file/directory name.
+    // pub fn to_fs_name(&self) -> Result<&str, InvalidRepoPathComponentError> {
+    //     let mut components = Path::new(&self.value).components().fuse();
+    //     match (components.next(), components.next()) {
+    //         // Trailing "." can be normalized by Path::components(), so compare
+    //         // component name. e.g. "foo\." (on Windows) should be rejected.
+    //         (Some(Component::Normal(name)), None) if name == &self.value =>
+    // Ok(&self.value),         // e.g. ".", "..", "foo\bar" (on Windows)
+    //         _ => Err(InvalidRepoPathComponentError {
+    //             component: self.value.into(),
+    //         }),
+    //     }
+    // }
 }
 
 impl Debug for RepoPathComponent {
@@ -252,62 +254,62 @@ impl RepoPathBuf {
         }
     }
 
-    /// Converts repo-relative `Path` to `RepoPathBuf`.
-    ///
-    /// The input path should not contain redundant `.` or `..`.
-    pub fn from_relative_path(
-        relative_path: impl AsRef<Path>,
-    ) -> Result<Self, RelativePathParseError> {
-        let relative_path = relative_path.as_ref();
-        if relative_path == Path::new(".") {
-            return Ok(Self::root());
-        }
+    // /// Converts repo-relative `Path` to `RepoPathBuf`.
+    // ///
+    // /// The input path should not contain redundant `.` or `..`.
+    // pub fn from_relative_path(
+    //     relative_path: impl AsRef<Path>,
+    // ) -> Result<Self, RelativePathParseError> {
+    //     let relative_path = relative_path.as_ref();
+    //     if relative_path == Path::new(".") {
+    //         return Ok(Self::root());
+    //     }
 
-        let mut components = relative_path
-            .components()
-            .map(|c| match c {
-                Component::Normal(name) => {
-                    name.to_str()
-                        .ok_or_else(|| RelativePathParseError::InvalidUtf8 {
-                            path: relative_path.into(),
-                        })
-                }
-                _ => Err(RelativePathParseError::InvalidComponent {
-                    component: c.as_os_str().to_string_lossy().into(),
-                    path: relative_path.into(),
-                }),
-            })
-            .fuse();
-        let mut value = String::with_capacity(relative_path.as_os_str().len());
-        if let Some(name) = components.next() {
-            value.push_str(name?);
-        }
-        for name in components {
-            value.push('/');
-            value.push_str(name?);
-        }
-        Ok(RepoPathBuf { value })
-    }
+    //     let mut components = relative_path
+    //         .components()
+    //         .map(|c| match c {
+    //             Component::Normal(name) => {
+    //                 name.to_str()
+    //                     .ok_or_else(|| RelativePathParseError::InvalidUtf8 {
+    //                         path: relative_path.into(),
+    //                     })
+    //             }
+    //             _ => Err(RelativePathParseError::InvalidComponent {
+    //                 component: c.as_os_str().to_string_lossy().into(),
+    //                 path: relative_path.into(),
+    //             }),
+    //         })
+    //         .fuse();
+    //     let mut value = String::with_capacity(relative_path.as_os_str().len());
+    //     if let Some(name) = components.next() {
+    //         value.push_str(name?);
+    //     }
+    //     for name in components {
+    //         value.push('/');
+    //         value.push_str(name?);
+    // //     }
+    //     //     Ok(RepoPathBuf { value })
+    //     // }
 
-    /// Parses an `input` path into a `RepoPathBuf` relative to `base`.
-    ///
-    /// The `cwd` and `base` paths are supposed to be absolute and normalized in
-    /// the same manner. The `input` path may be either relative to `cwd` or
-    /// absolute.
-    pub fn parse_fs_path(
-        cwd: &Path,
-        base: &Path,
-        input: impl AsRef<Path>,
-    ) -> Result<Self, FsPathParseError> {
-        let input = input.as_ref();
-        let abs_input_path = file_util::normalize_path(&cwd.join(input));
-        let repo_relative_path = file_util::relative_path(base, &abs_input_path);
-        Self::from_relative_path(repo_relative_path).map_err(|source| FsPathParseError {
-            base: file_util::relative_path(cwd, base).into(),
-            input: input.into(),
-            source,
-        })
-    }
+    //     // /// Parses an `input` path into a `RepoPathBuf` relative to `base`.
+    //     // ///
+    //     // /// The `cwd` and `base` paths are supposed to be absolute and
+    // normalized in     // /// the same manner. The `input` path may be either
+    // relative to `cwd` or /// absolute.
+    // pub fn parse_fs_path(
+    //     cwd: &Path,
+    //     base: &Path,
+    //     input: impl AsRef<Path>,
+    // ) -> Result<Self, FsPathParseError> {
+    //     let input = input.as_ref();
+    //     let abs_input_path = file_util::normalize_path(&cwd.join(input));
+    //     let repo_relative_path = file_util::relative_path(base, &abs_input_path);
+    //     Self::from_relative_path(repo_relative_path).map_err(|source|
+    // FsPathParseError {         base: file_util::relative_path(cwd,
+    // base).into(),         input: input.into(),
+    //         source,
+    //     })
+    // }
 
     /// Consumes this and returns the underlying string representation.
     pub fn into_internal_string(self) -> String {
@@ -356,36 +358,37 @@ impl RepoPath {
         &self.value
     }
 
-    /// Converts repository path to filesystem path relative to the `base`.
-    ///
-    /// The returned path should never contain `..`, `C:` (on Windows), etc.
-    /// However, it may contain reserved working-copy directories such as `.jj`.
-    pub fn to_fs_path(&self, base: &Path) -> Result<PathBuf, InvalidRepoPathError> {
-        let mut result = PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
-        result.push(base);
-        for c in self.components() {
-            result.push(c.to_fs_name().map_err(|err| err.with_path(self))?);
-        }
-        if result.as_os_str().is_empty() {
-            result.push(".");
-        }
-        Ok(result)
-    }
+    // /// Converts repository path to filesystem path relative to the `base`.
+    // ///
+    // /// The returned path should never contain `..`, `C:` (on Windows), etc.
+    // /// However, it may contain reserved working-copy directories such as `.jj`.
+    // pub fn to_fs_path(&self, base: &Path) -> Result<PathBuf,
+    // InvalidRepoPathError> {     let mut result =
+    // PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
+    //     result.push(base);
+    //     for c in self.components() {
+    //         result.push(c.to_fs_name().map_err(|err| err.with_path(self))?);
+    //     }
+    //     if result.as_os_str().is_empty() {
+    //         result.push(".");
+    //     }
+    //     Ok(result)
+    // }
 
-    /// Converts repository path to filesystem path relative to the `base`,
-    /// without checking invalid path components.
-    ///
-    /// The returned path may point outside of the `base` directory. Use this
-    /// function only for displaying or testing purposes.
-    pub fn to_fs_path_unchecked(&self, base: &Path) -> PathBuf {
-        let mut result = PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
-        result.push(base);
-        result.extend(self.components().map(RepoPathComponent::as_internal_str));
-        if result.as_os_str().is_empty() {
-            result.push(".");
-        }
-        result
-    }
+    // /// Converts repository path to filesystem path relative to the `base`,
+    // /// without checking invalid path components.
+    // ///
+    // /// The returned path may point outside of the `base` directory. Use this
+    // /// function only for displaying or testing purposes.
+    // pub fn to_fs_path_unchecked(&self, base: &Path) -> PathBuf {
+    //     let mut result = PathBuf::with_capacity(base.as_os_str().len() +
+    // self.value.len() + 1);     result.push(base);
+    //     result.extend(self.components().map(RepoPathComponent::as_internal_str));
+    //     if result.as_os_str().is_empty() {
+    //         result.push(".");
+    //     }
+    //     result
+    // }
 
     pub fn is_root(&self) -> bool {
         self.value.is_empty()
@@ -532,25 +535,27 @@ impl InvalidRepoPathComponentError {
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum RelativePathParseError {
-    #[error(r#"Invalid component "{component}" in repo-relative path "{path}""#)]
-    InvalidComponent {
-        component: Box<str>,
-        path: Box<Path>,
-    },
-    #[error(r#"Not valid UTF-8 path "{path}""#)]
-    InvalidUtf8 { path: Box<Path> },
+    //     #[error(r#"Invalid component "{component}" in repo-relative path
+    // "{path}""#)]     InvalidComponent {
+    //         component: Box<str>,
+    //         path: Box<Path>,
+    //     },
+    // #[error(r#"Not valid UTF-8 path "{path}""#)]
+    // InvalidUtf8 { path: Box<Path> },
+    #[error("unknown bwb")]
+    Unknown,
 }
 
-#[derive(Clone, Debug, Eq, Error, PartialEq)]
-#[error(r#"Path "{input}" is not in the repo "{base}""#)]
-pub struct FsPathParseError {
-    /// Repository or workspace root path relative to the `cwd`.
-    pub base: Box<Path>,
-    /// Input path without normalization.
-    pub input: Box<Path>,
-    /// Source error.
-    pub source: RelativePathParseError,
-}
+// #[derive(Clone, Debug, Eq, Error, PartialEq)]
+// #[error(r#"Path "{input}" is not in the repo "{base}""#)]
+// pub struct FsPathParseError {
+//     /// Repository or workspace root path relative to the `cwd`.
+//     pub base: Box<Path>,
+//     /// Input path without normalization.
+//     pub input: Box<Path>,
+//     /// Source error.
+//     pub source: RelativePathParseError,
+// }
 
 fn is_valid_repo_path_component_str(value: &str) -> bool {
     !value.is_empty() && !value.contains('/')
@@ -560,125 +565,131 @@ fn is_valid_repo_path_str(value: &str) -> bool {
     !value.starts_with('/') && !value.ends_with('/') && !value.contains("//")
 }
 
-/// An error from `RepoPathUiConverter::parse_file_path`.
+// /// An error from `RepoPathUiConverter::parse_file_path`.
 #[derive(Debug, Error)]
 pub enum UiPathParseError {
-    #[error(transparent)]
-    Fs(FsPathParseError),
+    #[error("unknown bwb")]
+    Unknown, //     #[error(transparent)]
+             //     Fs(FsPathParseError),
 }
 
 /// Converts `RepoPath`s to and from plain strings as displayed to the user
 /// (e.g. relative to CWD).
 #[derive(Debug, Clone)]
 pub enum RepoPathUiConverter {
-    /// Variant for a local file system. Paths are interpreted relative to `cwd`
-    /// with the repo rooted in `base`.
-    ///
-    /// The `cwd` and `base` paths are supposed to be absolute and normalized in
-    /// the same manner.
-    Fs { cwd: PathBuf, base: PathBuf },
-    // TODO: Add a no-op variant that uses the internal `RepoPath` representation. Can be useful
-    // on a server.
+    Todo,
 }
+//     /// Variant for a local file system. Paths are interpreted relative to
+// `cwd`     /// with the repo rooted in `base`.
+//     ///
+//     /// The `cwd` and `base` paths are supposed to be absolute and normalized
+// in     /// the same manner.
+//     Fs { cwd: PathBuf, base: PathBuf },
+//     // TODO: Add a no-op variant that uses the internal `RepoPath`
+// representation. Can be useful     // on a server.
+// }
 
-impl RepoPathUiConverter {
-    /// Format a path for display in the UI.
-    pub fn format_file_path(&self, file: &RepoPath) -> String {
-        match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
-                file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
-                    .to_str()
-                    .unwrap()
-                    .to_owned()
-            }
-        }
-    }
+// impl RepoPathUiConverter {
+//     /// Format a path for display in the UI.
+//     pub fn format_file_path(&self, file: &RepoPath) -> String {
+//         match self {
+//             RepoPathUiConverter::Fs { cwd, base } => {
+//                 file_util::relative_path(cwd,
+// &file.to_fs_path_unchecked(base))                     .to_str()
+//                     .unwrap()
+//                     .to_owned()
+//             }
+//         }
+//     }
 
-    /// Format a copy from `source` to `target` for display in the UI by
-    /// extracting common components and producing something like
-    /// "common/prefix/{source => target}/common/suffix".
-    ///
-    /// If `source == target`, returns `format_file_path(source)`.
-    pub fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
-        if source == target {
-            return self.format_file_path(source);
-        }
-        let mut formatted = String::new();
-        match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
-                let source_path = file_util::relative_path(cwd, &source.to_fs_path_unchecked(base));
-                let target_path = file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
+//     /// Format a copy from `source` to `target` for display in the UI by
+//     /// extracting common components and producing something like
+//     /// "common/prefix/{source => target}/common/suffix".
+//     ///
+//     /// If `source == target`, returns `format_file_path(source)`.
+//     pub fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) ->
+// String {         if source == target {
+//             return self.format_file_path(source);
+//         }
+//         let mut formatted = String::new();
+//         match self {
+//             RepoPathUiConverter::Fs { cwd, base } => {
+//                 let source_path = file_util::relative_path(cwd,
+// &source.to_fs_path_unchecked(base));                 let target_path =
+// file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
 
-                let source_components = source_path.components().collect_vec();
-                let target_components = target_path.components().collect_vec();
+//                 let source_components =
+// source_path.components().collect_vec();                 let target_components
+// = target_path.components().collect_vec();
 
-                let prefix_count = source_components
-                    .iter()
-                    .zip(target_components.iter())
-                    .take_while(|(source_component, target_component)| {
-                        source_component == target_component
-                    })
-                    .count()
-                    .min(source_components.len().saturating_sub(1))
-                    .min(target_components.len().saturating_sub(1));
+//                 let prefix_count = source_components
+//                     .iter()
+//                     .zip(target_components.iter())
+//                     .take_while(|(source_component, target_component)| {
+//                         source_component == target_component
+//                     })
+//                     .count()
+//                     .min(source_components.len().saturating_sub(1))
+//                     .min(target_components.len().saturating_sub(1));
 
-                let suffix_count = source_components
-                    .iter()
-                    .rev()
-                    .zip(target_components.iter().rev())
-                    .take_while(|(source_component, target_component)| {
-                        source_component == target_component
-                    })
-                    .count()
-                    .min(source_components.len().saturating_sub(1))
-                    .min(target_components.len().saturating_sub(1));
+//                 let suffix_count = source_components
+//                     .iter()
+//                     .rev()
+//                     .zip(target_components.iter().rev())
+//                     .take_while(|(source_component, target_component)| {
+//                         source_component == target_component
+//                     })
+//                     .count()
+//                     .min(source_components.len().saturating_sub(1))
+//                     .min(target_components.len().saturating_sub(1));
 
-                fn format_components(c: &[std::path::Component]) -> String {
-                    c.iter().collect::<PathBuf>().to_str().unwrap().to_owned()
-                }
+//                 fn format_components(c: &[core::path::Component]) -> String {
+//
+// c.iter().collect::<PathBuf>().to_str().unwrap().to_owned()                 }
 
-                if prefix_count > 0 {
-                    formatted.push_str(&format_components(&source_components[0..prefix_count]));
-                    formatted.push_str(std::path::MAIN_SEPARATOR_STR);
-                }
-                formatted.push('{');
-                formatted.push_str(&format_components(
-                    &source_components
-                        [prefix_count..(source_components.len() - suffix_count).max(prefix_count)],
-                ));
-                formatted.push_str(" => ");
-                formatted.push_str(&format_components(
-                    &target_components
-                        [prefix_count..(target_components.len() - suffix_count).max(prefix_count)],
-                ));
-                formatted.push('}');
-                if suffix_count > 0 {
-                    formatted.push_str(std::path::MAIN_SEPARATOR_STR);
-                    formatted.push_str(&format_components(
-                        &source_components[source_components.len() - suffix_count..],
-                    ));
-                }
-            }
-        }
-        formatted
-    }
+//                 if prefix_count > 0 {
+//
+// formatted.push_str(&format_components(&source_components[0..prefix_count]));
+//                     formatted.push_str(core::path::MAIN_SEPARATOR_STR);
+//                 }
+//                 formatted.push('{');
+//                 formatted.push_str(&format_components(
+//                     &source_components
+//                         [prefix_count..(source_components.len() -
+// suffix_count).max(prefix_count)],                 ));
+//                 formatted.push_str(" => ");
+//                 formatted.push_str(&format_components(
+//                     &target_components
+//                         [prefix_count..(target_components.len() -
+// suffix_count).max(prefix_count)],                 ));
+//                 formatted.push('}');
+//                 if suffix_count > 0 {
+//                     formatted.push_str(core::path::MAIN_SEPARATOR_STR);
+//                     formatted.push_str(&format_components(
+//                         &source_components[source_components.len() -
+// suffix_count..],                     ));
+//                 }
+//             }
+//         }
+//         formatted
+//     }
 
-    /// Parses a path from the UI.
-    ///
-    /// It's up to the implementation whether absolute paths are allowed, and
-    /// where relative paths are interpreted as relative to.
-    pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
-        match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
-                RepoPathBuf::parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs)
-            }
-        }
-    }
-}
+//     /// Parses a path from the UI.
+//     ///
+//     /// It's up to the implementation whether absolute paths are allowed, and
+//     /// where relative paths are interpreted as relative to.
+//     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf,
+// UiPathParseError> {         match self {
+//             RepoPathUiConverter::Fs { cwd, base } => {
+//                 RepoPathBuf::parse_fs_path(cwd, base,
+// input).map_err(UiPathParseError::Fs)             }
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
-    use std::panic;
+    use core::panic;
 
     use assert_matches::assert_matches;
     use itertools::Itertools as _;
@@ -997,7 +1008,7 @@ mod tests {
             RepoPathBuf::parse_fs_path(
                 &cwd_path,
                 wc_path,
-                format!("dir{}file", std::path::MAIN_SEPARATOR)
+                format!("dir{}file", core::path::MAIN_SEPARATOR)
             )
             .as_deref(),
             Ok(repo_path("dir/file"))

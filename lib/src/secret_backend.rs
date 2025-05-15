@@ -14,10 +14,10 @@
 
 //! Provides a backend for testing ACLs
 
-use std::any::Any;
-use std::io::Read;
-use std::path::Path;
-use std::time::SystemTime;
+use core::any::Any;
+use core::io::Read;
+use core::path::Path;
+use core::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
@@ -72,7 +72,7 @@ impl SecretBackend {
     /// Convert a git repo to using `SecretBackend`
     // TODO: Avoid this hack
     pub fn adopt_git_repo(workspace_path: &Path) {
-        std::fs::write(
+        core::fs::write(
             workspace_path
                 .join(".jj")
                 .join("repo")

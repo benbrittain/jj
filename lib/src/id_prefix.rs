@@ -14,10 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::iter;
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
+use alloc::rc::Rc;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::iter;
+use core::marker::PhantomData;
 
 use itertools::Itertools as _;
 use once_cell::unsync::OnceCell;

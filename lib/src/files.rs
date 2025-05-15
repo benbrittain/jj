@@ -14,10 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::borrow::Borrow;
-use std::collections::VecDeque;
-use std::iter;
-use std::mem;
+use alloc::borrow::ToOwned;
+use alloc::collections::VecDeque;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::iter;
+use core::mem;
 
 use bstr::BStr;
 use bstr::BString;

@@ -15,9 +15,9 @@
 //! API for transforming file content, for example to apply formatting, and
 //! propagate those changes across revisions.
 
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::sync::mpsc::channel;
+use core::collections::HashMap;
+use core::collections::HashSet;
+use core::sync::mpsc::channel;
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
@@ -69,10 +69,10 @@ pub enum FixError {
     RevsetEvaluation(#[from] RevsetEvaluationError),
     /// Error occurred while reading/writing file content.
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    IO(#[from] core::io::Error),
     /// Error occurred while processing the file content.
     #[error(transparent)]
-    FixContent(Box<dyn std::error::Error + Send + Sync>),
+    FixContent(Box<dyn core::error::Error + Send + Sync>),
 }
 
 /// Fixes a set of files.

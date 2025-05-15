@@ -14,18 +14,21 @@
 
 //! A lazily merged view of a set of trees.
 
-use std::borrow::Borrow;
-use std::cmp::max;
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::iter;
-use std::iter::zip;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::Context;
-use std::task::Poll;
-use std::vec;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::cmp::max;
+use core::cmp::Ordering;
+use core::iter;
+use core::iter::zip;
+use core::pin::Pin;
+use core::task::Context;
+use core::task::Poll;
 
 use either::Either;
 use futures::future::BoxFuture;
@@ -33,8 +36,8 @@ use futures::stream::BoxStream;
 use futures::Stream;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
+// use pollster::FutureExt as _;
 use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::MergedTreeId;
@@ -159,20 +162,22 @@ impl MergedTree {
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub fn resolve(&self) -> BackendResult<MergedTree> {
-        let merged = merge_trees(&self.trees).block_on()?;
-        // If the result can be resolved, then `merge_trees()` above would have returned
-        // a resolved merge. However, that function will always preserve the arity of
-        // conflicts it cannot resolve. So we simplify the conflict again
-        // here to possibly reduce a complex conflict to a simpler one.
-        let simplified = merged.simplify();
-        // If debug assertions are enabled, check that the merge was idempotent. In
-        // particular,  that this last simplification doesn't enable further automatic
-        // resolutions
-        if cfg!(debug_assertions) {
-            let re_merged = merge_trees(&simplified).block_on().unwrap();
-            debug_assert_eq!(re_merged, simplified);
-        }
-        Ok(MergedTree { trees: simplified })
+        todo!()
+        // let merged = merge_trees(&self.trees).block_on()?;
+        // // If the result can be resolved, then `merge_trees()` above would
+        // have returned // a resolved merge. However, that function
+        // will always preserve the arity of // conflicts it cannot
+        // resolve. So we simplify the conflict again // here to
+        // possibly reduce a complex conflict to a simpler one.
+        // let simplified = merged.simplify();
+        // // If debug assertions are enabled, check that the merge was
+        // idempotent. In // particular,  that this last simplification
+        // doesn't enable further automatic // resolutions
+        // if cfg!(debug_assertions) {
+        //     let re_merged = merge_trees(&simplified).block_on().unwrap();
+        //     debug_assert_eq!(re_merged, simplified);
+        // }
+        // Ok(MergedTree { trees: simplified })
     }
 
     /// An iterator over the conflicts in this tree, including subtrees.
@@ -592,22 +597,22 @@ impl Iterator for TreeEntriesIterator<'_> {
     type Item = (RepoPathBuf, BackendResult<MergedTreeValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some((path, value)) = top.entries.pop() {
-                let maybe_trees = match value.to_tree_merge(&self.store, &path).block_on() {
-                    Ok(maybe_trees) => maybe_trees,
-                    Err(err) => return Some((path, Err(err))),
-                };
-                if let Some(trees) = maybe_trees {
-                    self.stack
-                        .push(TreeEntriesDirItem::new(&trees, self.matcher));
-                } else {
-                    return Some((path, Ok(value)));
-                }
-            } else {
-                self.stack.pop();
-            }
-        }
+        // while let Some(top) = self.stack.last_mut() {
+        //     if let Some((path, value)) = top.entries.pop() {
+        //         let maybe_trees = match value.to_tree_merge(&self.store,
+        // &path).block_on() {             Ok(maybe_trees) => maybe_trees,
+        //             Err(err) => return Some((path, Err(err))),
+        //         };
+        //         if let Some(trees) = maybe_trees {
+        //             self.stack
+        //                 .push(TreeEntriesDirItem::new(&trees, self.matcher));
+        //         } else {
+        //             return Some((path, Ok(value)));
+        //         }
+        //     } else {
+        //         self.stack.pop();
+        //     }
+        // }
         None
     }
 }
@@ -654,27 +659,27 @@ impl Iterator for ConflictIterator {
     type Item = (RepoPathBuf, BackendResult<MergedTreeValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some((path, tree_values)) = top.entries.pop() {
-                match tree_values.to_tree_merge(&self.store, &path).block_on() {
-                    Ok(Some(trees)) => {
-                        // If all sides are trees or missing, descend into the merged tree
-                        self.stack.push(ConflictsDirItem::from(&trees));
-                    }
-                    Ok(None) => {
-                        // Otherwise this is a conflict between files, trees, etc. If they could
-                        // be automatically resolved, they should have been when the top-level
-                        // tree conflict was written, so we assume that they can't be.
-                        return Some((path, Ok(tree_values)));
-                    }
-                    Err(err) => {
-                        return Some((path, Err(err)));
-                    }
-                }
-            } else {
-                self.stack.pop();
-            }
-        }
+        //         // while let Some(top) = self.stack.last_mut() {
+        //         //     if let Some((path, tree_values)) = top.entries.pop() {
+        //         //         match tree_values.to_tree_merge(&self.store,
+        // &path).block_on() {         //             Ok(Some(trees)) => {
+        //         //                 // If all sides are trees or missing, descend into
+        // the merged         // tree
+        // self.stack.push(ConflictsDirItem::from(&trees));         //
+        // }         //             Ok(None) => {
+        //         //                 // Otherwise this is a conflict between files,
+        // trees, etc. If         // they could                 // be
+        // automatically resolved, they should         // have been when the
+        // top-level                 // tree conflict was         // written, so
+        // we assume that they can't be.                 return         //
+        // Some((path, Ok(tree_values)));             }         //
+        // Err(err) => {         //                 return Some((path,
+        // Err(err)));         //             }
+        //         //         }
+        //         //     } else {
+        //         //         self.stack.pop();
+        //         //     }
+        //         // }
         None
     }
 }
@@ -723,11 +728,12 @@ impl<'matcher> TreeDiffIterator<'matcher> {
         dir: &RepoPath,
         values: &MergedTreeValue,
     ) -> BackendResult<Merge<Tree>> {
-        if let Some(trees) = values.to_tree_merge(store, dir).block_on()? {
-            Ok(trees)
-        } else {
-            Ok(Merge::resolved(Tree::empty(store.clone(), dir.to_owned())))
-        }
+        todo!()
+        //         if let Some(trees) = values.to_tree_merge(store,
+        // dir).block_on()? {             Ok(trees)
+        //         } else {
+        //             Ok(Merge::resolved(Tree::empty(store.clone(),
+        // dir.to_owned())))         }
     }
 }
 

@@ -15,10 +15,10 @@
 //! Algorithm to split changes in a single source commit into its most relevant
 //! ancestors, 'absorbing' them away.
 
-use std::cmp;
-use std::collections::HashMap;
-use std::ops::Range;
-use std::rc::Rc;
+use core::cmp;
+use core::collections::HashMap;
+use core::ops::Range;
+use core::rc::Rc;
 
 use bstr::BString;
 use futures::StreamExt as _;

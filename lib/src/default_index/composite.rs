@@ -14,15 +14,15 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::max;
-use std::cmp::min;
-use std::cmp::Ordering;
-use std::collections::BTreeSet;
-use std::collections::BinaryHeap;
-use std::collections::HashSet;
-use std::iter;
-use std::sync::Arc;
-use std::sync::Mutex;
+use core::cmp::max;
+use core::cmp::min;
+use core::cmp::Ordering;
+use core::collections::BTreeSet;
+use core::collections::BinaryHeap;
+use core::collections::HashSet;
+use core::iter;
+use core::sync::Arc;
+use core::sync::Mutex;
 
 use itertools::Itertools as _;
 use ref_cast::ref_cast_custom;

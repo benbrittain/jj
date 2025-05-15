@@ -14,10 +14,9 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
-use pollster::FutureExt as _;
+use alloc::borrow::ToOwned;
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -109,14 +108,17 @@ impl TreeBuilder {
                         // Entry would have been replaced with file (see above)
                     }
                 } else {
-                    let tree = store.write_tree(&dir, tree).block_on()?;
-                    parent_tree.set(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
+                    todo!();
+                    // let tree = store.write_tree(&dir, tree).block_on()?;
+                    // parent_tree.set(basename.to_owned(),
+                    // TreeValue::Tree(tree.id().clone()));
                 }
             } else {
-                // We're writing the root tree. Write it even if empty. Return its id.
-                assert!(trees_to_write.is_empty());
-                let written_tree = store.write_tree(&dir, tree).block_on()?;
-                return Ok(written_tree.id().clone());
+                todo!();
+                // We're writing the root tree. Write it even if empty. Return
+                // its id. assert!(trees_to_write.is_empty());
+                // let written_tree = store.write_tree(&dir, tree).block_on()?;
+                // return Ok(written_tree.id().clone());
             }
         }
 

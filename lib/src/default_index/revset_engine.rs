@@ -14,18 +14,18 @@
 
 #![allow(missing_docs)]
 
-use std::cell::RefCell;
-use std::cmp::Ordering;
-use std::cmp::Reverse;
-use std::collections::BTreeSet;
-use std::collections::BinaryHeap;
-use std::collections::HashSet;
-use std::fmt;
-use std::iter;
-use std::ops::Range;
-use std::rc::Rc;
-use std::str;
-use std::sync::Arc;
+use core::cell::RefCell;
+use core::cmp::Ordering;
+use core::cmp::Reverse;
+use core::collections::BTreeSet;
+use core::collections::BinaryHeap;
+use core::collections::HashSet;
+use core::fmt;
+use core::iter;
+use core::ops::Range;
+use core::rc::Rc;
+use core::str;
+use core::sync::Arc;
 
 use bstr::BString;
 use futures::StreamExt as _;

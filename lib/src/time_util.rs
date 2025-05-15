@@ -14,13 +14,16 @@
 
 //! Provides support for parsing and matching date ranges.
 
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+
 use chrono::DateTime;
 use chrono::FixedOffset;
-use chrono::Local;
+// use chrono::Local;
 use chrono::TimeZone;
-use interim::parse_date_string;
-use interim::DateError;
-use interim::Dialect;
+// use interim::parse_date_string;
+// use interim::DateError;
+// use interim::Dialect;
 use thiserror::Error;
 
 use crate::backend::MillisSinceEpoch;
@@ -29,8 +32,8 @@ use crate::backend::Timestamp;
 /// Context needed to create a DatePattern during revset evaluation.
 #[derive(Copy, Clone, Debug)]
 pub enum DatePatternContext {
-    /// Interpret date patterns using the local machine's time zone
-    Local(DateTime<Local>),
+    // /// Interpret date patterns using the local machine's time zone
+    // Local(DateTime<Local>),
     /// Interpret date patterns using any FixedOffset time zone
     Fixed(DateTime<FixedOffset>),
 }
@@ -43,17 +46,17 @@ impl DatePatternContext {
         kind: &str,
     ) -> Result<DatePattern, DatePatternParseError> {
         match *self {
-            DatePatternContext::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
+            // DatePatternContext::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
             DatePatternContext::Fixed(dt) => DatePattern::from_str_kind(s, kind, dt),
         }
     }
 }
 
-impl From<DateTime<Local>> for DatePatternContext {
-    fn from(value: DateTime<Local>) -> Self {
-        DatePatternContext::Local(value)
-    }
-}
+// impl From<DateTime<Local>> for DatePatternContext {
+//     fn from(value: DateTime<Local>) -> Self {
+//         DatePatternContext::Local(value)
+//     }
+// }
 
 impl From<DateTime<FixedOffset>> for DatePatternContext {
     fn from(value: DateTime<FixedOffset>) -> Self {
@@ -67,9 +70,9 @@ pub enum DatePatternParseError {
     /// Unknown pattern kind is specified.
     #[error("Invalid date pattern kind `{0}:`")]
     InvalidKind(String),
-    /// Failed to parse timestamp.
-    #[error(transparent)]
-    ParseError(#[from] DateError),
+    // / Failed to parse timestamp.
+    // #[error(transparent)]
+    // ParseError(#[from] DateError),
 }
 
 /// Represents an range of dates that may be matched against.
@@ -103,14 +106,16 @@ impl DatePattern {
     where
         Tz::Offset: Copy,
     {
-        let d =
-            parse_date_string(s, now, Dialect::Us).map_err(DatePatternParseError::ParseError)?;
-        let millis_since_epoch = MillisSinceEpoch(d.timestamp_millis());
-        match kind {
-            "after" => Ok(DatePattern::AtOrAfter(millis_since_epoch)),
-            "before" => Ok(DatePattern::Before(millis_since_epoch)),
-            kind => Err(DatePatternParseError::InvalidKind(kind.to_owned())),
-        }
+        todo!()
+        // let d = todo!();
+        // // parse_date_string(s, now,
+        // Dialect::Us).map_err(DatePatternParseError::ParseError)?; let
+        // millis_since_epoch = MillisSinceEpoch(d.timestamp_millis());
+        // match kind {
+        //     "after" => Ok(DatePattern::AtOrAfter(millis_since_epoch)),
+        //     "before" => Ok(DatePattern::Before(millis_since_epoch)),
+        //     kind => Err(DatePatternParseError::InvalidKind(kind.to_owned())),
+        // }
     }
 
     /// Determines whether a given timestamp is matched by the pattern.

@@ -14,14 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io;
-use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
+use core::collections::HashMap;
+use core::fs;
+use core::fs::File;
+use core::io;
+use core::io::Write as _;
+use core::path::Path;
+use core::path::PathBuf;
+use core::sync::Arc;
 
 use thiserror::Error;
 
@@ -117,7 +117,7 @@ pub struct Workspace {
 
 fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
-    match std::fs::create_dir(&jj_dir).context(&jj_dir) {
+    match core::fs::create_dir(&jj_dir).context(&jj_dir) {
         Ok(()) => Ok(jj_dir),
         Err(ref e) if e.error.kind() == io::ErrorKind::AlreadyExists => {
             Err(WorkspaceInitError::DestinationExists(jj_dir))
@@ -134,7 +134,7 @@ fn init_working_copy(
     workspace_name: WorkspaceNameBuf,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
     let working_copy_state_path = jj_dir.join("working_copy");
-    std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
+    core::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
@@ -295,7 +295,7 @@ impl Workspace {
         let jj_dir = create_jj_dir(workspace_root)?;
         (|| {
             let repo_dir = jj_dir.join("repo");
-            std::fs::create_dir(&repo_dir).context(&repo_dir)?;
+            core::fs::create_dir(&repo_dir).context(&repo_dir)?;
             let repo = ReadonlyRepo::init(
                 user_settings,
                 &repo_dir,
@@ -323,7 +323,7 @@ impl Workspace {
             Ok((workspace, repo))
         })()
         .inspect_err(|_err| {
-            let _ = std::fs::remove_dir_all(jj_dir);
+            let _ = core::fs::remove_dir_all(jj_dir);
         })
     }
 

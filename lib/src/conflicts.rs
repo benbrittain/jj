@@ -14,10 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::io;
-use std::io::Read;
-use std::io::Write;
-use std::iter::zip;
+use core::io;
+use core::io::Read;
+use core::io::Write;
+use core::iter::zip;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
@@ -129,7 +129,7 @@ pub async fn extract_as_single_hunk(
 /// e.g. the working copy or in a diff.
 pub enum MaterializedTreeValue {
     Absent,
-    AccessDenied(Box<dyn std::error::Error + Send + Sync>),
+    AccessDenied(Box<dyn core::error::Error + Send + Sync>),
     File(MaterializedFileValue),
     Symlink { id: SymlinkId, target: String },
     FileConflict(MaterializedFileConflictValue),

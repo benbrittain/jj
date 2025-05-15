@@ -31,16 +31,18 @@
 //! let _: &RemoteName = RefName::new("main").as_ref();
 //! ```
 
-use std::borrow::Borrow;
-use std::fmt;
-use std::fmt::Display;
-use std::ops::Deref;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use core::borrow::Borrow;
+use core::fmt;
+use core::fmt::Display;
+use core::ops::Deref;
 
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 
 use crate::content_hash::ContentHash;
-use crate::revset;
+// use crate::revset;
 
 /// Owned Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
 ///
@@ -329,7 +331,8 @@ impl RefSymbol {
 
 impl Display for RefSymbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(&revset::format_symbol(&self.0))
+        todo!("bwb")
+        // f.pad(&revset::format_symbol(&self.0))
     }
 }
 
@@ -416,6 +419,7 @@ impl Display for RemoteRefSymbolBuf {
 impl Display for RemoteRefSymbol<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let RemoteRefSymbol { name, remote } = self;
-        f.pad(&revset::format_remote_symbol(&name.0, &remote.0))
+        todo!("bwb")
+        // f.pad(&revset::format_remote_symbol(&name.0, &remote.0))
     }
 }

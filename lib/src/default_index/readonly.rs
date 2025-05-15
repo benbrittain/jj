@@ -14,15 +14,15 @@
 
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::fs::File;
-use std::io;
-use std::io::Read;
-use std::path::Path;
-use std::sync::Arc;
+use core::any::Any;
+use core::cmp::Ordering;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::fs::File;
+use core::io;
+use core::io::Read;
+use core::path::Path;
+use core::sync::Arc;
 
 use smallvec::smallvec;
 use thiserror::Error;
@@ -73,7 +73,7 @@ pub enum ReadonlyIndexLoadError {
 impl ReadonlyIndexLoadError {
     fn invalid_data(
         name: impl Into<String>,
-        error: impl Into<Box<dyn std::error::Error + Send + Sync>>,
+        error: impl Into<Box<dyn core::error::Error + Send + Sync>>,
     ) -> Self {
         Self::from_io_err(name, io::Error::new(io::ErrorKind::InvalidData, error))
     }
@@ -238,7 +238,7 @@ pub(super) struct ReadonlyIndexSegment {
 }
 
 impl Debug for ReadonlyIndexSegment {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("ReadonlyIndexSegment")
             .field("name", &self.name)
             .field("parent_file", &self.parent_file)

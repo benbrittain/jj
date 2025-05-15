@@ -14,14 +14,14 @@
 
 #![allow(missing_docs)]
 
-use std::ffi::OsString;
-use std::fmt::Debug;
-use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
-use std::process::ExitStatus;
-use std::process::Stdio;
+use core::ffi::OsString;
+use core::fmt::Debug;
+use core::io::Write as _;
+use core::path::Path;
+use core::path::PathBuf;
+use core::process::Command;
+use core::process::ExitStatus;
+use core::process::Stdio;
 
 use either::Either;
 use thiserror::Error;
@@ -50,7 +50,7 @@ pub enum SshError {
     #[error("Failed to parse ssh program response")]
     BadResult,
     #[error("Failed to run ssh-keygen")]
-    Io(#[from] std::io::Error),
+    Io(#[from] core::io::Error),
     #[error("Signing key required")]
     MissingKey,
 }
@@ -133,7 +133,7 @@ impl SshBackend {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use core::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
@@ -284,8 +284,8 @@ impl SigningBackend for SshBackend {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Read as _;
+    use core::fs::File;
+    use core::io::Read as _;
 
     use super::*;
 

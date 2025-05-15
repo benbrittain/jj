@@ -15,6 +15,7 @@
 #![allow(missing_docs)]
 
 const REVERSE_HEX_CHARS: &[u8; 16] = b"zyxwvutsrqponmlk";
+use alloc::string::String;
 
 fn to_forward_hex_digit(b: u8) -> Option<u8> {
     let value = match b {
@@ -50,7 +51,7 @@ pub fn encode_reverse_hex(data: &[u8]) -> String {
 /// Calculates common prefix length of two byte sequences. The length
 /// to be returned is a number of hexadecimal digits.
 pub fn common_hex_len(bytes_a: &[u8], bytes_b: &[u8]) -> usize {
-    std::iter::zip(bytes_a, bytes_b)
+    core::iter::zip(bytes_a, bytes_b)
         .enumerate()
         .find_map(|(i, (a, b))| match a ^ b {
             0 => None,

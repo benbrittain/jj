@@ -14,9 +14,9 @@
 
 //! Post-processing functions for [`StackedConfig`].
 
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
+use core::path::Path;
+use core::path::PathBuf;
+use core::sync::Arc;
 
 use itertools::Itertools as _;
 use serde::de::IntoDeserializer as _;
@@ -236,7 +236,7 @@ impl ConfigMigrateLayerError {
     }
 }
 
-type DynError = Box<dyn std::error::Error + Send + Sync>;
+type DynError = Box<dyn core::error::Error + Send + Sync>;
 
 /// Rule to migrate deprecated config variables.
 pub struct ConfigMigrationRule {

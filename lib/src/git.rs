@@ -14,16 +14,16 @@
 
 #![allow(missing_docs)]
 
-use std::borrow::Borrow;
-use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::default::Default;
-use std::fs::File;
-use std::num::NonZeroU32;
-use std::path::PathBuf;
-use std::str;
-use std::sync::Arc;
+use core::borrow::Borrow;
+use core::borrow::Cow;
+use core::collections::HashMap;
+use core::collections::HashSet;
+use core::default::Default;
+use core::fs::File;
+use core::num::NonZeroU32;
+use core::path::PathBuf;
+use core::str;
+use core::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
@@ -364,13 +364,13 @@ pub enum GitImportError {
     #[error(transparent)]
     Backend(BackendError),
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(Box<dyn core::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitImportError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+    fn from_git(source: impl Into<Box<dyn core::error::Error + Send + Sync>>) -> Self {
         GitImportError::Git(source.into())
     }
 }
@@ -820,13 +820,13 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
 #[derive(Error, Debug)]
 pub enum GitExportError {
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(Box<dyn core::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitExportError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+    fn from_git(source: impl Into<Box<dyn core::error::Error + Send + Sync>>) -> Self {
         GitExportError::Git(source.into())
     }
 }
@@ -1232,7 +1232,7 @@ pub enum GitResetHeadError {
     #[error(transparent)]
     Backend(#[from] BackendError),
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(Box<dyn core::error::Error + Send + Sync>),
     #[error("Failed to update Git HEAD ref")]
     UpdateHeadRef(#[source] Box<gix::reference::edit::Error>),
     #[error(transparent)]
@@ -1240,7 +1240,7 @@ pub enum GitResetHeadError {
 }
 
 impl GitResetHeadError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+    fn from_git(source: impl Into<Box<dyn core::error::Error + Send + Sync>>) -> Self {
         GitResetHeadError::Git(source.into())
     }
 }
@@ -1302,18 +1302,18 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         ];
         const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
         let handle_err = |err: PathError| match err.error.kind() {
-            std::io::ErrorKind::NotFound => Ok(()),
+            core::io::ErrorKind::NotFound => Ok(()),
             _ => Err(GitResetHeadError::from_git(err)),
         };
         for file_name in STATE_FILE_NAMES {
             let path = git_repo.path().join(file_name);
-            std::fs::remove_file(&path)
+            core::fs::remove_file(&path)
                 .context(&path)
                 .or_else(handle_err)?;
         }
         for dir_name in STATE_DIR_NAMES {
             let path = git_repo.path().join(dir_name);
-            std::fs::remove_dir_all(&path)
+            core::fs::remove_dir_all(&path)
                 .context(&path)
                 .or_else(handle_err)?;
         }
@@ -1581,15 +1581,15 @@ pub enum GitRemoteManagementError {
     #[error("Git remote named '{}' has nonstandard configuration", .0.as_symbol())]
     NonstandardConfiguration(RemoteNameBuf),
     #[error("Error saving Git configuration")]
-    GitConfigSaveError(#[source] std::io::Error),
+    GitConfigSaveError(#[source] core::io::Error),
     #[error("Unexpected Git error when managing remotes")]
-    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    InternalGitError(#[source] Box<dyn core::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitRemoteManagementError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+    fn from_git(source: impl Into<Box<dyn core::error::Error + Send + Sync>>) -> Self {
         GitRemoteManagementError::InternalGitError(source.into())
     }
 }
@@ -1647,7 +1647,7 @@ fn remove_ref(reference: gix::Reference) -> gix::refs::transaction::RefEdit {
 /// Note that the resulting configuration changes are *not* persisted to the
 /// originating [`gix::Repository`]! The repository must be reloaded with the
 /// new configuration if necessary.
-fn save_git_config(config: &gix::config::File) -> std::io::Result<()> {
+fn save_git_config(config: &gix::config::File) -> core::io::Result<()> {
     let mut config_file = File::create(
         config
             .meta()
@@ -1853,7 +1853,7 @@ pub fn remove_remote(
 fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
     remote: &RemoteName,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> Result<(), Box<dyn core::error::Error + Send + Sync + 'static>> {
     let edits: Vec<_> = git_repo
         .references()?
         .prefixed(format!("refs/remotes/{remote}/", remote = remote.as_str()))?
@@ -1941,7 +1941,7 @@ fn rename_remote_git_refs(
     git_repo: &mut gix::Repository,
     old_remote_name: &RemoteName,
     new_remote_name: &RemoteName,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> Result<(), Box<dyn core::error::Error + Send + Sync + 'static>> {
     let old_prefix = format!("refs/remotes/{}/", old_remote_name.as_str());
     let new_prefix = format!("refs/remotes/{}/", new_remote_name.as_str());
     let ref_log_message = BString::from(format!(

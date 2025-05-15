@@ -15,18 +15,21 @@
 //! Generic algorithms for working with merged values, plus specializations for
 //! some common types of merged values.
 
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::fmt::Write as _;
-use std::future::Future;
-use std::hash::Hash;
-use std::iter::zip;
-use std::slice;
-use std::sync::Arc;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::fmt::Write as _;
+use core::future::Future;
+use core::hash::Hash;
+use core::iter::zip;
+use core::slice;
 
 use futures::future::try_join_all;
+use hashbrown::HashMap;
 use itertools::Itertools as _;
 use smallvec::smallvec_inline;
 use smallvec::SmallVec;
@@ -114,7 +117,7 @@ pub struct Merge<T> {
 }
 
 impl<T: Debug> Debug for Merge<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
         // Format like an enum with two variants to make it less verbose in the common
         // case of a resolved state.
         if let Some(value) = self.as_resolved() {
@@ -766,7 +769,7 @@ mod tests {
     fn test_legacy_form_conversion() {
         fn test_equivalent<T>(legacy_form: (Vec<T>, Vec<T>), merge: Merge<Option<T>>)
         where
-            T: Clone + PartialEq + std::fmt::Debug,
+            T: Clone + PartialEq + core::fmt::Debug,
         {
             assert_eq!(merge.clone().into_legacy_form(), legacy_form);
             assert_eq!(Merge::from_legacy_form(legacy_form.0, legacy_form.1), merge);

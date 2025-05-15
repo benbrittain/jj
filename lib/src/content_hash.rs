@@ -1,6 +1,9 @@
 //! Portable, stable hashing suitable for identifying values
 
-use blake2::Blake2b512;
+use alloc::string::String;
+use alloc::vec::Vec;
+
+// use blake2::Blake2b512;
 // Re-export DigestUpdate so that the ContentHash proc macro can be used in
 // external crates without directly depending on the digest crate.
 pub use digest::Update as DigestUpdate;
@@ -21,13 +24,14 @@ pub trait ContentHash {
     fn hash(&self, state: &mut impl DigestUpdate);
 }
 
-/// The 512-bit BLAKE2b content hash
-pub fn blake2b_hash(x: &(impl ContentHash + ?Sized)) -> digest::Output<Blake2b512> {
-    use digest::Digest as _;
-    let mut hasher = Blake2b512::default();
-    x.hash(&mut hasher);
-    hasher.finalize()
-}
+// TODO config out
+// /// The 512-bit BLAKE2b content hash
+// pub fn blake2b_hash(x: &(impl ContentHash + ?Sized)) ->
+// digest::Output<Blake2b512> {     use digest::Digest as _;
+//     let mut hasher = Blake2b512::default();
+//     x.hash(&mut hasher);
+//     hasher.finalize()
+// }
 
 impl ContentHash for () {
     fn hash(&self, _: &mut impl DigestUpdate) {}
@@ -109,7 +113,7 @@ impl<T: ContentHash> ContentHash for Option<T> {
     }
 }
 
-impl<K, V> ContentHash for std::collections::HashMap<K, V>
+impl<K, V> ContentHash for hashbrown::HashMap<K, V>
 where
     K: ContentHash + Ord,
     V: ContentHash,
@@ -124,8 +128,7 @@ where
         }
     }
 }
-
-impl<K> ContentHash for std::collections::HashSet<K>
+impl<K> ContentHash for hashbrown::HashSet<K>
 where
     K: ContentHash + Ord,
 {
@@ -137,7 +140,7 @@ where
     }
 }
 
-impl<K, V> ContentHash for std::collections::BTreeMap<K, V>
+impl<K, V> ContentHash for alloc::collections::BTreeMap<K, V>
 where
     K: ContentHash,
     V: ContentHash,
@@ -153,8 +156,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-    use std::collections::HashMap;
+    use core::collections::BTreeMap;
+    use core::collections::HashMap;
 
     use super::*;
 
@@ -246,7 +249,7 @@ mod tests {
     }
 
     // Test that the derived version of `ContentHash` matches the that's
-    // manually implemented for `std::Option`.
+    // manually implemented for `core::Option`.
     #[test]
     fn derive_for_enum() {
         #[derive(ContentHash)]

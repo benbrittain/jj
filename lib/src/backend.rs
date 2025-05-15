@@ -13,15 +13,21 @@
 // limitations under the License.
 
 #![allow(missing_docs)]
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::fmt;
+// use alloc::io::Read;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+use core::any::Any;
+use core::fmt::Debug;
 
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::io::Read;
-use std::time::SystemTime;
-
+// use core::time::SystemTime;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use no_std_io::io::Read;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
@@ -70,9 +76,9 @@ pub struct Timestamp {
 }
 
 impl Timestamp {
-    pub fn now() -> Self {
-        Self::from_datetime(chrono::offset::Local::now())
-    }
+    // pub fn now() -> Self {
+    // Self::from_datetime(chrono::offset::Local::now())
+    // }
 
     pub fn from_datetime<Tz: chrono::TimeZone<Offset = chrono::offset::FixedOffset>>(
         datetime: chrono::DateTime<Tz>,
@@ -196,12 +202,12 @@ pub struct CopyRecord {
 /// Error that may occur during backend initialization.
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct BackendInitError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct BackendInitError(pub Box<dyn core::error::Error + Send + Sync>);
 
 /// Error that may occur during backend loading.
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct BackendLoadError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct BackendLoadError(pub Box<dyn core::error::Error + Send + Sync>);
 
 /// Commit-backend error that may occur after the backend is loaded.
 #[derive(Debug, Error)]
@@ -220,25 +226,25 @@ pub enum BackendError {
     InvalidUtf8 {
         object_type: String,
         hash: String,
-        source: std::str::Utf8Error,
+        source: core::str::Utf8Error,
     },
     #[error("Object {hash} of type {object_type} not found")]
     ObjectNotFound {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Error when reading object {hash} of type {object_type}")]
     ReadObject {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Access denied to read object {hash} of type {object_type}")]
     ReadAccessDenied {
         object_type: String,
         hash: String,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error(
         "Error when reading file content for file {path} with id {id}",
@@ -247,15 +253,15 @@ pub enum BackendError {
     ReadFile {
         path: RepoPathBuf,
         id: FileId,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error("Could not write object of type {object_type}")]
     WriteObject {
         object_type: &'static str,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(Box<dyn core::error::Error + Send + Sync>),
     /// A valid operation attempted, but failed because it isn't supported by
     /// the particular backend.
     #[error("{0}")]
@@ -306,7 +312,7 @@ impl<'a> TreeEntry<'a> {
 }
 
 pub struct TreeEntriesNonRecursiveIterator<'a> {
-    iter: std::collections::btree_map::Iter<'a, RepoPathComponentBuf, TreeValue>,
+    iter: alloc::collections::btree_map::Iter<'a, RepoPathComponentBuf, TreeValue>,
 }
 
 impl<'a> Iterator for TreeEntriesNonRecursiveIterator<'a> {
@@ -483,10 +489,10 @@ pub trait Backend: Send + Sync + Debug {
         head: &CommitId,
     ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>>;
 
-    /// Perform garbage collection.
-    ///
-    /// All commits found in the `index` won't be removed. In addition to that,
-    /// objects created after `keep_newer` will be preserved. This mitigates a
-    /// risk of deleting new commits created concurrently by another process.
-    fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()>;
+    // /// Perform garbage collection.
+    // ///
+    // /// All commits found in the `index` won't be removed. In addition to that,
+    // /// objects created after `keep_newer` will be preserved. This mitigates a
+    // /// risk of deleting new commits created concurrently by another process.
+    // fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()>;
 }

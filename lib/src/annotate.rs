@@ -18,11 +18,11 @@
 //! TODO: Add support for different blame layers with a trait in the future.
 //! Like commit metadata and more.
 
-use std::collections::hash_map;
-use std::collections::HashMap;
-use std::iter;
-use std::ops::Range;
-use std::rc::Rc;
+use core::collections::hash_map;
+use core::collections::HashMap;
+use core::iter;
+use core::ops::Range;
+use core::rc::Rc;
 
 use bstr::BStr;
 use bstr::BString;

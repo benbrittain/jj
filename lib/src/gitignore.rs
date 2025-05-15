@@ -14,12 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::fs;
-use std::io;
-use std::iter;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
+use core::fs;
+use core::io;
+use core::iter;
+use core::path::Path;
+use core::path::PathBuf;
+use core::sync::Arc;
 
 use ignore::gitignore;
 use thiserror::Error;
@@ -33,7 +33,7 @@ pub enum GitIgnoreError {
         path: PathBuf,
         line_num_for_display: usize,
         line: String,
-        source: std::str::Utf8Error,
+        source: core::str::Utf8Error,
     },
     #[error("Failed to parse ignore patterns from file {path}")]
     Underlying {
@@ -70,7 +70,7 @@ impl GitIgnoreFile {
         let mut builder = gitignore::GitignoreBuilder::new(prefix);
         for (i, input_line) in input.split(|b| *b == b'\n').enumerate() {
             let line =
-                std::str::from_utf8(input_line).map_err(|err| GitIgnoreError::InvalidUtf8 {
+                core::str::from_utf8(input_line).map_err(|err| GitIgnoreError::InvalidUtf8 {
                     path: ignore_path.to_path_buf(),
                     line_num_for_display: i + 1,
                     line: String::from_utf8_lossy(input_line).to_string(),

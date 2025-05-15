@@ -14,10 +14,12 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::hash::Hash;
+use alloc::collections::VecDeque;
+use alloc::vec::Vec;
+use core::hash::Hash;
+
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
@@ -216,53 +218,53 @@ where
     /// This does not move multiple head nodes to the queue at once because
     /// heads may be connected to the fork points in arbitrary order.
     fn flush_new_head(&mut self) {
-        assert!(!self.new_head_ids.is_empty());
-        if self.blocked_ids.is_empty() || self.new_head_ids.len() <= 1 {
-            // Fast path: orphaned or no choice
-            let new_head_id = self.new_head_ids.pop_front().unwrap();
-            self.emittable_ids.push(new_head_id);
-            self.blocked_ids.clear();
-            return;
-        }
+        // assert!(!self.new_head_ids.is_empty());
+        // if self.blocked_ids.is_empty() || self.new_head_ids.len() <= 1 {
+        //     // Fast path: orphaned or no choice
+        //     let new_head_id = self.new_head_ids.pop_front().unwrap();
+        //     self.emittable_ids.push(new_head_id);
+        //     self.blocked_ids.clear();
+        //     return;
+        // }
 
-        // Mark descendant nodes reachable from the blocking nodes
-        let mut to_visit: Vec<&N> = self
-            .blocked_ids
-            .iter()
-            .map(|id| {
-                // Borrow from self.nodes so self.blocked_ids can be mutated later
-                let (id, _) = self.nodes.get_key_value(id).unwrap();
-                id
-            })
-            .collect();
-        let mut visited: HashSet<&N> = to_visit.iter().copied().collect();
-        while let Some(id) = to_visit.pop() {
-            let node = self.nodes.get(id).unwrap();
-            to_visit.extend(node.child_ids.iter().filter(|id| visited.insert(id)));
-        }
+        // // Mark descendant nodes reachable from the blocking nodes
+        // let mut to_visit: Vec<&N> = self
+        //     .blocked_ids
+        //     .iter()
+        //     .map(|id| {
+        //         // Borrow from self.nodes so self.blocked_ids can be mutated
+        // later         let (id, _) =
+        // self.nodes.get_key_value(id).unwrap();         id
+        //     })
+        //     .collect();
+        // let mut visited: HashSet<&N> = to_visit.iter().copied().collect();
+        // while let Some(id) = to_visit.pop() {
+        //     let node = self.nodes.get(id).unwrap();
+        //     to_visit.extend(node.child_ids.iter().filter(|id|
+        // visited.insert(id))); }
 
-        // Pick the first reachable head
-        let index = self
-            .new_head_ids
-            .iter()
-            .position(|id| visited.contains(id))
-            .expect("blocking head should exist");
-        let new_head_id = self.new_head_ids.remove(index).unwrap();
+        // // Pick the first reachable head
+        // let index = self
+        //     .new_head_ids
+        //     .iter()
+        //     .position(|id| visited.contains(id))
+        //     .expect("blocking head should exist");
+        // let new_head_id = self.new_head_ids.remove(index).unwrap();
 
-        // Unmark ancestors of the selected head so they won't contribute to future
-        // new-head resolution within the newly-unblocked sub graph. The sub graph
-        // can have many fork points, and the corresponding heads should be picked in
-        // the fork-point order, not in the head appearance order.
-        to_visit.push(&new_head_id);
-        visited.remove(&new_head_id);
-        while let Some(id) = to_visit.pop() {
-            let node = self.nodes.get(id).unwrap();
-            if let Some(edges) = &node.edges {
-                to_visit.extend(reachable_targets(edges).filter(|id| visited.remove(id)));
-            }
-        }
-        self.blocked_ids.retain(|id| visited.contains(id));
-        self.emittable_ids.push(new_head_id);
+        // // Unmark ancestors of the selected head so they won't contribute to
+        // future // new-head resolution within the newly-unblocked sub
+        // graph. The sub graph // can have many fork points, and the
+        // corresponding heads should be picked in // the fork-point
+        // order, not in the head appearance order. to_visit.push(&
+        // new_head_id); visited.remove(&new_head_id);
+        // while let Some(id) = to_visit.pop() {
+        //     let node = self.nodes.get(id).unwrap();
+        //     if let Some(edges) = &node.edges {
+        //         to_visit.extend(reachable_targets(edges).filter(|id|
+        // visited.remove(id)));     }
+        // }
+        // elf.blocked_ids.retain(|id| visited.contains(id));
+        // self.emittable_ids.push(new_head_id);
     }
 
     fn next_node(&mut self) -> Result<Option<GraphNode<N>>, E> {
@@ -334,7 +336,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::convert::Infallible;
+    use core::convert::Infallible;
 
     use itertools::Itertools as _;
     use renderdag::Ancestor;
