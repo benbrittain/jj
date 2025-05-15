@@ -16,7 +16,7 @@
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
-use core::hash::BuildHasher;
+use core::hash::BuildHasher as _;
 use core::hash::Hash;
 use core::hash::Hasher;
 use core::iter;

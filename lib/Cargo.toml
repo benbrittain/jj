@@ -67,6 +67,7 @@ same-file = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 smallvec = { workspace = true }
+spin = { workspace = true }
 strsim = { workspace = true, optional = true }
 tempfile = { workspace = true, optional = true }
 thiserror = { workspace = true }

@@ -22,7 +22,6 @@ use alloc::sync::Arc;
 use core::str::FromStr;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
-use std::sync::Mutex;
 
 use chrono::DateTime;
 use rand::prelude::*;
@@ -318,10 +317,10 @@ impl UserSettings {
 /// immutable reference. It also fixes a specific seedable RNG for
 /// reproducibility.
 #[derive(Debug)]
-pub struct JJRng(Mutex<ChaCha20Rng>);
+pub struct JJRng(spin::Mutex<ChaCha20Rng>);
 impl JJRng {
     pub fn new_change_id(&self, length: usize) -> ChangeId {
-        let mut rng = self.0.lock().unwrap();
+        let mut rng = self.0.lock();
         let random_bytes = (0..length).map(|_| rng.random::<u8>()).collect();
         ChangeId::new(random_bytes)
     }
@@ -329,7 +328,7 @@ impl JJRng {
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
     /// RNGs references to point to the same RNG.
     fn new(seed: Option<u64>) -> Self {
-        Self(Mutex::new(JJRng::internal_rng_from_seed(seed)))
+        Self(spin::Mutex::new(JJRng::internal_rng_from_seed(seed)))
     }
 
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
