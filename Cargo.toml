@@ -61,7 +61,7 @@ ignore = "0.4.23"
 indexmap = { version = "2.9.0", features = ["serde"] }
 indoc = "2.0.6"
 insta = { version = "1.43.1", features = ["filters"] }
-interim = { version = "0.2.1", features = ["chrono_0_4"] }
+interim = { path = "../interim", features = ["chrono_0_4"], default-features = false }
 itertools = "0.14.0"
 libc = { version = "0.2.172" }
 maplit = "1.0.2"
