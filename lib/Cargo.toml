@@ -55,7 +55,7 @@ no_std_io = { workspace = true }
 once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
-pollster = { workspace = true, optional = true }
+pollster = { workspace = true }
 prost = { workspace = true, optional = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
@@ -110,7 +110,7 @@ std = [
     "dep:dunce",
     "dep:tempfile",
     "dep:ignore",
-    "dep:pollster",
+    "no_std_io/std",
     "chrono/clock",
     "hashbrown/rayon",
     "no_std_io/std",

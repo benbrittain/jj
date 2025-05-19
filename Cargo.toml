@@ -79,7 +79,7 @@ once_cell = { version = "1.21.3", default-features = false, features = ["alloc",
 os_pipe = "1.2.2"
 pest = { version = "2.8.0", default-features = false }
 pest_derive = { version = "2.8.0", default-features = false }
-pollster = "0.4.0"
+pollster = { path = "../pollster" }
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.95"
 prost = "0.13.5"
