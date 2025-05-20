@@ -80,8 +80,8 @@ proc-macro2 = "1.0.95"
 prost = "0.13.5"
 prost-build = "0.13.5"
 quote = "1.0.40"
-rand = "0.9.1"
-rand_chacha = "0.9.0"
+rand = { version = "0.9.1", default-features = false }
+rand_chacha = { version = "0.9.0", default-features = false }
 rayon = "1.10.0"
 ref-cast = "1.0.24"
 regex = { version = "1.11.1", default-features = false, features = [
