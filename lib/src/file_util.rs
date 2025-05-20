@@ -28,11 +28,11 @@ use std::task::Poll;
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
 use thiserror::Error;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
 use tokio::io::ReadBuf;
 
 pub use self::platform::*;
+use crate::async_trait::AsyncRead;
+use crate::async_trait::AsyncReadExt as _;
 
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]

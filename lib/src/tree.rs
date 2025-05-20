@@ -23,9 +23,9 @@ use core::hash::Hash;
 use core::hash::Hasher;
 
 use itertools::Itertools as _;
-use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
+use crate::async_trait::AsyncReadExt as _;
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;

@@ -27,8 +27,8 @@ use futures::Stream;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
+use crate::async_trait::AsyncRead;
+use crate::async_trait::AsyncReadExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;

@@ -114,7 +114,7 @@ testutils = { workspace = true }
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 
 [features]
-default = ["watchman", "git"]
+default = ["watchman", "git", "jj-lib/std"]
 bench = ["dep:criterion"]
 git = ["jj-lib/git", "dep:gix"]
 test-fakes = ["jj-lib/testing"]

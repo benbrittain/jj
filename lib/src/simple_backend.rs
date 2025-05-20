@@ -34,9 +34,9 @@ use futures::stream::BoxStream;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
-use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
+use crate::async_trait::AsyncRead;
 use crate::backend::make_root_commit;
 use crate::backend::Backend;
 use crate::backend::BackendError;

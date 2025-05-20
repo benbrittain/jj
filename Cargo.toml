@@ -109,7 +109,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = { version = "2.0.12", default-features = false }
 timeago = { version = "0.4.2", default-features = false }
-tokio = { version = "1.45.1", features = ["io-util"] }
+tokio = { version = "1.45.1", features = [] }
 toml_edit = {path = "../toml/crates/toml_edit", default-features = false, features = ["serde", "parse", "display"] }
 tracing = {version = "0.1.41", default-features = false, features = ["attributes"] }
 tracing-chrome = "0.7.2"

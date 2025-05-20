@@ -72,7 +72,7 @@ spin = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true, optional = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
@@ -102,6 +102,8 @@ git = ["dep:gix", "std"]
 watchman = ["dep:watchman_client"]
 testing = ["git"]
 std = [
+    "dep:tokio",
+    "tokio/io-util",
     "dep:serde_json",
     "dep:prost",
     "dep:same-file",

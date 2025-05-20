@@ -27,7 +27,7 @@ use core::pin::Pin;
 use clru::CLruCache;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
-use tokio::io::AsyncRead;
+use crate::async_trait::AsyncRead;
 
 use crate::backend;
 use crate::backend::Backend;

@@ -15,7 +15,6 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use hashbrown::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;
@@ -40,14 +39,15 @@ use gix::bstr::BString;
 use gix::objs::CommitRef;
 use gix::objs::CommitRefIter;
 use gix::objs::WriteTo as _;
+use hashbrown::HashSet;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
-use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
+use crate::async_trait::AsyncRead;
 use crate::backend::make_root_commit;
 use crate::backend::Backend;
 use crate::backend::BackendError;

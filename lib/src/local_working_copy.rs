@@ -53,7 +53,7 @@ use rayon::prelude::IndexedParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use tokio::io::AsyncRead;
+use crate::async_trait::AsyncRead;
 use tracing::instrument;
 use tracing::trace_span;
 

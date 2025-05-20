@@ -26,7 +26,7 @@ use core::pin::Pin;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use thiserror::Error;
-use tokio::io::AsyncRead;
+use crate::async_trait::AsyncRead;
 
 use crate::content_hash::ContentHash;
 use crate::hex_util;

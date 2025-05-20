@@ -16,7 +16,7 @@
 
 #![warn(missing_docs)]
 #![deny(unused_must_use)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[macro_use]
@@ -36,6 +36,7 @@ pub mod content_hash;
 pub mod absorb;
 #[cfg(feature = "std")]
 pub mod annotate;
+pub mod async_trait;
 pub mod backend;
 pub mod commit;
 pub mod commit_builder;
