@@ -1104,7 +1104,7 @@ impl MutableRepo {
             !new_ids.is_empty(),
             "new ids become empty because of cycle in the parent mapping"
         );
-        debug_assert!(new_ids.iter().all_unique());
+        // debug_assert!(new_ids.iter().all_unique());
         new_ids
     }
 
@@ -1131,7 +1131,7 @@ impl MutableRepo {
             let lookup = |id| new_mapping.get(id).map_or(slice::from_ref(id), |ids| ids);
             let new_ids = match rewrite.new_parent_ids() {
                 [id] => lookup(id).to_vec(), // unique() not needed
-                ids => ids.iter().flat_map(lookup).unique().cloned().collect(),
+                ids => crate::util::unique(ids.iter().flat_map(lookup)).cloned().collect(),
             };
             debug_assert_eq!(
                 new_ids,

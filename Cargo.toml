@@ -35,12 +35,7 @@ clap_complete_nushell = "4.5.5"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { version = "0.4.41", default-features = false, features = [
-    "alloc",
-    "oldtime",
-    # "wasmbind",
-    # "clock",
-] }
+chrono = { path = "../chrono", default-features = false, features = [ "alloc" ] }
 clru = "0.6.2"
 criterion = "0.5.1"
 crossterm = { version = "0.28", default-features = false, features = ["windows"] }
@@ -89,7 +84,9 @@ rand = "0.9.1"
 rand_chacha = "0.9.0"
 rayon = "1.10.0"
 ref-cast = "1.0.24"
-regex = { version = "1.11.1", default-features = false, features = ["unicode"] }
+regex = { version = "1.11.1", default-features = false, features = [
+    "unicode",
+] }
 rpassword = "7.4.0"
 rustix = { version = "1.0.7", features = ["fs"] }
 same-file = "1.0.6"
@@ -154,3 +151,7 @@ similar.opt-level = 3
 [profile.release]
 strip = "debuginfo"
 codegen-units = 1
+
+[patch.crates-io]
+chrono = { path = '../chrono' }
+strsim = { path = '../strsim-rs' }

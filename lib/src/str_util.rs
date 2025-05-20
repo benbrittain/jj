@@ -37,7 +37,7 @@ pub enum StringPatternParseError {
     #[error(transparent)]
     GlobPattern(glob::PatternError),
     /// Failed to parse regular expression.
-    #[error(transparent)]
+    #[error("regex {0}")]
     Regex(regex::Error),
 }
 

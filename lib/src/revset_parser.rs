@@ -739,7 +739,8 @@ impl AliasDeclarationParser for RevsetAliasParser {
                         r => panic!("unexpected formal parameter rule {r:?}"),
                     })
                     .collect_vec();
-                if params.iter().all_unique() {
+                let mut used = HashSet::new();
+                if params.iter().all(move |elt| used.insert(elt)) {
                     Ok(AliasDeclaration::Function(name, params))
                 } else {
                     Err(RevsetParseError::with_span(

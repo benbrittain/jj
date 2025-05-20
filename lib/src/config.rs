@@ -850,11 +850,12 @@ impl StackedConfig {
         let name = name.into_name_path();
         let name = name.borrow();
         let to_merge = get_tables_to_merge(&self.layers, name);
-        to_merge
-            .into_iter()
-            .rev()
-            .flat_map(|table| table.iter().map(|(k, _)| k))
-            .unique()
+        crate::util::unique(
+            to_merge
+                .into_iter()
+                .rev()
+                .flat_map(|table| table.iter().map(|(k, _)| k)),
+        )
     }
 }
 
