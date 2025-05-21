@@ -35,7 +35,7 @@ clap_complete_nushell = "4.5.5"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { path = "../chrono", default-features = false, features = [ "alloc" ] }
+chrono = { git = "https://github.com/benbrittain/chrono.git", branch = "push-lqmnxlrxwsxs", features = ["alloc", "core-error"], default-features = false }
 clru = "0.6.2"
 criterion = "0.5.1"
 crossterm = { version = "0.28", default-features = false, features = ["windows"] }
@@ -64,7 +64,7 @@ ignore = "0.4.23"
 indexmap = { version = "2.9.0", default-features = false, features = ["serde"] }
 indoc = "2.0.6"
 insta = { version = "1.43.1", features = ["filters"] }
-interim = { path = "../interim", features = ["chrono_0_4"], default-features = false }
+interim = { git = "https://github.com/benbrittain/interim.git", branch = "core-error", features = ["chrono_0_4"], default-features = false }
 itertools =  { default-features = false, version = "0.14.0", features = ["use_alloc"] }
 libc = { version = "0.2.172" }
 memchr = { version = "*", default-features = false, features = ["alloc"]}
@@ -74,7 +74,7 @@ once_cell = { version = "1.21.3", default-features = false, features = ["alloc",
 os_pipe = "1.2.2"
 pest = { version = "2.8.0", default-features = false }
 pest_derive = { version = "2.8.0", default-features = false }
-pollster = { path = "../pollster" }
+pollster = { git = "https://github.com/benbrittain/pollster.git", branch = "no_std" }
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.95"
 prost = "0.13.5"
@@ -102,7 +102,7 @@ smallvec = { version = "1.14.0", default-features = false, features = [
     "union",
 ] }
 spin = "0.10.0"
-strsim = "0.11.1"
+strsim = { git = "https://github.com/benbrittain/strsim-rs.git", branch = "no_std" }
 syn = "2.0.101"
 tempfile = "3.20.0"
 test-case = "3.3.1"
@@ -110,7 +110,7 @@ textwrap = "0.16.2"
 thiserror = { version = "2.0.12", default-features = false }
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.45.1", features = [] }
-toml_edit = {path = "../toml/crates/toml_edit", default-features = false, features = ["serde", "parse", "display"] }
+toml_edit = { git = "https://github.com/benbrittain/toml", default-features = false, branch = "no_std", features = ["serde", "parse", "display"] }
 tracing = {version = "0.1.41", default-features = false, features = ["attributes"] }
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
@@ -153,5 +153,5 @@ strip = "debuginfo"
 codegen-units = 1
 
 [patch.crates-io]
-chrono = { path = '../chrono' }
-strsim = { path = '../strsim-rs' }
+chrono = { git = "https://github.com/benbrittain/chrono.git", branch = "push-lqmnxlrxwsxs" }
+interim = { git = "https://github.com/benbrittain/interim.git", branch = "core-error" }

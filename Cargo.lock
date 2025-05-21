@@ -107,12 +107,12 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "3.0.7"
+version = "3.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca3534e77181a9cc07539ad51f2141fe32f6c3ffd4df76db8ad92346b003ae4e"
+checksum = "6680de5231bd6ee4c6191b8a1325daa282b415391ec9d3a37bd34f2060dc73fa"
 dependencies = [
  "anstyle",
- "once_cell",
+ "once_cell_polyfill",
  "windows-sys 0.59.0",
 ]
 
@@ -361,6 +361,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 [[package]]
 name = "chrono"
 version = "0.4.41"
+source = "git+https://github.com/benbrittain/chrono.git?branch=push-lqmnxlrxwsxs#e08bcab00e4307564fae5bcbe660785cecec02b9"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -423,7 +424,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "strsim",
+ "strsim 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "terminal_size",
 ]
 
@@ -686,7 +687,7 @@ dependencies = [
  "ident_case",
  "proc-macro2",
  "quote",
- "strsim",
+ "strsim 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 2.0.101",
 ]
 
@@ -2278,6 +2279,7 @@ dependencies = [
 [[package]]
 name = "interim"
 version = "0.2.1"
+source = "git+https://github.com/benbrittain/interim.git?branch=core-error#b7fbc2d99d51320c0ce67b997c806ff0bf781cdf"
 dependencies = [
  "chrono",
  "logos",
@@ -2354,9 +2356,9 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "jiff"
-version = "0.2.13"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f02000660d30638906021176af16b17498bd0d12813dbfe7b276d8bc7f3c0806"
+checksum = "a194df1107f33c79f4f93d02c80798520551949d59dfad22b6157048a88cca93"
 dependencies = [
  "jiff-static",
  "jiff-tzdb-platform",
@@ -2369,9 +2371,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-static"
-version = "0.2.13"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c30758ddd7188629c6713fc45d1188af4f44c90582311d0c8d8c9907f60c48"
+checksum = "6c6e1db7ed32c6c71b759497fae34bf7933636f75a251b9e736555da426f6442"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2437,7 +2439,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slab",
- "strsim",
+ "strsim 0.11.1 (git+https://github.com/benbrittain/strsim-rs.git?branch=no_std)",
  "tempfile",
  "test-case",
  "testutils",
@@ -2445,7 +2447,7 @@ dependencies = [
  "thiserror 2.0.12",
  "timeago",
  "tokio",
- "toml_edit 0.22.26",
+ "toml_edit 0.22.26 (git+https://github.com/benbrittain/toml?branch=no_std)",
  "tracing",
  "tracing-chrome",
  "tracing-subscriber",
@@ -2501,13 +2503,13 @@ dependencies = [
  "serde_json",
  "smallvec",
  "spin",
- "strsim",
+ "strsim 0.11.1 (git+https://github.com/benbrittain/strsim-rs.git?branch=no_std)",
  "tempfile",
  "test-case",
  "testutils",
  "thiserror 2.0.12",
  "tokio",
- "toml_edit 0.22.26",
+ "toml_edit 0.22.26 (git+https://github.com/benbrittain/toml?branch=no_std)",
  "tracing",
  "version_check",
  "watchman_client",
@@ -2869,6 +2871,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "once_cell_polyfill"
+version = "1.70.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
+
+[[package]]
 name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3090,6 +3098,7 @@ dependencies = [
 [[package]]
 name = "pollster"
 version = "0.4.0"
+source = "git+https://github.com/benbrittain/pollster.git?branch=no_std#50c6b223696715d29e5b00900f0e7d0c966c6232"
 dependencies = [
  "parking_lot",
 ]
@@ -3499,9 +3508,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
+checksum = "8a0d197bd2c9dc6e53b84da9556a69ba4cdfab8619eb41a8bd1cc2027a0f6b1d"
 
 [[package]]
 name = "ryu"
@@ -3641,6 +3650,8 @@ dependencies = [
 [[package]]
 name = "serde_spanned"
 version = "0.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
 dependencies = [
  "serde",
 ]
@@ -3648,8 +3659,7 @@ dependencies = [
 [[package]]
 name = "serde_spanned"
 version = "0.6.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
+source = "git+https://github.com/benbrittain/toml?branch=no_std#7ff6875d335afc52178f447dadc196455df760b6"
 dependencies = [
  "serde",
 ]
@@ -3804,6 +3814,13 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "strsim"
 version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "strsim"
+version = "0.11.1"
+source = "git+https://github.com/benbrittain/strsim-rs.git?branch=no_std#6edc91238c97bbc9d0df2aedde2cab3e44948b71"
 dependencies = [
  "hashbrown 0.15.3",
 ]
@@ -4010,7 +4027,7 @@ dependencies = [
  "rand 0.9.1",
  "tempfile",
  "tokio",
- "toml_edit 0.22.26",
+ "toml_edit 0.22.26 (git+https://github.com/benbrittain/toml?branch=no_std)",
 ]
 
 [[package]]
@@ -4175,13 +4192,6 @@ dependencies = [
 [[package]]
 name = "toml_datetime"
 version = "0.6.9"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3da5db5a963e24bc68be8b17b6fa82814bb22ee8660f192bb182771d498f09a3"
 dependencies = [
@@ -4189,15 +4199,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_edit"
-version = "0.22.26"
+name = "toml_datetime"
+version = "0.6.9"
+source = "git+https://github.com/benbrittain/toml?branch=no_std#7ff6875d335afc52178f447dadc196455df760b6"
 dependencies = [
- "indexmap",
  "serde",
- "serde_spanned 0.6.8",
- "toml_datetime 0.6.9",
- "toml_write 0.1.1",
- "winnow",
 ]
 
 [[package]]
@@ -4215,14 +4221,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_write"
-version = "0.1.1"
+name = "toml_edit"
+version = "0.22.26"
+source = "git+https://github.com/benbrittain/toml?branch=no_std#7ff6875d335afc52178f447dadc196455df760b6"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_spanned 0.6.8 (git+https://github.com/benbrittain/toml?branch=no_std)",
+ "toml_datetime 0.6.9 (git+https://github.com/benbrittain/toml?branch=no_std)",
+ "toml_write 0.1.1 (git+https://github.com/benbrittain/toml?branch=no_std)",
+ "winnow",
+]
 
 [[package]]
 name = "toml_write"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfb942dfe1d8e29a7ee7fcbde5bd2b9a25fb89aa70caea2eba3bee836ff41076"
+
+[[package]]
+name = "toml_write"
+version = "0.1.1"
+source = "git+https://github.com/benbrittain/toml?branch=no_std#7ff6875d335afc52178f447dadc196455df760b6"
 
 [[package]]
 name = "tracing"
@@ -4602,7 +4622,7 @@ checksum = "5f2ab60e120fd6eaa68d9567f3226e876684639d22a4219b313ff69ec0ccd5ac"
 dependencies = [
  "log",
  "ordered-float",
- "strsim",
+ "strsim 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.69",
  "wezterm-dynamic-derive",
 ]

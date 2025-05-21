@@ -122,6 +122,7 @@ impl SignSettings {
     }
 }
 
+#[cfg(feature = "std")]
 fn to_timestamp(
     value: ConfigValue,
 ) -> Result<Timestamp, Box<dyn core::error::Error + Send + Sync>> {
@@ -140,11 +141,13 @@ fn to_timestamp(
 }
 
 impl UserSettings {
+    #[cfg(feature = "std")]
     pub fn from_config(config: StackedConfig) -> Result<Self, ConfigGetError> {
         let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
         Self::from_config_and_rng(config, Arc::new(JJRng::new(rng_seed)))
     }
 
+    #[cfg(feature = "std")]
     fn from_config_and_rng(config: StackedConfig, rng: Arc<JJRng>) -> Result<Self, ConfigGetError> {
         let user_name = config.get("user.name")?;
         let user_email = config.get("user.email")?;
@@ -179,6 +182,7 @@ impl UserSettings {
     ///
     /// This ensures that no duplicated change IDs are generated within the
     /// current process. New `debug.randomness-seed` value is ignored.
+    #[cfg(feature = "std")]
     pub fn with_new_config(&self, config: StackedConfig) -> Result<Self, ConfigGetError> {
         Self::from_config_and_rng(config, self.rng.clone())
     }
