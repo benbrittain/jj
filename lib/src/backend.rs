@@ -26,8 +26,8 @@ use core::pin::Pin;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use thiserror::Error;
-use crate::async_trait::AsyncRead;
 
+use crate::async_trait::AsyncRead;
 use crate::content_hash::ContentHash;
 use crate::hex_util;
 use crate::index::Index;
@@ -438,7 +438,7 @@ pub trait Backend: Send + Sync + Debug {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>>;
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>>;
 
     async fn write_file(
         &self,

@@ -85,7 +85,7 @@ pub mod git {
 pub mod git_backend;
 #[cfg(feature = "git")]
 mod git_subprocess;
-#[cfg(feature = "git")]
+#[cfg(feature = "std")]
 pub mod gitignore;
 #[cfg(feature = "std")]
 pub mod gpg_signing;

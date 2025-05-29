@@ -1,3 +1,5 @@
+//! no_std Async trait polyfill
+
 #[cfg(feature = "std")]
 pub use tokio::io::AsyncRead;
 #[cfg(feature = "std")]

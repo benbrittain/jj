@@ -14,9 +14,10 @@
 
 //! Utility for commit evolution history.
 
-use std::collections::VecDeque;
-use std::slice;
-use std::sync::Arc;
+use alloc::collections::VecDeque;
+use alloc::slice;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use itertools::Itertools as _;
 use thiserror::Error;

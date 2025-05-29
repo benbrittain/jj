@@ -151,7 +151,3 @@ similar.opt-level = 3
 [profile.release]
 strip = "debuginfo"
 codegen-units = 1
-
-[patch.crates-io]
-chrono = { git = "https://github.com/benbrittain/chrono.git", branch = "push-lqmnxlrxwsxs" }
-interim = { git = "https://github.com/benbrittain/interim.git", branch = "core-error" }

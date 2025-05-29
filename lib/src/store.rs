@@ -27,8 +27,8 @@ use core::pin::Pin;
 use clru::CLruCache;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
-use crate::async_trait::AsyncRead;
 
+use crate::async_trait::AsyncRead;
 use crate::backend;
 use crate::backend::Backend;
 use crate::backend::BackendResult;
@@ -258,7 +258,7 @@ impl Store {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         self.backend.read_file(path, id).await
     }
 

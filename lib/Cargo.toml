@@ -123,6 +123,7 @@ std = [
     "itertools/use_std",
     "regex/std",
     "rand/thread_rng",
+    "thiserror/default",
 ]
 
 [lints]

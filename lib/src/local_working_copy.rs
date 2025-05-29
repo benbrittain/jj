@@ -17,7 +17,6 @@
 
 use std::any::Any;
 use std::cmp::Ordering;
-use hashbrown::HashSet;
 use std::error::Error;
 use std::fs;
 use std::fs::DirEntry;
@@ -43,6 +42,7 @@ use std::time::UNIX_EPOCH;
 
 use either::Either;
 use futures::StreamExt as _;
+use hashbrown::HashSet;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use once_cell::unsync::OnceCell;
@@ -53,10 +53,10 @@ use rayon::prelude::IndexedParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use crate::async_trait::AsyncRead;
 use tracing::instrument;
 use tracing::trace_span;
 
+use crate::async_trait::AsyncRead;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::FileId;
@@ -2408,9 +2408,8 @@ impl LockedLocalWorkingCopy {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::hashset;
-
     use super::*;
+    use crate::util::hashset;
 
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()
