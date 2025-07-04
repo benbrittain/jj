@@ -24,6 +24,7 @@ use std::fmt;
 use std::iter;
 use std::ops::Range;
 use std::rc::Rc;
+use std::str;
 use std::sync::Arc;
 
 use bstr::BString;
@@ -1298,7 +1299,7 @@ fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::File(expr) => {
-            let matcher: Rc<dyn Matcher> = expr.to_matcher().into();
+            let matcher: Arc<dyn Matcher> = expr.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1307,7 +1308,7 @@ fn build_predicate_fn(
         }
         RevsetFilterPredicate::DiffContains { text, files } => {
             let text_pattern = text.clone();
-            let files_matcher: Rc<dyn Matcher> = files.to_matcher().into();
+            let files_matcher: Arc<dyn Matcher> = files.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
