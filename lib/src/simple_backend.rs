@@ -444,8 +444,10 @@ fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeVa
                 id.to_bytes(),
             ));
         }
-        TreeValue::GitSubmodule(_id) => {
-            panic!("cannot store git submodules");
+        TreeValue::GitSubmodule(id) => {
+            proto.value = Some(crate::protos::simple_store::tree_value::Value::SubmoduleId(
+                id.to_bytes(),
+            ));
         }
         TreeValue::Tree(id) => {
             proto.value = Some(crate::protos::simple_store::tree_value::Value::TreeId(
@@ -474,6 +476,9 @@ fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeV
         },
         crate::protos::simple_store::tree_value::Value::SymlinkId(id) => {
             TreeValue::Symlink(SymlinkId::new(id))
+        }
+        crate::protos::simple_store::tree_value::Value::SubmoduleId(id) => {
+            TreeValue::GitSubmodule(CommitId::new(id))
         }
     }
 }

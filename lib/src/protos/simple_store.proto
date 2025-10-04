@@ -27,6 +27,7 @@ message TreeValue {
     File file = 2;
     bytes symlink_id = 3;
     bytes tree_id = 4;
+    bytes submodule_id = 5;
   }
 }
 
