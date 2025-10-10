@@ -18,6 +18,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -32,29 +33,38 @@ use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
 
-/// Returned if an error occurs while reading an index from the [`IndexStore`].
+/// Returned by [`IndexStore`] in the event of an error.
 #[derive(Debug, Error)]
-#[error(transparent)]
-pub struct IndexReadError(pub Box<dyn std::error::Error + Send + Sync>);
+pub enum IndexStoreError {
+    /// Error reading a [`ReadonlyIndex`] from the [`IndexStore`].
+    #[error("Failed to read index")]
+    Read(#[source] Box<dyn std::error::Error + Send + Sync>),
+    /// Error writing a [`MutableIndex`] to the [`IndexStore`].
+    #[error("Failed to write index")]
+    Write(#[source] Box<dyn std::error::Error + Send + Sync>),
+}
 
-/// Returned if an error occurs while writing an index to the [`IndexStore`].
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct IndexWriteError(pub Box<dyn std::error::Error + Send + Sync>);
+/// Result of [`IndexStore`] operations.
+pub type IndexStoreResult<T> = Result<T, IndexStoreError>;
 
-/// Returned by [`Index`] backend in case of an error.
+/// Returned by [`Index`] backend in the event of an error.
 #[derive(Debug, Error)]
-#[error(transparent)]
-pub struct IndexError(pub Box<dyn std::error::Error + Send + Sync>);
+pub enum IndexError {
+    /// Error returned if [`Index::all_heads_for_gc()`] is not supported by the
+    /// [`Index`] backend.
+    #[error("Cannot collect all heads by index of this type")]
+    AllHeadsForGcUnsupported,
+    /// Some other index error.
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send + Sync>),
+}
 
-/// An error returned if `Index::all_heads_for_gc()` is not supported by the
-/// index backend.
-#[derive(Debug, Error)]
-#[error("Cannot collect all heads by index of this type")]
-pub struct AllHeadsForGcUnsupported;
+/// Result of [`Index`] operations.
+pub type IndexResult<T> = Result<T, IndexError>;
 
 /// Defines the interface for types that provide persistent storage for an
 /// index.
+#[async_trait(?Send)]
 pub trait IndexStore: Any + Send + Sync + Debug {
     /// Returns a name representing the type of index that the `IndexStore` is
     /// compatible with. For example, the `IndexStore` for the default index
@@ -62,19 +72,19 @@ pub trait IndexStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     /// Returns the index at the specified operation.
-    fn get_index_at_op(
+    async fn get_index_at_op(
         &self,
         op: &Operation,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexReadError>;
+    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>>;
 
     /// Writes `index` to the index store and returns a read-only version of the
     /// index.
-    fn write_index(
+    async fn write_index(
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexWriteError>;
+    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>>;
 }
 
 impl dyn IndexStore {
@@ -93,24 +103,27 @@ pub trait Index: Send + Sync {
     ///
     /// If the given `commit_id` doesn't exist, returns the minimum prefix
     /// length which matches none of the commits in the index.
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize;
+    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize>;
 
     /// Searches the index for commit IDs matching `prefix`. Returns a
     /// [`PrefixResolution`] with a [`CommitId`] if the prefix matches a single
     /// commit.
-    fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId>;
+    fn resolve_commit_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<CommitId>>;
 
     /// Returns true if `commit_id` is present in the index.
-    fn has_id(&self, commit_id: &CommitId) -> bool;
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool>;
 
     /// Returns true if `ancestor_id` commit is an ancestor of the
     /// `descendant_id` commit, or if `ancestor_id` equals `descendant_id`.
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool;
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool>;
 
     /// Returns the best common ancestor or ancestors of the commits in `set1`
     /// and `set2`. A "best common ancestor" has no descendants that are also
     /// common ancestors.
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId>;
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>>;
 
     /// Heads among all indexed commits at the associated operation.
     ///
@@ -119,24 +132,19 @@ pub trait Index: Send + Sync {
     /// that should be preserved on garbage collection.
     ///
     /// The iteration order is unspecified.
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported>;
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>>;
 
     /// Returns the subset of commit IDs in `candidates` which are not ancestors
     /// of other commits in `candidates`. If a commit id is duplicated in the
     /// `candidates` list it will appear at most once in the output.
-    fn heads(
-        &self,
-        candidates: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError>;
+    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>>;
 
     /// Returns iterator over paths changed at the specified commit. The paths
     /// are sorted. Returns `None` if the commit wasn't indexed.
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError>;
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>>;
 
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.
@@ -151,8 +159,10 @@ pub trait Index: Send + Sync {
 pub trait ReadonlyIndex: Any + Send + Sync {
     fn as_index(&self) -> &dyn Index;
 
-    fn change_id_index(&self, heads: &mut dyn Iterator<Item = &CommitId>)
-    -> Box<dyn ChangeIdIndex>;
+    fn change_id_index(
+        &self,
+        heads: &mut dyn Iterator<Item = &CommitId>,
+    ) -> IndexResult<Box<dyn ChangeIdIndex>>;
 
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }
@@ -171,11 +181,11 @@ pub trait MutableIndex: Any {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex + '_>;
+    ) -> IndexResult<Box<dyn ChangeIdIndex + '_>>;
 
-    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError>;
+    fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 
-    fn merge_in(&mut self, other: &dyn ReadonlyIndex);
+    fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()>;
 }
 
 impl dyn MutableIndex {
@@ -196,7 +206,7 @@ pub trait ChangeIdIndex: Send + Sync {
     /// Resolve an unambiguous change ID prefix to the commit IDs in the index.
     ///
     /// The order of the returned commit IDs is unspecified.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>>;
+    fn resolve_prefix(&self, prefix: &HexPrefix) -> IndexResult<PrefixResolution<Vec<CommitId>>>;
 
     /// This function returns the shortest length of a prefix of `key` that
     /// disambiguates it from every other key in the index.
@@ -212,5 +222,26 @@ pub trait ChangeIdIndex: Send + Sync {
     ///   order to disambiguate, you need every letter of the key *and* the
     ///   additional fact that it's the entire key). This case is extremely
     ///   unlikely for hashes with 12+ hexadecimal characters.
-    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> usize;
+    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize>;
+}
+
+/// Helper function to determine if any of the candidate ancestor IDs are an
+/// ancestor of descendant_id.
+pub fn any_is_ancestor<'a>(
+    index: &dyn Index,
+    ancestor_candidates: impl IntoIterator<Item = &'a CommitId>,
+    descendant_id: &CommitId,
+) -> IndexResult<bool> {
+    let found = ancestor_candidates
+        .into_iter()
+        .find_map(
+            |ancestor_id| match index.is_ancestor(ancestor_id, descendant_id) {
+                Ok(true) => Some(Ok(true)),
+                Ok(false) => None,
+                Err(e) => Some(Err(e)),
+            },
+        )
+        .transpose()?
+        .unwrap_or(false);
+    Ok(found)
 }

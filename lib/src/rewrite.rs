@@ -25,7 +25,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -35,8 +34,9 @@ use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
+use crate::index;
 use crate::index::Index;
-use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
@@ -98,8 +98,12 @@ pub fn find_recursive_merge_commits(
     } else {
         let mut result = Merge::resolved(commit_ids[0].clone());
         for (i, other_commit_id) in commit_ids.iter().enumerate().skip(1) {
-            let ancestor_ids = index.common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1]);
+            let ancestor_ids = index
+                .common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1])
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?;
             let ancestor_merge = find_recursive_merge_commits(store, index, ancestor_ids)?;
+
             result = Merge::from_vec(vec![
                 result,
                 ancestor_merge,
@@ -134,7 +138,7 @@ pub async fn restore_tree(
             let source_value = values?.before;
             tree_builder.set_or_remove(repo_path, source_value);
         }
-        tree_builder.write_tree(destination.store())
+        tree_builder.write_tree(destination.store()).await
     }
 }
 
@@ -145,7 +149,7 @@ pub async fn rebase_commit(
 ) -> BackendResult<Commit> {
     let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
     let builder = rewriter.rebase().await?;
-    builder.write()
+    builder.write().await
 }
 
 /// Helps rewrite a commit.
@@ -218,7 +222,7 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
-    pub fn simplify_ancestor_merge(&mut self) -> Result<(), IndexError> {
+    pub fn simplify_ancestor_merge(&mut self) -> IndexResult<()> {
         let head_set: HashSet<_> = self
             .mut_repo
             .index()
@@ -326,16 +330,15 @@ pub enum RebasedCommit {
     Abandoned { parent_id: CommitId },
 }
 
-pub fn rebase_commit_with_options(
+pub async fn rebase_commit_with_options(
     mut rewriter: CommitRewriter<'_>,
     options: &RebaseOptions,
 ) -> BackendResult<RebasedCommit> {
     // If specified, don't create commit where one parent is an ancestor of another.
     if options.simplify_ancestor_merge {
-        // TODO: BackendError is not the right error here because
-        // the error does not come from `Backend`, but `Index`.
         rewriter
             .simplify_ancestor_merge()
+            // TODO: indexing error shouldn't be a "BackendError"
             .map_err(|err| BackendError::Other(err.into()))?;
     }
 
@@ -344,11 +347,8 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter
-        .rebase_with_empty_behavior(options.empty)
-        .block_on()?
-    {
-        let new_commit = builder.write()?;
+    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty).await? {
+        let new_commit = builder.write().await?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
         assert_eq!(new_parents_len, 1);
@@ -359,7 +359,7 @@ pub fn rebase_commit_with_options(
 }
 
 /// Moves changes from `sources` to the `destination` parent, returns new tree.
-pub fn rebase_to_dest_parent(
+pub async fn rebase_to_dest_parent(
     repo: &dyn Repo,
     sources: &[Commit],
     destination: &Commit,
@@ -369,16 +369,17 @@ pub fn rebase_to_dest_parent(
     {
         return source.tree();
     }
-    sources.iter().try_fold(
-        destination.parent_tree(repo)?,
-        |destination_tree, source| {
-            let source_parent_tree = source.parent_tree(repo)?;
-            let source_tree = source.tree()?;
-            destination_tree
-                .merge(source_parent_tree, source_tree)
-                .block_on()
-        },
-    )
+
+    let mut destination_tree = destination.parent_tree(repo)?;
+    for source in sources {
+        let source_parent_tree = source.parent_tree(repo)?;
+        let source_tree = source.tree()?;
+        destination_tree = destination_tree
+            .merge(source_parent_tree, source_tree)
+            .await?;
+    }
+
+    Ok(destination_tree)
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
@@ -480,12 +481,12 @@ impl ComputedMoveCommits {
         self.to_abandon.extend(commit_ids);
     }
 
-    pub fn apply(
+    pub async fn apply(
         self,
         mut_repo: &mut MutableRepo,
         options: &RebaseOptions,
     ) -> BackendResult<MoveCommitsStats> {
-        apply_move_commits(mut_repo, self, options)
+        apply_move_commits(mut_repo, self, options).await
     }
 }
 
@@ -497,15 +498,18 @@ impl ComputedMoveCommits {
 /// heads of the commits in `targets`. This assumes that commits in `target` and
 /// `new_child_ids` can be rewritten, and there will be no cycles in the
 /// resulting graph. Commits in `target` should be in reverse topological order.
-pub fn move_commits(
+pub async fn move_commits(
     mut_repo: &mut MutableRepo,
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
-    compute_move_commits(mut_repo, loc)?.apply(mut_repo, options)
+    compute_move_commits(mut_repo, loc)
+        .await?
+        .apply(mut_repo, options)
+        .await
 }
 
-pub fn compute_move_commits(
+pub async fn compute_move_commits(
     repo: &MutableRepo,
     loc: &MoveCommitsLocation,
 ) -> BackendResult<ComputedMoveCommits> {
@@ -554,10 +558,12 @@ pub fn compute_move_commits(
                 .try_collect()
                 .map_err(|err| err.into_backend_error())?;
 
-            connected_target_commits = target_commit_ids
-                .iter()
-                .map(|id| repo.store().get_commit(id))
-                .try_collect()?;
+            connected_target_commits = try_join_all(
+                target_commit_ids
+                    .iter()
+                    .map(|id| repo.store().get_commit_async(id)),
+            )
+            .await?;
             // We don't have to compute the internal parents for the connected target set,
             // since the connected target set is the same as the target set.
             connected_target_commits_internal_parents = HashMap::new();
@@ -570,7 +576,7 @@ pub fn compute_move_commits(
     // ancestors which are not in the target set as parents.
     let mut target_commits_external_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for id in target_commit_ids.iter().rev() {
-        let commit = repo.store().get_commit(id)?;
+        let commit = repo.store().get_commit_async(id).await?;
         let mut new_parents = IndexSet::new();
         for old_parent in commit.parent_ids() {
             if let Some(parents) = target_commits_external_parents.get(old_parent) {
@@ -659,15 +665,17 @@ pub fn compute_move_commits(
             if let Some(children) = target_commit_external_descendants.get(id) {
                 new_children.extend(children.iter().cloned());
             } else {
-                new_children.push(repo.store().get_commit(id)?);
+                new_children.push(repo.store().get_commit_async(id).await?);
             }
         }
         new_children
     } else {
-        loc.new_child_ids
-            .iter()
-            .map(|id| repo.store().get_commit(id))
-            .try_collect()?
+        try_join_all(
+            loc.new_child_ids
+                .iter()
+                .map(|id| repo.store().get_commit_async(id)),
+        )
+        .await?
     };
 
     // Compute the parents of the new children, which will include the heads of the
@@ -725,65 +733,68 @@ pub fn compute_move_commits(
     let descendants = repo.find_descendants_for_rebase(roots.clone())?;
     let commit_new_parents_map = descendants
         .iter()
-        .map(|commit| {
+        .map(|commit| -> Result<_, BackendError> {
             let commit_id = commit.id();
             let new_parent_ids =
 
-            // New child of the rebased target commits.
-            if let Some(new_child_parents) = new_children_parents.get(commit_id) {
-                new_child_parents.clone()
-            }
-            // Commit is in the target set.
-            else if target_commit_ids.contains(commit_id) {
-                // If the commit is a root of the target set, it should be rebased onto the new destination.
-                if target_roots.contains(commit_id) {
-                    new_parent_ids.clone()
+                // New child of the rebased target commits.
+                if let Some(new_child_parents) = new_children_parents.get(commit_id) {
+                    new_child_parents.clone()
                 }
-                // Otherwise:
-                // 1. Keep parents which are within the target set.
-                // 2. Replace parents which are outside the target set but are part of the
-                //    connected target set with their ancestor commits which are in the target
-                //    set.
-                // 3. Keep other parents outside the target set if they are not descendants of the
-                //    new children of the target set.
-                else {
-                    let mut new_parents = vec![];
-                    for parent_id in commit.parent_ids() {
-                        if target_commit_ids.contains(parent_id) {
-                            new_parents.push(parent_id.clone());
-                        } else if let Some(parents) =
+                // Commit is in the target set.
+                else if target_commit_ids.contains(commit_id) {
+                    // If the commit is a root of the target set, it should be rebased onto the new destination.
+                    if target_roots.contains(commit_id) {
+                        new_parent_ids.clone()
+                    }
+                    // Otherwise:
+                    // 1. Keep parents which are within the target set.
+                    // 2. Replace parents which are outside the target set but are part of the
+                    //    connected target set with their ancestor commits which are in the target
+                    //    set.
+                    // 3. Keep other parents outside the target set if they are not descendants of the
+                    //    new children of the target set.
+                    else {
+                        let mut new_parents = vec![];
+                        for parent_id in commit.parent_ids() {
+                            if target_commit_ids.contains(parent_id) {
+                                new_parents.push(parent_id.clone());
+                            } else if let Some(parents) =
                                 connected_target_commits_internal_parents.get(parent_id) {
+                                new_parents.extend(parents.iter().cloned());
+                            } else if !any_is_ancestor(
+                                repo,
+                                new_children.iter().map(|child| child.id()),
+                                parent_id,
+                            )? {
+                                new_parents.push(parent_id.clone());
+                            }
+                        }
+                        new_parents
+                    }
+                }
+                // Commits outside the target set should have references to commits inside the set
+                // replaced.
+                else if commit
+                    .parent_ids()
+                    .iter()
+                    .any(|id| target_commits_external_parents.contains_key(id))
+                {
+                    let mut new_parents = vec![];
+                    for parent in commit.parent_ids() {
+                        if let Some(parents) = target_commits_external_parents.get(parent) {
                             new_parents.extend(parents.iter().cloned());
-                        } else if !new_children.iter().any(|new_child| {
-                                repo.index().is_ancestor(new_child.id(), parent_id) }) {
-                            new_parents.push(parent_id.clone());
+                        } else {
+                            new_parents.push(parent.clone());
                         }
                     }
-                   new_parents
-                }
-            }
-            // Commits outside the target set should have references to commits inside the set
-            // replaced.
-            else if commit
-                .parent_ids()
-                .iter()
-                .any(|id| target_commits_external_parents.contains_key(id))
-            {
-                let mut new_parents = vec![];
-                for parent in commit.parent_ids() {
-                    if let Some(parents) = target_commits_external_parents.get(parent) {
-                        new_parents.extend(parents.iter().cloned());
-                    } else {
-                        new_parents.push(parent.clone());
-                    }
-                }
-                new_parents
-            } else {
-                commit.parent_ids().iter().cloned().collect_vec()
-            };
-            (commit.id().clone(), new_parent_ids)
+                    new_parents
+                } else {
+                    commit.parent_ids().iter().cloned().collect_vec()
+                };
+            Ok((commit.id().clone(), new_parent_ids))
         })
-        .collect();
+        .collect::<Result<HashMap<_, _>, _>>()?;
 
     Ok(ComputedMoveCommits {
         target_commit_ids,
@@ -793,7 +804,7 @@ pub fn compute_move_commits(
     })
 }
 
-fn apply_move_commits(
+async fn apply_move_commits(
     mut_repo: &mut MutableRepo,
     commits: ComputedMoveCommits,
     options: &RebaseOptions,
@@ -811,39 +822,42 @@ fn apply_move_commits(
     };
 
     let mut rebased_commits: HashMap<CommitId, RebasedCommit> = HashMap::new();
-    mut_repo.transform_commits(
-        commits.descendants,
-        &commits.commit_new_parents_map,
-        &options.rewrite_refs,
-        async |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
-            if commits.to_abandon.contains(&old_commit_id) {
-                rewriter.abandon();
-            } else if rewriter.parents_changed() {
-                let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
-                let rebased_commit = rebase_commit_with_options(
-                    rewriter,
-                    if is_target_commit {
-                        options
+    mut_repo
+        .transform_commits(
+            commits.descendants,
+            &commits.commit_new_parents_map,
+            &options.rewrite_refs,
+            async |rewriter| {
+                let old_commit_id = rewriter.old_commit().id().clone();
+                if commits.to_abandon.contains(&old_commit_id) {
+                    rewriter.abandon();
+                } else if rewriter.parents_changed() {
+                    let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
+                    let rebased_commit = rebase_commit_with_options(
+                        rewriter,
+                        if is_target_commit {
+                            options
+                        } else {
+                            rebase_descendant_options
+                        },
+                    )
+                    .await?;
+                    if let RebasedCommit::Abandoned { .. } = rebased_commit {
+                        num_abandoned_empty += 1;
+                    } else if is_target_commit {
+                        num_rebased_targets += 1;
                     } else {
-                        rebase_descendant_options
-                    },
-                )?;
-                if let RebasedCommit::Abandoned { .. } = rebased_commit {
-                    num_abandoned_empty += 1;
-                } else if is_target_commit {
-                    num_rebased_targets += 1;
+                        num_rebased_descendants += 1;
+                    }
+                    rebased_commits.insert(old_commit_id, rebased_commit);
                 } else {
-                    num_rebased_descendants += 1;
+                    num_skipped_rebases += 1;
                 }
-                rebased_commits.insert(old_commit_id, rebased_commit);
-            } else {
-                num_skipped_rebases += 1;
-            }
 
-            Ok(())
-        },
-    )?;
+                Ok(())
+            },
+        )
+        .await?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,
@@ -965,7 +979,10 @@ pub async fn duplicate_commits(
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
         }
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
+        duplicated_old_to_new.insert(
+            original_commit_id.clone(),
+            new_commit_builder.write().await?,
+        );
     }
 
     // Replace the original commit IDs in `target_head_ids` with the duplicated
@@ -981,29 +998,31 @@ pub async fn duplicate_commits(
 
     // Rebase new children onto the target heads.
     let children_commit_ids_set: HashSet<CommitId> = children_commit_ids.iter().cloned().collect();
-    mut_repo.transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
-        if children_commit_ids_set.contains(rewriter.old_commit().id()) {
-            let mut child_new_parent_ids = IndexSet::new();
-            for old_parent_id in rewriter.old_commit().parent_ids() {
-                // If the original parents of the new children are the new parents of
-                // `target_head_ids`, replace them with `target_head_ids` since we are
-                // "inserting" the target commits in between the new parents and the new
-                // children.
-                if parent_commit_ids.contains(old_parent_id) {
-                    child_new_parent_ids.extend(target_head_ids.clone());
-                } else {
-                    child_new_parent_ids.insert(old_parent_id.clone());
+    mut_repo
+        .transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
+            if children_commit_ids_set.contains(rewriter.old_commit().id()) {
+                let mut child_new_parent_ids = IndexSet::new();
+                for old_parent_id in rewriter.old_commit().parent_ids() {
+                    // If the original parents of the new children are the new parents of
+                    // `target_head_ids`, replace them with `target_head_ids` since we are
+                    // "inserting" the target commits in between the new parents and the new
+                    // children.
+                    if parent_commit_ids.contains(old_parent_id) {
+                        child_new_parent_ids.extend(target_head_ids.clone());
+                    } else {
+                        child_new_parent_ids.insert(old_parent_id.clone());
+                    }
                 }
+                // If not already present, add `target_head_ids` as parents of the new child
+                // commit.
+                child_new_parent_ids.extend(target_head_ids.clone());
+                rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
-            // If not already present, add `target_head_ids` as parents of the new child
-            // commit.
-            child_new_parent_ids.extend(target_head_ids.clone());
-            rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
-        }
-        num_rebased += 1;
-        rewriter.rebase().await?.write()?;
-        Ok(())
-    })?;
+            num_rebased += 1;
+            rewriter.rebase().await?.write().await?;
+            Ok(())
+        })
+        .await?;
 
     Ok(DuplicateCommitsStats {
         duplicated_commits: duplicated_old_to_new,
@@ -1020,7 +1039,7 @@ pub async fn duplicate_commits(
 /// If `target_descriptions` is not empty, it will be consulted to retrieve the
 /// new descriptions of the target commits, falling back to the original if
 /// the map does not contain an entry for a given commit.
-pub fn duplicate_commits_onto_parents(
+pub async fn duplicate_commits_onto_parents(
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
     target_descriptions: &HashMap<CommitId, String>,
@@ -1034,7 +1053,10 @@ pub fn duplicate_commits_onto_parents(
     // Topological order ensures that any parents of the original commit are
     // either not in `target_commits` or were already duplicated.
     for original_commit_id in target_commits.iter().rev() {
-        let original_commit = mut_repo.store().get_commit(original_commit_id)?;
+        let original_commit = mut_repo
+            .store()
+            .get_commit_async(original_commit_id)
+            .await?;
         let new_parent_ids = original_commit
             .parent_ids()
             .iter()
@@ -1053,7 +1075,10 @@ pub fn duplicate_commits_onto_parents(
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
         }
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
+        duplicated_old_to_new.insert(
+            original_commit_id.clone(),
+            new_commit_builder.write().await?,
+        );
     }
 
     Ok(DuplicateCommitsStats {
@@ -1150,7 +1175,7 @@ pub struct SquashedCommit<'repo> {
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
-pub fn squash_commits<'repo>(
+pub async fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
     sources: &[CommitWithSelection],
     destination: &Commit,
@@ -1195,18 +1220,20 @@ pub fn squash_commits<'repo>(
                     source.commit.selected_tree.clone(),
                     source.commit.parent_tree.clone(),
                 )
-                .block_on()?;
+                .await?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree_id(new_source_tree.id().clone())
-                .write()?;
+                .write()
+                .await?;
         }
     }
 
     let mut rewritten_destination = destination.clone();
-    if sources.iter().any(|source| {
-        repo.index()
-            .is_ancestor(source.commit.id(), destination.id())
-    }) {
+    if any_is_ancestor(
+        repo,
+        sources.iter().map(|source| source.commit.id()),
+        destination.id(),
+    )? {
         // If we're moving changes to a descendant, first rebase descendants onto the
         // rewritten sources. Otherwise it will likely already have the content
         // changes we're moving, so applying them will have no effect and the
@@ -1220,7 +1247,8 @@ pub fn squash_commits<'repo>(
                 RebasedCommit::Rewritten(commit) => commit,
                 RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
             };
-        })?;
+        })
+        .await?;
     }
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree()?;
@@ -1230,7 +1258,7 @@ pub fn squash_commits<'repo>(
                 source.commit.parent_tree.clone(),
                 source.commit.selected_tree.clone(),
             )
-            .block_on()?;
+            .await?;
     }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(
@@ -1249,19 +1277,33 @@ pub fn squash_commits<'repo>(
     }))
 }
 
+fn any_is_ancestor<'a>(
+    repo: &dyn Repo,
+    ancestor_candidates: impl IntoIterator<Item = &'a CommitId>,
+    descendant_id: &CommitId,
+) -> BackendResult<bool> {
+    index::any_is_ancestor(repo.index(), ancestor_candidates, descendant_id)
+        // TODO: indexing error shouldn't be a "BackendError"
+        .map_err(|err| BackendError::Other(err.into()))
+}
+
 /// Find divergent commits from the target that are already present with
 /// identical contents in the destination. These commits should be able to be
 /// safely abandoned.
-pub fn find_duplicate_divergent_commits(
+pub async fn find_duplicate_divergent_commits(
     repo: &dyn Repo,
     new_parent_ids: &[CommitId],
     target: &MoveCommitsTarget,
 ) -> BackendResult<Vec<Commit>> {
     let target_commits: Vec<Commit> = match target {
-        MoveCommitsTarget::Commits(commit_ids) => commit_ids
-            .iter()
-            .map(|commit_id| repo.store().get_commit(commit_id))
-            .try_collect()?,
+        MoveCommitsTarget::Commits(commit_ids) => {
+            try_join_all(
+                commit_ids
+                    .iter()
+                    .map(|commit_id| repo.store().get_commit_async(commit_id)),
+            )
+            .await?
+        }
         MoveCommitsTarget::Roots(root_ids) => RevsetExpression::commits(root_ids.clone())
             .descendants()
             .evaluate(repo)
@@ -1277,13 +1319,17 @@ pub fn find_duplicate_divergent_commits(
     // commits with the same change ID which are not being rebased.
     let divergent_changes: Vec<(&Commit, Vec<CommitId>)> = target_commits
         .iter()
-        .map(|target_commit| {
+        .map(|target_commit| -> Result<_, BackendError> {
             let mut ancestor_candidates = repo
                 .resolve_change_id(target_commit.change_id())
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?
                 .unwrap_or_default();
             ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
-            (target_commit, ancestor_candidates)
+            Ok((target_commit, ancestor_candidates))
         })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
         .filter(|(_, candidates)| !candidates.is_empty())
         .collect();
     if divergent_changes.is_empty() {
@@ -1314,9 +1360,13 @@ pub fn find_duplicate_divergent_commits(
                 continue;
             }
 
-            let ancestor_candidate = repo.store().get_commit(&ancestor_candidate_id)?;
+            let ancestor_candidate = repo
+                .store()
+                .get_commit_async(&ancestor_candidate_id)
+                .await?;
             let new_tree =
-                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)?;
+                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)
+                    .await?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
             if new_tree.id() == *ancestor_candidate.tree_id() {

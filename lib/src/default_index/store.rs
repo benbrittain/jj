@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use std::slice;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use prost::Message as _;
@@ -51,9 +52,11 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_temp_file;
 use crate::index::Index as _;
-use crate::index::IndexReadError;
+use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::IndexStore;
-use crate::index::IndexWriteError;
+use crate::index::IndexStoreError;
+use crate::index::IndexStoreResult;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::object_id::ObjectId as _;
@@ -95,6 +98,8 @@ pub enum DefaultIndexStoreError {
         op_id: OperationId,
         source: BackendError,
     },
+    #[error("Failed to access the index")]
+    AccessIndex(#[source] IndexError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
 }
@@ -288,7 +293,7 @@ impl DefaultIndexStore {
         for op in &ops_to_visit {
             for commit_id in itertools::chain(
                 op.all_referenced_commit_ids(),
-                op.view()?.all_referenced_commit_ids(),
+                op.view().await?.all_referenced_commit_ids(),
             ) {
                 if !historical_heads.contains_key(commit_id) {
                     historical_heads.insert(commit_id.clone(), op.id().clone());
@@ -316,10 +321,11 @@ impl DefaultIndexStore {
         );
         // Build a list of ancestors of heads where parents come after the
         // commit itself.
-        let parent_index_has_id = |id: &CommitId| {
-            maybe_parent_index
-                .as_ref()
-                .is_some_and(|index| index.has_id(id))
+        let parent_index_has_id = |id: &CommitId| -> IndexResult<bool> {
+            match maybe_parent_index.as_ref() {
+                Some(parent_index) => parent_index.has_id(id),
+                None => Ok(false),
+            }
         };
         let get_commit_with_op = |commit_id: &CommitId, op_id: &OperationId| {
             let op_id = op_id.clone();
@@ -342,7 +348,10 @@ impl DefaultIndexStore {
             let mut ancestors = HashSet::new();
             let mut work = historical_heads.keys().cloned().collect_vec();
             while let Some(commit_id) = work.pop() {
-                if ancestors.contains(&commit_id) || parent_index_has_id(&commit_id) {
+                if ancestors.contains(&commit_id)
+                    || parent_index_has_id(&commit_id)
+                        .map_err(DefaultIndexStoreError::AccessIndex)?
+                {
                     continue;
                 }
                 if let Ok(commit) = store.get_commit(&commit_id) {
@@ -354,11 +363,23 @@ impl DefaultIndexStore {
         } else {
             HashSet::new()
         };
+        let get_commit_with_op_if_parent_missing =
+            |(commit_id, op_id): (&CommitId, &OperationId)| -> Option<Result<_, _>> {
+                parent_index_has_id(commit_id)
+                    .map_err(DefaultIndexStoreError::AccessIndex)
+                    .and_then(|parent_has_id| {
+                        if parent_has_id {
+                            Ok(None)
+                        } else {
+                            get_commit_with_op(commit_id, op_id).map(Some)
+                        }
+                    })
+                    .transpose()
+            };
         let commits = dag_walk::topo_order_reverse_ord_ok(
             historical_heads
                 .iter()
-                .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
-                .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
+                .filter_map(get_commit_with_op_if_parent_missing),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             |(CommitByCommitterTimestamp(commit), op_id)| {
                 let keep_predecessors =
@@ -370,8 +391,8 @@ impl DefaultIndexStore {
                         .into_iter()
                         .flatten(),
                 )
-                .filter(|&id| !parent_index_has_id(id))
-                .map(|commit_id| get_commit_with_op(commit_id, op_id))
+                .map(|commit_id| (commit_id, op_id))
+                .filter_map(get_commit_with_op_if_parent_missing)
                 .collect_vec()
             },
             |_| panic!("graph has cycle"),
@@ -499,6 +520,7 @@ impl DefaultIndexStore {
         let (commits, mut changed_paths) = index.into_segment();
         let commits = commits
             .maybe_squash_with_ancestors()
+            .map_err(DefaultIndexStoreError::AccessIndex)?
             .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
         changed_paths.maybe_squash_with_ancestors();
@@ -553,16 +575,17 @@ impl DefaultIndexStore {
     }
 }
 
+#[async_trait(?Send)]
 impl IndexStore for DefaultIndexStore {
     fn name(&self) -> &str {
         Self::name()
     }
 
-    fn get_index_at_op(
+    async fn get_index_at_op(
         &self,
         op: &Operation,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexReadError> {
+    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>> {
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -571,7 +594,7 @@ impl IndexStore for DefaultIndexStore {
             Err(DefaultIndexStoreError::LoadAssociation(PathError { source: error, .. }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
-                self.build_index_at_operation(op, store).block_on()
+                self.build_index_at_operation(op, store).await
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
                 // If the index was corrupt (maybe it was written in a different format),
@@ -591,26 +614,27 @@ impl IndexStore for DefaultIndexStore {
                         eprintln!("{err} (maybe the format has changed): {error}. Reindexing...");
                     }
                 }
-                self.reinit().map_err(|err| IndexReadError(err.into()))?;
+                self.reinit()
+                    .map_err(|err| IndexStoreError::Read(err.into()))?;
                 self.build_index_at_operation(op, store).block_on()
             }
             result => result,
         }
-        .map_err(|err| IndexReadError(err.into()))?;
+        .map_err(|err| IndexStoreError::Read(err.into()))?;
         Ok(Box::new(index))
     }
 
-    fn write_index(
+    async fn write_index(
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexWriteError> {
+    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>> {
         let index: Box<DefaultMutableIndex> = index
             .downcast()
             .expect("index to merge in must be a DefaultMutableIndex");
         let index = self
             .save_mutable_index(*index, op.id())
-            .map_err(|err| IndexWriteError(err.into()))?;
+            .map_err(|err| IndexStoreError::Write(err.into()))?;
         Ok(Box::new(index))
     }
 }

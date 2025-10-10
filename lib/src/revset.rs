@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -2468,7 +2469,7 @@ pub fn walk_revs<'index>(
         .evaluate(repo)
 }
 
-fn reload_repo_at_operation(
+async fn reload_repo_at_operation(
     repo: &dyn Repo,
     op_str: &str,
 ) -> Result<Arc<ReadonlyRepo>, RevsetResolutionError> {
@@ -2477,15 +2478,20 @@ fn reload_repo_at_operation(
     // to the outer repo.
     let base_repo = repo.base_repo();
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
+        .await
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
-    base_repo.reload_at(&operation).map_err(|err| match err {
-        RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
-        RepoLoaderError::IndexRead(_)
-        | RepoLoaderError::OpHeadResolution(_)
-        | RepoLoaderError::OpHeadsStoreError(_)
-        | RepoLoaderError::OpStore(_)
-        | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
-    })
+    base_repo
+        .reload_at(&operation)
+        .await
+        .map_err(|err| match err {
+            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::OpHeadResolution(_)
+            | RepoLoaderError::Index(_)
+            | RepoLoaderError::IndexStore(_)
+            | RepoLoaderError::OpHeadsStoreError(_)
+            | RepoLoaderError::OpStore(_)
+            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+        })
 }
 
 fn resolve_remote_bookmark(
@@ -2619,7 +2625,10 @@ impl CommitPrefixResolver<'_> {
             .transpose()
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
             .unwrap_or(IdPrefixIndex::empty());
-        match index.resolve_commit_prefix(repo, prefix) {
+        match index
+            .resolve_commit_prefix(repo, prefix)
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+        {
             PrefixResolution::AmbiguousMatch => {
                 Err(RevsetResolutionError::AmbiguousCommitIdPrefix(prefix.hex()))
             }
@@ -2660,7 +2669,10 @@ impl ChangePrefixResolver<'_> {
             .transpose()
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
             .unwrap_or(IdPrefixIndex::empty());
-        match index.resolve_change_prefix(repo, prefix) {
+        match index
+            .resolve_change_prefix(repo, prefix)
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+        {
             PrefixResolution::AmbiguousMatch => Err(
                 RevsetResolutionError::AmbiguousChangeIdPrefix(prefix.reverse_hex()),
             ),
@@ -2921,7 +2933,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         operation: &String,
         candidates: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        let repo = reload_repo_at_operation(self.repo(), operation)?;
+        let repo = reload_repo_at_operation(self.repo(), operation).block_on()?;
         self.repo_stack.push(repo);
         let candidates = self.fold_expression(candidates)?;
         let visible_heads = self.repo().view().heads().iter().cloned().collect();

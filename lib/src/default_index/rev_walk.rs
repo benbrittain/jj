@@ -781,12 +781,24 @@ mod tests {
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]);
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()])
+            .unwrap();
 
         let walk_commit_ids = |wanted: &[CommitId], unwanted: &[CommitId]| {
             let index = index.as_composite();
@@ -867,14 +879,30 @@ mod tests {
         let id_5 = CommitId::from_hex("555555");
         let id_6 = CommitId::from_hex("666666");
         let id_7 = CommitId::from_hex("777777");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]);
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone()]);
-        index.add_commit_data(id_6.clone(), new_change_id(), &[id_5.clone()]);
-        index.add_commit_data(id_7.clone(), new_change_id(), &[id_3.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_6.clone(), new_change_id(), &[id_5.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_7.clone(), new_change_id(), &[id_3.clone()])
+            .unwrap();
 
         let index = index.as_composite();
         let make_iter = |heads: &[CommitId], roots: &[CommitId]| {
@@ -927,15 +955,33 @@ mod tests {
         let id_6 = CommitId::from_hex("666666");
         let id_7 = CommitId::from_hex("777777");
         let id_8 = CommitId::from_hex("888888");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_2.clone()]);
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_3.clone()]);
-        index.add_commit_data(id_6.clone(), new_change_id(), &[id_5.clone()]);
-        index.add_commit_data(id_7.clone(), new_change_id(), &[id_4.clone()]);
-        index.add_commit_data(id_8.clone(), new_change_id(), &[id_7.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_3.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_6.clone(), new_change_id(), &[id_5.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_7.clone(), new_change_id(), &[id_4.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_8.clone(), new_change_id(), &[id_7.clone()])
+            .unwrap();
 
         let walk_commit_ids = |wanted: &[CommitId], unwanted: &[CommitId], range: Range<u32>| {
             let index = index.as_composite();
@@ -1002,18 +1048,26 @@ mod tests {
         let ids = (0..11)
             .map(|n| CommitId::try_from_hex(format!("{n:06x}")).unwrap())
             .collect_vec();
-        index.add_commit_data(ids[0].clone(), new_change_id(), &[]);
+        index
+            .add_commit_data(ids[0].clone(), new_change_id(), &[])
+            .unwrap();
         for i in 1..ids.len() {
-            index.add_commit_data(ids[i].clone(), new_change_id(), &[ids[i - 1].clone()]);
+            index
+                .add_commit_data(ids[i].clone(), new_change_id(), &[ids[i - 1].clone()])
+                .unwrap();
         }
         let id_branch5_0 = CommitId::from_hex("050000");
         let id_branch5_1 = CommitId::from_hex("050001");
-        index.add_commit_data(id_branch5_0.clone(), new_change_id(), &[ids[5].clone()]);
-        index.add_commit_data(
-            id_branch5_1.clone(),
-            new_change_id(),
-            &[id_branch5_0.clone()],
-        );
+        index
+            .add_commit_data(id_branch5_0.clone(), new_change_id(), &[ids[5].clone()])
+            .unwrap();
+        index
+            .add_commit_data(
+                id_branch5_1.clone(),
+                new_change_id(),
+                &[id_branch5_0.clone()],
+            )
+            .unwrap();
 
         let walk_commit_ids = |wanted: &[CommitId], range: Range<u32>| {
             let index = index.as_composite();
@@ -1074,15 +1128,33 @@ mod tests {
         let id_6 = CommitId::from_hex("666666");
         let id_7 = CommitId::from_hex("777777");
         let id_8 = CommitId::from_hex("888888");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_2.clone()]);
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_3.clone()]);
-        index.add_commit_data(id_6.clone(), new_change_id(), &[id_5.clone()]);
-        index.add_commit_data(id_7.clone(), new_change_id(), &[id_4.clone()]);
-        index.add_commit_data(id_8.clone(), new_change_id(), &[id_7.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_3.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_6.clone(), new_change_id(), &[id_5.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_7.clone(), new_change_id(), &[id_4.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_8.clone(), new_change_id(), &[id_7.clone()])
+            .unwrap();
 
         let visible_heads = [&id_6, &id_8].map(Clone::clone);
         let walk_commit_ids = |roots: &[CommitId], heads: &[CommitId], range: Range<u32>| {

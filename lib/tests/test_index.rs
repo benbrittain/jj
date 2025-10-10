@@ -70,7 +70,7 @@ fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 0)
         .block_on()
         .unwrap();
-    repo.reload_at(repo.operation()).unwrap()
+    repo.reload_at(repo.operation()).block_on().unwrap()
 }
 
 fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Vec<RepoPathBuf>> {
@@ -127,7 +127,7 @@ fn test_index_commits_standard_cases() {
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_e]);
     let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
     let commit_h = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let index = as_readonly_index(&repo);
     // There should be the root commit, plus 8 more
@@ -148,19 +148,19 @@ fn test_index_commits_standard_cases() {
     assert_eq!(index.generation_number(commit_g.id()).unwrap(), 6);
     assert_eq!(index.generation_number(commit_h.id()).unwrap(), 5);
 
-    assert!(index.is_ancestor(root_commit_id, commit_a.id()));
-    assert!(!index.is_ancestor(commit_a.id(), root_commit_id));
+    assert!(index.is_ancestor(root_commit_id, commit_a.id()).unwrap());
+    assert!(!index.is_ancestor(commit_a.id(), root_commit_id).unwrap());
 
-    assert!(index.is_ancestor(root_commit_id, commit_b.id()));
-    assert!(!index.is_ancestor(commit_b.id(), root_commit_id));
+    assert!(index.is_ancestor(root_commit_id, commit_b.id()).unwrap());
+    assert!(!index.is_ancestor(commit_b.id(), root_commit_id).unwrap());
 
-    assert!(!index.is_ancestor(commit_b.id(), commit_c.id()));
+    assert!(!index.is_ancestor(commit_b.id(), commit_c.id()).unwrap());
 
-    assert!(index.is_ancestor(commit_a.id(), commit_b.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_e.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_f.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_g.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_h.id()));
+    assert!(index.is_ancestor(commit_a.id(), commit_b.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_e.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_f.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_g.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_h.id()).unwrap());
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn test_index_commits_criss_cross() {
         left_commits.push(new_left);
         right_commits.push(new_right);
     }
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let index = as_readonly_index(&repo);
     // There should the root commit, plus 2 for each generation
@@ -225,14 +225,22 @@ fn test_index_commits_criss_cross() {
     // The left and right commits of the same generation should not be ancestors of
     // each other
     for generation in 0..num_generations {
-        assert!(!index.is_ancestor(
-            left_commits[generation].id(),
-            right_commits[generation].id()
-        ));
-        assert!(!index.is_ancestor(
-            right_commits[generation].id(),
-            left_commits[generation].id()
-        ));
+        assert!(
+            !index
+                .is_ancestor(
+                    left_commits[generation].id(),
+                    right_commits[generation].id()
+                )
+                .unwrap()
+        );
+        assert!(
+            !index
+                .is_ancestor(
+                    right_commits[generation].id(),
+                    left_commits[generation].id()
+                )
+                .unwrap()
+        );
     }
 
     // Both sides of earlier generations should be ancestors. Check a few different
@@ -240,15 +248,27 @@ fn test_index_commits_criss_cross() {
     for generation in 1..num_generations {
         for ancestor_side in &[&left_commits, &right_commits] {
             for descendant_side in &[&left_commits, &right_commits] {
-                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[generation].id()));
-                assert!(index.is_ancestor(
-                    ancestor_side[generation - 1].id(),
-                    descendant_side[generation].id()
-                ));
-                assert!(index.is_ancestor(
-                    ancestor_side[generation / 2].id(),
-                    descendant_side[generation].id()
-                ));
+                assert!(
+                    index
+                        .is_ancestor(ancestor_side[0].id(), descendant_side[generation].id())
+                        .unwrap()
+                );
+                assert!(
+                    index
+                        .is_ancestor(
+                            ancestor_side[generation - 1].id(),
+                            descendant_side[generation].id()
+                        )
+                        .unwrap()
+                );
+                assert!(
+                    index
+                        .is_ancestor(
+                            ancestor_side[generation / 2].id(),
+                            descendant_side[generation].id()
+                        )
+                        .unwrap()
+                );
             }
         }
     }
@@ -358,11 +378,11 @@ fn test_index_commits_previous_operations() {
     let commit_a = write_random_commit(tx.repo_mut());
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().remove_head(commit_c.id());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
@@ -412,12 +432,12 @@ fn test_index_commits_hidden_but_referenced() {
             state: jj_lib::op_store::RemoteRefState::New,
         },
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // All commits should be indexed
-    assert!(repo.index().has_id(commit_a.id()));
-    assert!(repo.index().has_id(commit_b.id()));
-    assert!(repo.index().has_id(commit_c.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
+    assert!(repo.index().has_id(commit_b.id()).unwrap());
+    assert!(repo.index().has_id(commit_c.id()).unwrap());
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
@@ -425,9 +445,9 @@ fn test_index_commits_hidden_but_referenced() {
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     // All commits should be reindexed
-    assert!(repo.index().has_id(commit_a.id()));
-    assert!(repo.index().has_id(commit_b.id()));
-    assert!(repo.index().has_id(commit_c.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
+    assert!(repo.index().has_id(commit_b.id()).unwrap());
+    assert!(repo.index().has_id(commit_c.id()).unwrap());
 }
 
 #[test]
@@ -449,7 +469,7 @@ fn test_index_commits_incremental() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let index = as_readonly_index(&repo);
     // There should be the root commit, plus 1 more
@@ -458,7 +478,7 @@ fn test_index_commits_incremental() {
     let mut tx = repo.start_transaction();
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let index = as_readonly_index(&repo);
@@ -495,13 +515,13 @@ fn test_index_commits_incremental_empty_transaction() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let index = as_readonly_index(&repo);
     // There should be the root commit, plus 1 more
     assert_eq!(index.num_commits(), 1 + 1);
 
-    repo.start_transaction().commit("test").unwrap();
+    repo.start_transaction().commit("test").block_on().unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let index = as_readonly_index(&repo);
@@ -534,9 +554,9 @@ fn test_index_commits_incremental_already_indexed() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
     assert_eq!(as_readonly_index(&repo).num_commits(), 1 + 1);
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -550,7 +570,7 @@ fn create_n_commits(repo: &Arc<ReadonlyRepo>, num_commits: i32) -> Arc<ReadonlyR
     for _ in 0..num_commits {
         write_random_commit(tx.repo_mut());
     }
-    tx.commit("test").unwrap()
+    tx.commit("test").block_on().unwrap()
 }
 
 fn as_readonly_index(repo: &Arc<ReadonlyRepo>) -> &DefaultReadonlyIndex {
@@ -640,8 +660,8 @@ fn test_reindex_no_segments_dir() {
 
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
-    assert!(repo.index().has_id(commit_a.id()));
+    let repo = tx.commit("test").block_on().unwrap();
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 
     // jj <= 0.14 doesn't have "segments" directory
     let segments_dir = test_repo.repo_path().join("index").join("segments");
@@ -649,7 +669,7 @@ fn test_reindex_no_segments_dir() {
     fs::remove_dir_all(&segments_dir).unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 }
 
 #[test]
@@ -661,8 +681,8 @@ fn test_reindex_corrupt_segment_files() {
 
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
-    assert!(repo.index().has_id(commit_a.id()));
+    let repo = tx.commit("test").block_on().unwrap();
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 
     // Corrupt the index files
     let segments_dir = test_repo.repo_path().join("index").join("segments");
@@ -678,7 +698,7 @@ fn test_reindex_corrupt_segment_files() {
     }
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 }
 
 #[test]
@@ -698,7 +718,7 @@ fn test_reindex_from_merged_operation() {
     for _ in 0..2 {
         let mut tx = repo.start_transaction();
         let commit = write_random_commit(tx.repo_mut());
-        let repo = tx.commit("test").unwrap();
+        let repo = tx.commit("test").block_on().unwrap();
         let mut tx = repo.start_transaction();
         tx.repo_mut().remove_head(commit.id());
         txs.push(tx);
@@ -708,7 +728,7 @@ fn test_reindex_from_merged_operation() {
     op_ids_to_delete.push(repo.op_id());
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     op_ids_to_delete.push(repo.op_id());
     let operation_to_reload = repo.operation();
 
@@ -726,7 +746,7 @@ fn test_reindex_from_merged_operation() {
     // When re-indexing, one of the merge parent operations will be selected as
     // the parent index segment. The commits in the other side should still be
     // reachable.
-    let repo = repo.reload_at(operation_to_reload).unwrap();
+    let repo = repo.reload_at(operation_to_reload).block_on().unwrap();
     let index = as_readonly_index(&repo);
     assert_eq!(index.num_commits(), 4);
 }
@@ -740,12 +760,12 @@ fn test_reindex_missing_commit() {
 
     let mut tx = repo.start_transaction();
     let missing_commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let bad_op_id = repo.op_id();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().remove_head(missing_commit.id());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Remove historical head commit to simulate bad GC.
     let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
@@ -788,7 +808,7 @@ fn test_read_legacy_operation_link_file() {
     fs::remove_dir_all(&op_links_dir).unwrap();
 
     // Reload repo and index
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let _ = repo.readonly_index();
     // Existing index should still be readable, so new operation link file won't
     // be created
@@ -797,7 +817,7 @@ fn test_read_legacy_operation_link_file() {
     // New operation link file and directory can be created
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert!(op_links_dir.join(repo.op_id().hex()).exists());
 }
 
@@ -832,8 +852,9 @@ fn test_changed_path_segments() {
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1.id())
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(count_segment_files(), 1);
     assert_eq!(stats.changed_path_commits_range, Some(1..2));
@@ -853,8 +874,9 @@ fn test_changed_path_segments() {
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(count_segment_files(), 2);
     assert_eq!(stats.changed_path_commits_range, Some(1..3));
@@ -886,16 +908,17 @@ fn test_build_changed_path_segments() {
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree.id())
             .write()
+            .block_on()
             .unwrap();
     }
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Index the last 4 commits
     default_index_store
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 4)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(6..10));
     assert_eq!(stats.changed_path_levels.len(), 1);
@@ -908,7 +931,7 @@ fn test_build_changed_path_segments() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(0..10));
     assert_eq!(stats.changed_path_levels.len(), 2);
@@ -935,15 +958,17 @@ fn test_build_changed_path_segments_partially_enabled() {
             tx.repo_mut()
                 .new_commit(vec![root_commit_id.clone()], tree.id())
                 .write()
+                .block_on()
                 .unwrap();
         }
-        let repo = tx.commit("test").unwrap();
+        let repo = tx.commit("test").block_on().unwrap();
         let repo = enable_changed_path_index(&repo);
         let mut tx = repo.start_transaction();
         let tree = create_tree(&repo, &[(repo_path("5"), "")]);
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree.id())
             .write()
+            .block_on()
             .unwrap();
         tx
     };
@@ -953,6 +978,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         tx2.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree.id())
             .write()
+            .block_on()
             .unwrap();
     }
     let repo = commit_transactions(vec![tx1, tx2]);
@@ -969,7 +995,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 2)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(5..8));
     assert_eq!(stats.changed_path_levels.len(), 1);
@@ -982,7 +1008,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 3)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(4..10));
     assert_eq!(stats.changed_path_levels.len(), 1);
@@ -1006,19 +1032,22 @@ fn test_merge_changed_path_segments_both_enabled() {
     tx.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1.id())
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Merge concurrent index segments without the common base segment
     let mut tx1 = repo.start_transaction();
     tx1.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
@@ -1046,13 +1075,15 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree1.id())
             .write()
+            .block_on()
             .unwrap();
-        let repo = tx.commit("test").unwrap();
+        let repo = tx.commit("test").block_on().unwrap();
         let repo = enable_changed_path_index(&repo);
         let mut tx = repo.start_transaction();
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree2.id())
             .write()
+            .block_on()
             .unwrap();
         tx
     };
@@ -1060,6 +1091,7 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
     tx2.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
@@ -1073,7 +1105,7 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
     // Changed paths in new commit can no longer be indexed
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.num_commits, 5);
     assert_eq!(stats.changed_path_commits_range, Some(2..3));
@@ -1100,16 +1132,19 @@ fn test_commit_is_empty(indexed: bool) {
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], root_tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
     let commit2 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit3 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let commit4 = tx
         .repo_mut()
@@ -1122,8 +1157,9 @@ fn test_commit_is_empty(indexed: bool) {
             tree4.id(),
         )
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Sanity check
     let stats = as_readonly_index(&repo).stats();
@@ -1172,6 +1208,7 @@ fn test_change_id_index() {
             .set_change_id(ChangeId::from_hex(change_id))
             .set_description(format!("commit {commit_number}"))
             .write()
+            .block_on()
             .unwrap()
     };
     let commit_1 = commit_with_change_id("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
@@ -1185,9 +1222,13 @@ fn test_change_id_index() {
             .mutable_index()
             .change_id_index(&mut commits.iter().map(|commit| commit.id()))
     };
-    let change_id_index = index_for_heads(&[&commit_1, &commit_2, &commit_3, &commit_4, &commit_5]);
-    let prefix_len =
-        |commit: &Commit| change_id_index.shortest_unique_prefix_len(commit.change_id());
+    let change_id_index =
+        index_for_heads(&[&commit_1, &commit_2, &commit_3, &commit_4, &commit_5]).unwrap();
+    let prefix_len = |commit: &Commit| {
+        change_id_index
+            .shortest_unique_prefix_len(commit.change_id())
+            .unwrap()
+    };
     assert_eq!(prefix_len(&root_commit), 1);
     assert_eq!(prefix_len(&commit_1), 2);
     assert_eq!(prefix_len(&commit_2), 6);
@@ -1197,6 +1238,7 @@ fn test_change_id_index() {
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
+            .unwrap()
             .map(HashSet::from_iter)
     };
     // Ambiguous matches
@@ -1234,10 +1276,11 @@ fn test_change_id_index() {
     // Test with an index containing only some of the commits. The shortest
     // length doesn't have to be minimized further, but unreachable commits
     // should never be included in the resolved set.
-    let change_id_index = index_for_heads(&[&commit_1, &commit_2]);
+    let change_id_index = index_for_heads(&[&commit_1, &commit_2]).unwrap();
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
+            .unwrap()
             .map(HashSet::from_iter)
     };
     assert_eq!(

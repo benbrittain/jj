@@ -35,6 +35,7 @@ use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
 use jj_lib::gitignore::GitIgnoreError;
+use jj_lib::index::IndexError;
 use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
 use jj_lib::op_store::OpStoreError;
@@ -328,6 +329,12 @@ impl From<BackendError> for CommandError {
     }
 }
 
+impl From<IndexError> for CommandError {
+    fn from(err: IndexError) -> Self {
+        internal_error_with_message("Unexpected error from index", err)
+    }
+}
+
 impl From<OpHeadsStoreError> for CommandError {
     fn from(err: OpHeadsStoreError) -> Self {
         internal_error_with_message("Unexpected error from operation heads store", err)
@@ -422,6 +429,7 @@ impl From<WalkPredecessorsError> for CommandError {
     fn from(err: WalkPredecessorsError) -> Self {
         match err {
             WalkPredecessorsError::Backend(err) => err.into(),
+            WalkPredecessorsError::Index(err) => err.into(),
             WalkPredecessorsError::OpStore(err) => err.into(),
             WalkPredecessorsError::CycleDetected(_) => internal_error(err),
         }
@@ -544,6 +552,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                         .to_string(),
                 ),
                 GitImportError::Backend(_) => None,
+                GitImportError::Index(_) => None,
                 GitImportError::Git(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,
             };

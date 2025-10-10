@@ -1494,11 +1494,21 @@ mod tests {
         let id_2 = CommitId::from_hex("222222");
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]);
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_3.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_3.clone()])
+            .unwrap();
 
         let index = index.as_composite();
         let get_pos = |id: &CommitId| index.commits().commit_id_to_pos(id).unwrap();
@@ -1607,9 +1617,15 @@ mod tests {
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("111111");
         let id_2 = CommitId::from_hex("222222");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
 
         let index = index.as_composite();
         let get_pos = |id: &CommitId| index.commits().commit_id_to_pos(id).unwrap();
@@ -1743,11 +1759,21 @@ mod tests {
         let id_2 = CommitId::from_hex("222222");
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()]);
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]);
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_3.clone()]);
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_3.clone()])
+            .unwrap();
 
         let index = index.as_composite();
         let get_pos = |id: &CommitId| index.commits().commit_id_to_pos(id).unwrap();

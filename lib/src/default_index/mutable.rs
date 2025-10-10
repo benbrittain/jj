@@ -49,6 +49,7 @@ use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
 use super::readonly::OVERFLOW_FLAG;
 use super::readonly::ReadonlyCommitIndexSegment;
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -56,10 +57,10 @@ use crate::commit::Commit;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
-use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::object_id::HexPrefix;
@@ -131,9 +132,9 @@ impl MutableCommitIndexSegment {
         commit_id: CommitId,
         change_id: ChangeId,
         parent_ids: &[CommitId],
-    ) {
-        if self.as_composite().has_id(&commit_id) {
-            return;
+    ) -> IndexResult<()> {
+        if self.as_composite().has_id(&commit_id)? {
+            return Ok(());
         }
         let mut entry = MutableGraphEntry {
             commit_id,
@@ -161,18 +162,23 @@ impl MutableCommitIndexSegment {
             .and_modify(|positions| positions.push(local_pos))
             .or_insert(smallvec![local_pos]);
         self.graph.push(entry);
+        Ok(())
     }
 
-    pub(super) fn add_commits_from(&mut self, other_segment: &DynCommitIndexSegment) {
+    pub(super) fn add_commits_from(
+        &mut self,
+        other_segment: &DynCommitIndexSegment,
+    ) -> IndexResult<()> {
         let other = CompositeCommitIndex::new(other_segment);
         for pos in other_segment.num_parent_commits()..other.num_commits() {
             let entry = other.entry_by_pos(GlobalCommitPosition(pos));
             let parent_ids = entry.parents().map(|entry| entry.commit_id()).collect_vec();
-            self.add_commit_data(entry.commit_id(), entry.change_id(), &parent_ids);
+            self.add_commit_data(entry.commit_id(), entry.change_id(), &parent_ids)?;
         }
+        Ok(())
     }
 
-    pub(super) fn merge_in(&mut self, other: &Arc<ReadonlyCommitIndexSegment>) {
+    pub(super) fn merge_in(&mut self, other: &Arc<ReadonlyCommitIndexSegment>) -> IndexResult<()> {
         // Collect other segments down to the common ancestor segment
         let files_to_add = itertools::merge_join_by(
             self.as_composite().ancestor_files_without_local(),
@@ -193,8 +199,9 @@ impl MutableCommitIndexSegment {
         .collect_vec();
 
         for &file in files_to_add.iter().rev() {
-            self.add_commits_from(file.as_ref());
+            self.add_commits_from(file.as_ref())?;
         }
+        Ok(())
     }
 
     fn serialize_parent_filename(&self, buf: &mut Vec<u8>) {
@@ -315,7 +322,7 @@ impl MutableCommitIndexSegment {
     /// If the mutable segment has more than half the commits of its parent
     /// segment, return mutable segment with the commits from both. This is done
     /// recursively, so the stack of index segments has O(log n) files.
-    pub(super) fn maybe_squash_with_ancestors(self) -> Self {
+    pub(super) fn maybe_squash_with_ancestors(self) -> IndexResult<Self> {
         let mut num_new_commits = self.num_local_commits();
         let mut files_to_squash = vec![];
         let mut base_parent_file = None;
@@ -331,7 +338,7 @@ impl MutableCommitIndexSegment {
         }
 
         if files_to_squash.is_empty() {
-            return self;
+            return Ok(self);
         }
 
         let mut squashed = if let Some(parent_file) = base_parent_file {
@@ -340,10 +347,10 @@ impl MutableCommitIndexSegment {
             Self::full(self.field_lengths)
         };
         for parent_file in files_to_squash.iter().rev() {
-            squashed.add_commits_from(parent_file.as_ref());
+            squashed.add_commits_from(parent_file.as_ref())?;
         }
-        squashed.add_commits_from(&self);
-        squashed
+        squashed.add_commits_from(&self)?;
+        Ok(squashed)
     }
 
     pub(super) fn save_in(self, dir: &Path) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
@@ -492,7 +499,9 @@ impl DefaultMutableIndex {
             commit.id().clone(),
             commit.change_id().clone(),
             commit.parent_ids(),
-        );
+        )
+        // TODO: indexing error shouldn't be a "BackendError"
+        .map_err(|err| BackendError::Other(err.into()))?;
         if new_commit_pos == GlobalCommitPosition(self.num_commits()) {
             return Ok(()); // commit already indexed
         }
@@ -507,9 +516,9 @@ impl DefaultMutableIndex {
         commit_id: CommitId,
         change_id: ChangeId,
         parent_ids: &[CommitId],
-    ) {
+    ) -> IndexResult<()> {
         self.mutable_commits()
-            .add_commit_data(commit_id, change_id, parent_ids);
+            .add_commit_data(commit_id, change_id, parent_ids)
     }
 
     // CompositeChangedPathIndex::add_commit() isn't implemented because we need
@@ -520,9 +529,9 @@ impl DefaultMutableIndex {
         Ok(())
     }
 
-    pub(super) fn merge_in(&mut self, other: &DefaultReadonlyIndex) {
+    pub(super) fn merge_in(&mut self, other: &DefaultReadonlyIndex) -> IndexResult<()> {
         let start_commit_pos = GlobalCommitPosition(self.num_commits());
-        self.mutable_commits().merge_in(other.readonly_commits());
+        self.mutable_commits().merge_in(other.readonly_commits())?;
         if self.0.changed_paths().next_mutable_commit_pos() == Some(start_commit_pos) {
             let other_commits = other.as_composite().commits();
             for self_pos in (start_commit_pos.0..self.num_commits()).map(GlobalCommitPosition) {
@@ -535,6 +544,7 @@ impl DefaultMutableIndex {
                 self.0.changed_paths_mut().add_changed_paths(paths);
             }
         }
+        Ok(())
     }
 }
 
@@ -545,43 +555,41 @@ impl AsCompositeIndex for DefaultMutableIndex {
 }
 
 impl Index for DefaultMutableIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
+    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
-    fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
+    fn resolve_commit_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<CommitId>> {
         self.0.resolve_commit_id_prefix(prefix)
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
         self.0.has_id(commit_id)
     }
 
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool> {
         self.0.is_ancestor(ancestor_id, descendant_id)
     }
 
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>> {
         self.0.common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
         self.0.all_heads_for_gc()
     }
 
-    fn heads(
-        &self,
-        candidates: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError> {
+    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>> {
         self.0.heads(candidates)
     }
 
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         self.0.changed_paths_in_commit(commit_id)
     }
 
@@ -602,21 +610,21 @@ impl MutableIndex for DefaultMutableIndex {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex + '_> {
-        Box::new(ChangeIdIndexImpl::new(self, heads))
+    ) -> IndexResult<Box<dyn ChangeIdIndex + '_>> {
+        Ok(Box::new(ChangeIdIndexImpl::new(self, heads)))
     }
 
-    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError> {
+    fn add_commit(&mut self, commit: &Commit) -> IndexResult<()> {
         Self::add_commit(self, commit)
             .block_on()
-            .map_err(|err| IndexError(err.into()))
+            .map_err(|err| IndexError::Other(err.into()))
     }
 
-    fn merge_in(&mut self, other: &dyn ReadonlyIndex) {
+    fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()> {
         let other: &DefaultReadonlyIndex = other
             .downcast_ref()
             .expect("index to merge in must be a DefaultReadonlyIndex");
-        Self::merge_in(self, other);
+        Self::merge_in(self, other)
     }
 }
 

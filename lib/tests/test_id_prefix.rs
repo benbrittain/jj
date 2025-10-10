@@ -30,6 +30,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 
@@ -65,13 +66,14 @@ fn test_id_prefix() {
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
+            .block_on()
             .unwrap()
     };
     let mut commits = vec![create_commit(root_commit_id)];
     for _ in 0..25 {
         commits.push(create_commit(commits.last().unwrap().id()));
     }
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Print the commit IDs and change IDs for reference
     let commit_prefixes = commits
@@ -150,51 +152,75 @@ fn test_id_prefix() {
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[7].id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commits[7].id())
+            .unwrap(),
         2
     );
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[16].id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commits[16].id())
+            .unwrap(),
         1
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("1"))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("18")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("18"))
+            .unwrap(),
         SingleMatch(commits[7].id().clone())
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("10")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("10"))
+            .unwrap(),
         NoMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("180")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("180"))
+            .unwrap(),
         NoMatch
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), commits[2].change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), commits[2].change_id())
+            .unwrap(),
         2
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), commits[6].change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), commits[6].change_id())
+            .unwrap(),
         1
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("4")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("4"))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("43")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("43"))
+            .unwrap(),
         SingleMatch(vec![commits[2].id().clone()])
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("40")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("40"))
+            .unwrap(),
         NoMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("430")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("430"))
+            .unwrap(),
         NoMatch
     );
 
@@ -206,25 +232,35 @@ fn test_id_prefix() {
     let index = context.populate(repo.as_ref()).unwrap();
     // The prefix is now shorter
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[7].id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commits[7].id())
+            .unwrap(),
         1
     );
     // Shorter prefix within the set can be used
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("1"))
+            .unwrap(),
         SingleMatch(commits[7].id().clone())
     );
     // Can still resolve commits outside the set
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("19")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("19"))
+            .unwrap(),
         SingleMatch(commits[10].id().clone())
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), commits[2].change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), commits[2].change_id())
+            .unwrap(),
         1
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("4")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("4"))
+            .unwrap(),
         SingleMatch(vec![commits[2].id().clone()])
     );
 
@@ -235,27 +271,39 @@ fn test_id_prefix() {
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), root_commit_id),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), root_commit_id)
+            .unwrap(),
         1
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(""))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("0")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("0"))
+            .unwrap(),
         SingleMatch(root_commit_id.clone())
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), root_change_id),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), root_change_id)
+            .unwrap(),
         1
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix(""))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("0")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("0"))
+            .unwrap(),
         SingleMatch(vec![root_commit_id.clone()])
     );
 
@@ -290,6 +338,7 @@ fn test_id_prefix_divergent() {
                 .set_committer(signature)
                 .set_change_id(change_id)
                 .write()
+                .block_on()
                 .unwrap()
         };
 
@@ -306,7 +355,7 @@ fn test_id_prefix_divergent() {
         second_commit.clone(),
         third_commit_divergent_with_second.clone(),
     ];
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Print the commit IDs and change IDs for reference
     let change_prefixes = commits
@@ -337,27 +386,39 @@ fn test_id_prefix_divergent() {
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), commits[0].change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), commits[0].change_id())
+            .unwrap(),
         3
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), commits[1].change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), commits[1].change_id())
+            .unwrap(),
         3
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), commits[2].change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), commits[2].change_id())
+            .unwrap(),
         3
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a5")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a5"))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a53")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a53"))
+            .unwrap(),
         SingleMatch(vec![first_commit.id().clone()])
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a50")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a50"))
+            .unwrap(),
         SingleMatch(vec![
             second_commit.id().clone(),
             third_commit_divergent_with_second.id().clone()
@@ -371,7 +432,9 @@ fn test_id_prefix_divergent() {
     let index = context.populate(repo.as_ref()).unwrap();
     // The prefix is now shorter
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), second_commit.change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), second_commit.change_id())
+            .unwrap(),
         1
     );
     // This tests two issues, both important:
@@ -382,7 +445,9 @@ fn test_id_prefix_divergent() {
     //   match is not ambiguous, even though the first commit's change id would also
     //   match the prefix.
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a"))
+            .unwrap(),
         SingleMatch(vec![
             second_commit.id().clone(),
             third_commit_divergent_with_second.id().clone()
@@ -391,11 +456,15 @@ fn test_id_prefix_divergent() {
 
     // We can still resolve commits outside the set
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a53")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a53"))
+            .unwrap(),
         SingleMatch(vec![first_commit.id().clone()])
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), first_commit.change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), first_commit.change_id())
+            .unwrap(),
         3
     );
 }
@@ -426,6 +495,7 @@ fn test_id_prefix_hidden() {
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
+            .block_on()
             .unwrap();
         commits.push(commit);
     }
@@ -470,8 +540,8 @@ fn test_id_prefix_hidden() {
 
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
-    tx.repo_mut().rebase_descendants().unwrap();
-    let repo = tx.commit("test").unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();
 
@@ -480,33 +550,45 @@ fn test_id_prefix_hidden() {
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id())
+            .unwrap(),
         2
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), hidden_commit.change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), hidden_commit.change_id())
+            .unwrap(),
         3
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1])),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1]))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..2])),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..2]))
+            .unwrap(),
         SingleMatch(hidden_commit.id().clone())
     );
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..2])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..2])
+            )
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..3])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..3])
+            )
+            .unwrap(),
         NoMatch
     );
 
@@ -516,33 +598,43 @@ fn test_id_prefix_hidden() {
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id())
+            .unwrap(),
         1
     );
     assert_eq!(
-        index.shortest_change_prefix_len(repo.as_ref(), hidden_commit.change_id()),
+        index
+            .shortest_change_prefix_len(repo.as_ref(), hidden_commit.change_id())
+            .unwrap(),
         1
     );
     // Short commit id can be resolved even if it's hidden.
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1])),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1]))
+            .unwrap(),
         SingleMatch(hidden_commit.id().clone())
     );
     // OTOH, hidden change id should never be found. The resolution might be
     // ambiguous if hidden commits were excluded from the disambiguation set.
     // In that case, shortest_change_prefix_len() shouldn't be 1.
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..1])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..1])
+            )
+            .unwrap(),
         NoMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..2])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..2])
+            )
+            .unwrap(),
         NoMatch
     );
 }
@@ -562,6 +654,7 @@ fn test_id_prefix_shadowed_by_ref() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     let commit_id_sym = commit.id().to_string();
@@ -572,9 +665,16 @@ fn test_id_prefix_shadowed_by_ref() {
     let context = IdPrefixContext::default();
     let index = context.populate(tx.repo()).unwrap();
 
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
     assert_eq!(
-        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        index
+            .shortest_change_prefix_len(tx.repo(), commit.change_id())
+            .unwrap(),
         1
     );
 
@@ -584,9 +684,16 @@ fn test_id_prefix_shadowed_by_ref() {
         .set_local_tag_target(commit_id_sym[..2].as_ref(), dummy_target.clone());
     tx.repo_mut()
         .set_local_tag_target(change_id_sym[..2].as_ref(), dummy_target.clone());
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
     assert_eq!(
-        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        index
+            .shortest_change_prefix_len(tx.repo(), commit.change_id())
+            .unwrap(),
         1
     );
 
@@ -595,9 +702,16 @@ fn test_id_prefix_shadowed_by_ref() {
         .set_local_bookmark_target(commit_id_sym[..1].as_ref(), dummy_target.clone());
     tx.repo_mut()
         .set_local_bookmark_target(change_id_sym[..1].as_ref(), dummy_target.clone());
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 3);
     assert_eq!(
-        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
+        3
+    );
+    assert_eq!(
+        index
+            .shortest_change_prefix_len(tx.repo(), commit.change_id())
+            .unwrap(),
         3
     );
 
@@ -611,11 +725,15 @@ fn test_id_prefix_shadowed_by_ref() {
             .set_local_tag_target(change_id_sym[..n].as_ref(), dummy_target.clone());
     }
     assert_eq!(
-        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
         commit_id_sym.len()
     );
     assert_eq!(
-        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        index
+            .shortest_change_prefix_len(tx.repo(), commit.change_id())
+            .unwrap(),
         change_id_sym.len()
     );
 
@@ -625,11 +743,15 @@ fn test_id_prefix_shadowed_by_ref() {
     tx.repo_mut()
         .set_local_tag_target(change_id_sym.as_ref(), dummy_target.clone());
     assert_eq!(
-        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
         commit_id_sym.len()
     );
     assert_eq!(
-        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        index
+            .shortest_change_prefix_len(tx.repo(), commit.change_id())
+            .unwrap(),
         change_id_sym.len()
     );
 }

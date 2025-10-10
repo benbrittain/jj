@@ -47,10 +47,10 @@ use super::revset_engine::RevsetImpl;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::graph::GraphNode;
-use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::object_id::HexPrefix;
@@ -713,43 +713,44 @@ impl AsCompositeIndex for DefaultReadonlyIndex {
 }
 
 impl Index for DefaultReadonlyIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
+    fn shortest_unique_commit_id_prefix_len(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<usize, IndexError> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
-    fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
+    fn resolve_commit_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<CommitId>> {
         self.0.resolve_commit_id_prefix(prefix)
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
         self.0.has_id(commit_id)
     }
 
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool> {
         self.0.is_ancestor(ancestor_id, descendant_id)
     }
 
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>> {
         self.0.common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
         self.0.all_heads_for_gc()
     }
 
-    fn heads(
-        &self,
-        candidates: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError> {
+    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>> {
         self.0.heads(candidates)
     }
 
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         self.0.changed_paths_in_commit(commit_id)
     }
 
@@ -770,8 +771,8 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex> {
-        Box::new(ChangeIdIndexImpl::new(self.clone(), heads))
+    ) -> IndexResult<Box<dyn ChangeIdIndex>> {
+        Ok(Box::new(ChangeIdIndexImpl::new(self.clone(), heads)))
     }
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {

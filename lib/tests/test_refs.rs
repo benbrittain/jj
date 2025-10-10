@@ -16,6 +16,7 @@ use jj_lib::merge::Merge;
 use jj_lib::op_store::RefTarget;
 use jj_lib::refs::merge_ref_targets;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 use testutils::TestWorkspace;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -41,7 +42,7 @@ fn test_merge_ref_targets() {
     let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit6 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
     let commit7 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let target1 = RefTarget::normal(commit1.id().clone());
     let target2 = RefTarget::normal(commit2.id().clone());
@@ -55,49 +56,49 @@ fn test_merge_ref_targets() {
 
     // Left moved forward
     assert_eq!(
-        merge_ref_targets(index, &target3, &target1, &target1),
+        merge_ref_targets(index, &target3, &target1, &target1).unwrap(),
         target3
     );
 
     // Right moved forward
     assert_eq!(
-        merge_ref_targets(index, &target1, &target1, &target3),
+        merge_ref_targets(index, &target1, &target1, &target3).unwrap(),
         target3
     );
 
     // Left moved backward
     assert_eq!(
-        merge_ref_targets(index, &target1, &target3, &target3),
+        merge_ref_targets(index, &target1, &target3, &target3).unwrap(),
         target1
     );
 
     // Right moved backward
     assert_eq!(
-        merge_ref_targets(index, &target3, &target3, &target1),
+        merge_ref_targets(index, &target3, &target3, &target1).unwrap(),
         target1
     );
 
     // Left moved sideways
     assert_eq!(
-        merge_ref_targets(index, &target4, &target3, &target3),
+        merge_ref_targets(index, &target4, &target3, &target3).unwrap(),
         target4
     );
 
     // Right moved sideways
     assert_eq!(
-        merge_ref_targets(index, &target3, &target3, &target4),
+        merge_ref_targets(index, &target3, &target3, &target4).unwrap(),
         target4
     );
 
     // Both moved sideways ("A - B + A" - type conflict)
     assert_eq!(
-        merge_ref_targets(index, &target4, &target3, &target4),
+        merge_ref_targets(index, &target4, &target3, &target4).unwrap(),
         target4
     );
 
     // Both added same target ("A - B + A" - type conflict)
     assert_eq!(
-        merge_ref_targets(index, &target3, RefTarget::absent_ref(), &target3),
+        merge_ref_targets(index, &target3, RefTarget::absent_ref(), &target3).unwrap(),
         target3
     );
 
@@ -108,43 +109,44 @@ fn test_merge_ref_targets() {
             RefTarget::absent_ref(),
             &target3,
             RefTarget::absent_ref()
-        ),
+        )
+        .unwrap(),
         RefTarget::absent()
     );
 
     // Left added target, right added descendant target
     assert_eq!(
-        merge_ref_targets(index, &target2, RefTarget::absent_ref(), &target3),
+        merge_ref_targets(index, &target2, RefTarget::absent_ref(), &target3).unwrap(),
         target3
     );
 
     // Right added target, left added descendant target
     assert_eq!(
-        merge_ref_targets(index, &target3, RefTarget::absent_ref(), &target2),
+        merge_ref_targets(index, &target3, RefTarget::absent_ref(), &target2).unwrap(),
         target3
     );
 
     // Both moved forward to same target
     assert_eq!(
-        merge_ref_targets(index, &target3, &target1, &target3),
+        merge_ref_targets(index, &target3, &target1, &target3).unwrap(),
         target3
     );
 
     // Both moved forward, left moved further
     assert_eq!(
-        merge_ref_targets(index, &target3, &target1, &target2),
+        merge_ref_targets(index, &target3, &target1, &target2).unwrap(),
         target3
     );
 
     // Both moved forward, right moved further
     assert_eq!(
-        merge_ref_targets(index, &target2, &target1, &target3),
+        merge_ref_targets(index, &target2, &target1, &target3).unwrap(),
         target3
     );
 
     // Left and right moved forward to divergent targets
     assert_eq!(
-        merge_ref_targets(index, &target3, &target1, &target4),
+        merge_ref_targets(index, &target3, &target1, &target4).unwrap(),
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit3.id().clone(), commit4.id().clone()]
@@ -153,7 +155,7 @@ fn test_merge_ref_targets() {
 
     // Left moved back, right moved forward
     assert_eq!(
-        merge_ref_targets(index, &target1, &target2, &target3),
+        merge_ref_targets(index, &target1, &target2, &target3).unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit1.id().clone(), commit3.id().clone()]
@@ -162,7 +164,7 @@ fn test_merge_ref_targets() {
 
     // Right moved back, left moved forward
     assert_eq!(
-        merge_ref_targets(index, &target3, &target2, &target1),
+        merge_ref_targets(index, &target3, &target2, &target1).unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit3.id().clone(), commit1.id().clone()]
@@ -171,19 +173,19 @@ fn test_merge_ref_targets() {
 
     // Left removed
     assert_eq!(
-        merge_ref_targets(index, RefTarget::absent_ref(), &target3, &target3),
+        merge_ref_targets(index, RefTarget::absent_ref(), &target3, &target3).unwrap(),
         RefTarget::absent()
     );
 
     // Right removed
     assert_eq!(
-        merge_ref_targets(index, &target3, &target3, RefTarget::absent_ref()),
+        merge_ref_targets(index, &target3, &target3, RefTarget::absent_ref()).unwrap(),
         RefTarget::absent()
     );
 
     // Left removed, right moved forward
     assert_eq!(
-        merge_ref_targets(index, RefTarget::absent_ref(), &target1, &target3),
+        merge_ref_targets(index, RefTarget::absent_ref(), &target1, &target3).unwrap(),
         RefTarget::from_merge(Merge::from_vec(vec![
             None,
             Some(commit1.id().clone()),
@@ -193,7 +195,7 @@ fn test_merge_ref_targets() {
 
     // Right removed, left moved forward
     assert_eq!(
-        merge_ref_targets(index, &target3, &target1, RefTarget::absent_ref()),
+        merge_ref_targets(index, &target3, &target1, RefTarget::absent_ref()).unwrap(),
         RefTarget::from_merge(Merge::from_vec(vec![
             Some(commit3.id().clone()),
             Some(commit1.id().clone()),
@@ -211,7 +213,8 @@ fn test_merge_ref_targets() {
             ),
             &target1,
             &target3
-        ),
+        )
+        .unwrap(),
         // TODO: "removes" should have commit 2, just like it does in the next test case
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
@@ -229,7 +232,8 @@ fn test_merge_ref_targets() {
                 [commit2.id().clone()],
                 [commit3.id().clone(), commit4.id().clone()]
             ),
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit4.id().clone(), commit3.id().clone()]
@@ -253,7 +257,8 @@ fn test_merge_ref_targets() {
             ),
             &target3,
             &target5
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit5.id().clone(), commit4.id().clone()]
@@ -277,7 +282,8 @@ fn test_merge_ref_targets() {
                 [commit2.id().clone()],
                 [commit3.id().clone(), commit4.id().clone()]
             ),
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit5.id().clone(), commit4.id().clone()]
@@ -302,7 +308,8 @@ fn test_merge_ref_targets() {
             ),
             &target3,
             &target1
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit1.id().clone(), commit4.id().clone()]
@@ -327,7 +334,8 @@ fn test_merge_ref_targets() {
                 [commit2.id().clone()],
                 [commit3.id().clone(), commit4.id().clone()]
             ),
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit1.id().clone(), commit4.id().clone()]
@@ -344,7 +352,8 @@ fn test_merge_ref_targets() {
             ),
             &target3,
             &target2
-        ),
+        )
+        .unwrap(),
         target4
     );
 
@@ -358,7 +367,8 @@ fn test_merge_ref_targets() {
                 [commit2.id().clone()],
                 [commit3.id().clone(), commit4.id().clone()]
             ),
-        ),
+        )
+        .unwrap(),
         target4
     );
 
@@ -373,7 +383,8 @@ fn test_merge_ref_targets() {
             ),
             &target4,
             &target3,
-        ),
+        )
+        .unwrap(),
         target3
     );
 
@@ -388,7 +399,8 @@ fn test_merge_ref_targets() {
                 [commit5.id().clone()], // not an ancestor of commit3, 4
                 [commit3.id().clone(), commit4.id().clone()],
             ),
-        ),
+        )
+        .unwrap(),
         target4
     );
 
@@ -402,7 +414,8 @@ fn test_merge_ref_targets() {
             ),
             &target5,
             &target6
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit2.id().clone(), commit5.id().clone()],
             [
@@ -423,7 +436,8 @@ fn test_merge_ref_targets() {
                 [commit2.id().clone()],
                 [commit3.id().clone(), commit4.id().clone()]
             ),
-        ),
+        )
+        .unwrap(),
         RefTarget::from_legacy_form(
             [commit5.id().clone(), commit2.id().clone()],
             [

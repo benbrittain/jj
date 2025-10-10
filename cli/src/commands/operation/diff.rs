@@ -109,15 +109,17 @@ pub fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let merged_from_op = repo_loader.merge_operations(from_ops.clone(), None)?;
-    let from_repo = repo_loader.load_at(&merged_from_op)?;
-    let to_repo = repo_loader.load_at(&to_op)?;
+    let merged_from_op = repo_loader
+        .merge_operations(from_ops.clone(), None)
+        .block_on()?;
+    let from_repo = repo_loader.load_at(&merged_from_op).block_on()?;
+    let to_repo = repo_loader.load_at(&to_op).block_on()?;
 
     // Create a new transaction starting from `to_repo`.
     let mut tx = to_repo.start_transaction();
     // Merge index from `from_repo` to `to_repo`, so commits in `from_repo` are
     // accessible.
-    tx.repo_mut().merge_index(&from_repo);
+    tx.repo_mut().merge_index(&from_repo)?;
     let merged_repo = tx.repo();
 
     let diff_renderer = {

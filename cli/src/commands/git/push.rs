@@ -31,6 +31,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
+use jj_lib::index::IndexResult;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
@@ -47,6 +48,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -605,24 +607,23 @@ fn sign_commits_before_push(
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
-    tx.repo_mut().transform_descendants(
-        commit_ids.iter().cloned().collect_vec(),
-        async |rewriter| {
+    tx.repo_mut()
+        .transform_descendants(commit_ids.iter().cloned().collect_vec(), async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             if commit_ids.contains(&old_commit_id) {
                 let commit = rewriter
                     .reparent()
                     .set_sign_behavior(sign_behavior)
-                    .write()?;
+                    .write().await?;
                 old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
             } else {
                 num_rebased_descendants += 1;
-                let commit = rewriter.reparent().write()?;
+                let commit = rewriter.reparent().write().await?;
                 old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
             }
             Ok(())
-        },
-    )?;
+        })
+        .block_on()?;
 
     let bookmark_updates = bookmark_updates
         .into_iter()
@@ -646,15 +647,15 @@ fn print_commits_ready_to_push(
     formatter: &mut dyn Formatter,
     repo: &dyn Repo,
     bookmark_updates: &[(RefNameBuf, BookmarkPushUpdate)],
-) -> io::Result<()> {
-    let to_direction = |old_target: &CommitId, new_target: &CommitId| {
+) -> Result<(), CommandError> {
+    let to_direction = |old_target: &CommitId, new_target: &CommitId| -> IndexResult<_> {
         assert_ne!(old_target, new_target);
-        if repo.index().is_ancestor(old_target, new_target) {
-            BookmarkMoveDirection::Forward
-        } else if repo.index().is_ancestor(new_target, old_target) {
-            BookmarkMoveDirection::Backward
+        if repo.index().is_ancestor(old_target, new_target)? {
+            Ok(BookmarkMoveDirection::Forward)
+        } else if repo.index().is_ancestor(new_target, old_target)? {
+            Ok(BookmarkMoveDirection::Backward)
         } else {
-            BookmarkMoveDirection::Sideways
+            Ok(BookmarkMoveDirection::Sideways)
         }
     };
 
@@ -670,7 +671,7 @@ fn print_commits_ready_to_push(
                 // among many was moved sideways (say). TODO: People on Discord
                 // suggest "Move bookmark ... forward by n commits",
                 // possibly "Move bookmark ... sideways (X forward, Y back)".
-                let msg = match to_direction(old_target, new_target) {
+                let msg = match to_direction(old_target, new_target)? {
                     BookmarkMoveDirection::Forward => {
                         format!("Move forward bookmark {bookmark_name} from {old} to {new}")
                     }

@@ -41,10 +41,10 @@ use super::revset_engine;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::hex_util;
-use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
@@ -151,8 +151,8 @@ impl CompositeCommitIndex {
         self.0.num_parent_commits() + self.0.num_local_commits()
     }
 
-    pub fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.commit_id_to_pos(commit_id).is_some()
+    pub fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.commit_id_to_pos(commit_id).is_some())
     }
 
     pub fn entry_by_pos(&self, pos: GlobalCommitPosition) -> CommitIndexEntry<'_> {
@@ -569,44 +569,49 @@ impl AsCompositeIndex for CompositeIndex {
 
 // In revset engine, we need to convert &CompositeIndex to &dyn Index.
 impl Index for CompositeIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
-        self.commits()
-            .shortest_unique_commit_id_prefix_len(commit_id)
+    fn shortest_unique_commit_id_prefix_len(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<usize, IndexError> {
+        Ok(self
+            .commits()
+            .shortest_unique_commit_id_prefix_len(commit_id))
     }
 
-    fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
-        self.commits().resolve_commit_id_prefix(prefix)
+    fn resolve_commit_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<CommitId>> {
+        Ok(self.commits().resolve_commit_id_prefix(prefix))
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
         self.commits().has_id(commit_id)
     }
 
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
-        self.commits().is_ancestor(ancestor_id, descendant_id)
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.commits().is_ancestor(ancestor_id, descendant_id))
     }
 
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
-        self.commits().common_ancestors(set1, set2)
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>> {
+        Ok(self.commits().common_ancestors(set1, set2))
     }
 
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
         Ok(Box::new(self.commits().all_heads()))
     }
 
     fn heads(
         &self,
         candidate_ids: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError> {
+    ) -> IndexResult<Vec<CommitId>> {
         Ok(self.commits().heads(candidate_ids))
     }
 
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         let Some(paths) = self
             .commits()
             .commit_id_to_pos(commit_id)
@@ -653,9 +658,9 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // If `SingleMatch` is returned, the commits including in the set are all
     // visible. `AmbiguousMatch` may be returned even if the prefix is unique
     // within the visible entries.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_prefix(&self, prefix: &HexPrefix) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
         let index = self.index.as_composite().commits();
-        match index.resolve_change_id_prefix(prefix) {
+        Ok(match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
             PrefixResolution::SingleMatch((_change_id, positions)) => {
                 debug_assert!(positions.is_sorted_by(|a, b| a < b));
@@ -673,7 +678,7 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
                 }
             }
             PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
-        }
+        })
     }
 
     // Calculates the shortest prefix length of the given `change_id` among all
@@ -682,9 +687,9 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // The returned length is usually a few digits longer than the minimum
     // length necessary to disambiguate within the visible entries since hidden
     // entries are also considered when determining the prefix length.
-    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> usize {
+    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize> {
         let index = self.index.as_composite().commits();
-        index.shortest_unique_change_id_prefix_len(change_id)
+        Ok(index.shortest_unique_change_id_prefix_len(change_id))
     }
 }
 

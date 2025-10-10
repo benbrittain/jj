@@ -309,11 +309,15 @@ mod tests {
         // |/     A = 0,1,2,..,64
         // A
         let id_a0 = new_commit_id();
-        mutable_index.add_commit_data(id_a0.clone(), new_change_id(), &[]);
+        mutable_index
+            .add_commit_data(id_a0.clone(), new_change_id(), &[])
+            .unwrap();
         let id_a64 = (1..=64).fold(id_a0.clone(), |parent_id, i| {
             assert_eq!(mutable_index.num_commits(), i);
             let id = new_commit_id();
-            mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
+            mutable_index
+                .add_commit_data(id.clone(), new_change_id(), &[parent_id])
+                .unwrap();
             id
         });
         let (id_b189, id_c190) = (65..=190).step_by(2).fold(
@@ -322,37 +326,51 @@ mod tests {
                 assert_eq!(mutable_index.num_commits(), i);
                 let id_b = new_commit_id();
                 let id_c = new_commit_id();
-                mutable_index.add_commit_data(id_b.clone(), new_change_id(), &[parent_id_b]);
-                mutable_index.add_commit_data(id_c.clone(), new_change_id(), &[parent_id_c]);
+                mutable_index
+                    .add_commit_data(id_b.clone(), new_change_id(), &[parent_id_b])
+                    .unwrap();
+                mutable_index
+                    .add_commit_data(id_c.clone(), new_change_id(), &[parent_id_c])
+                    .unwrap();
                 (id_b, id_c)
             },
         );
         let id_b191 = new_commit_id();
-        mutable_index.add_commit_data(id_b191.clone(), new_change_id(), &[id_b189]);
+        mutable_index
+            .add_commit_data(id_b191.clone(), new_change_id(), &[id_b189])
+            .unwrap();
         let id_d192 = new_commit_id();
-        mutable_index.add_commit_data(
-            id_d192.clone(),
-            new_change_id(),
-            std::slice::from_ref(&id_c190),
-        );
+        mutable_index
+            .add_commit_data(
+                id_d192.clone(),
+                new_change_id(),
+                std::slice::from_ref(&id_c190),
+            )
+            .unwrap();
         let id_e254 = (193..=254).fold(id_b191.clone(), |parent_id, i| {
             assert_eq!(mutable_index.num_commits(), i);
             let id = new_commit_id();
-            mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
+            mutable_index
+                .add_commit_data(id.clone(), new_change_id(), &[parent_id])
+                .unwrap();
             id
         });
         let id_d255 = new_commit_id();
-        mutable_index.add_commit_data(
-            id_d255.clone(),
-            new_change_id(),
-            std::slice::from_ref(&id_d192),
-        );
+        mutable_index
+            .add_commit_data(
+                id_d255.clone(),
+                new_change_id(),
+                std::slice::from_ref(&id_d192),
+            )
+            .unwrap();
         let id_f256 = new_commit_id();
-        mutable_index.add_commit_data(
-            id_f256.clone(),
-            new_change_id(),
-            &[id_c190.clone(), id_e254.clone()],
-        );
+        mutable_index
+            .add_commit_data(
+                id_f256.clone(),
+                new_change_id(),
+                &[id_c190.clone(), id_e254.clone()],
+            )
+            .unwrap();
         assert_eq!(mutable_index.num_commits(), 257);
 
         let index = mutable_index.as_composite().commits();
@@ -444,11 +462,15 @@ mod tests {
         });
         // Linear history of two-page size
         let id_0 = new_commit_id();
-        mutable_index.add_commit_data(id_0.clone(), new_change_id(), &[]);
+        mutable_index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
         (1..=PAGE_SIZE_IN_BITS).fold(id_0.clone(), |parent_id, i| {
             assert_eq!(mutable_index.num_commits(), i);
             let id = new_commit_id();
-            mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
+            mutable_index
+                .add_commit_data(id.clone(), new_change_id(), &[parent_id])
+                .unwrap();
             id
         });
         let index = mutable_index.as_composite().commits();

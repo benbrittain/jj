@@ -25,9 +25,9 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -52,8 +52,10 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
-use crate::index::IndexReadError;
+use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::IndexStore;
+use crate::index::IndexStoreError;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
@@ -125,19 +127,25 @@ pub trait Repo {
 
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
 
-    fn resolve_change_id(&self, change_id: &ChangeId) -> Option<Vec<CommitId>> {
+    fn resolve_change_id(&self, change_id: &ChangeId) -> IndexResult<Option<Vec<CommitId>>> {
         // Replace this if we added more efficient lookup method.
         let prefix = HexPrefix::from_id(change_id);
-        match self.resolve_change_id_prefix(&prefix) {
-            PrefixResolution::NoMatch => None,
-            PrefixResolution::SingleMatch(entries) => Some(entries),
+        match self.resolve_change_id_prefix(&prefix)? {
+            PrefixResolution::NoMatch => Ok(None),
+            PrefixResolution::SingleMatch(entries) => Ok(Some(entries)),
             PrefixResolution::AmbiguousMatch => panic!("complete change_id should be unambiguous"),
         }
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>>;
+    fn resolve_change_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<Vec<CommitId>>>;
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id_bytes: &ChangeId) -> usize;
+    fn shortest_unique_change_id_prefix_len(
+        &self,
+        target_id_bytes: &ChangeId,
+    ) -> IndexResult<usize>;
 }
 
 pub struct ReadonlyRepo {
@@ -187,15 +195,15 @@ impl ReadonlyRepo {
     }
 
     #[expect(clippy::too_many_arguments)]
-    pub fn init(
+    pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
-        backend_initializer: &BackendInitializer,
+        backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
-        op_store_initializer: &OpStoreInitializer,
-        op_heads_store_initializer: &OpHeadsStoreInitializer,
-        index_store_initializer: &IndexStoreInitializer,
-        submodule_store_initializer: &SubmoduleStoreInitializer,
+        op_store_initializer: &OpStoreInitializer<'_>,
+        op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
+        index_store_initializer: &IndexStoreInitializer<'_>,
+        submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
     ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
@@ -225,7 +233,7 @@ impl ReadonlyRepo {
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store
             .update_op_heads(&[], op_store.root_operation_id())
-            .block_on()?;
+            .await?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
@@ -252,12 +260,16 @@ impl ReadonlyRepo {
             submodule_store,
         };
 
-        let root_operation = loader.root_operation();
-        let root_view = root_operation.view().expect("failed to read root view");
+        let root_operation = loader.root_operation().await;
+        let root_view = root_operation
+            .view()
+            .await
+            .expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
             .index_store
             .get_index_at_op(&root_operation, &loader.store)
+            .await
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
@@ -290,13 +302,13 @@ impl ReadonlyRepo {
         self.index.as_ref()
     }
 
-    fn change_id_index(&self) -> &dyn ChangeIdIndex {
+    fn change_id_index(&self) -> IndexResult<&dyn ChangeIdIndex> {
         self.change_id_index
-            .get_or_init(|| {
+            .get_or_try_init(|| {
                 self.readonly_index()
                     .change_id_index(&mut self.view().heads().iter())
             })
-            .as_ref()
+            .map(|index| index.as_ref())
     }
 
     pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
@@ -316,13 +328,13 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head()
+    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at_head().await
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation)
+    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at(operation).await
     }
 }
 
@@ -351,12 +363,16 @@ impl Repo for ReadonlyRepo {
         self.loader.submodule_store()
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
-        self.change_id_index().resolve_prefix(prefix)
+    fn resolve_change_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
+        self.change_id_index()?.resolve_prefix(prefix)
     }
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> usize {
-        self.change_id_index().shortest_unique_prefix_len(target_id)
+    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
+        self.change_id_index()?
+            .shortest_unique_prefix_len(target_id)
     }
 }
 
@@ -630,7 +646,9 @@ pub enum RepoLoaderError {
     #[error(transparent)]
     Backend(#[from] BackendError),
     #[error(transparent)]
-    IndexRead(#[from] IndexReadError),
+    Index(#[from] IndexError),
+    #[error(transparent)]
+    IndexStore(#[from] IndexStoreError),
     #[error(transparent)]
     OpHeadResolution(#[from] OpHeadResolutionError),
     #[error(transparent)]
@@ -736,20 +754,21 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
             |op_heads| self.resolve_op_heads(op_heads),
-        )?;
-        let view = op.view()?;
-        self.finish_load(op, view)
+        )
+        .await?;
+        let view = op.view().await?;
+        self.finish_load(op, view).await
     }
 
     #[instrument(skip(self))]
-    pub fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let view = op.view()?;
-        self.finish_load(op.clone(), view)
+    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        let view = op.view().await?;
+        self.finish_load(op.clone(), view).await
     }
 
     pub fn create_from(
@@ -772,20 +791,21 @@ impl RepoLoader {
     // load_operation() will be moved there.
 
     /// Returns the root operation.
-    pub fn root_operation(&self) -> Operation {
+    pub async fn root_operation(&self) -> Operation {
         self.load_operation(self.op_store.root_operation_id())
+            .await
             .expect("failed to read root operation")
     }
 
     /// Loads the specified operation from the operation store.
-    pub fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
-        let data = self.op_store.read_operation(id).block_on()?;
+    pub async fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
+        let data = self.op_store.read_operation(id).await?;
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
     }
 
     /// Merges the given `operations` into a single operation. Returns the root
     /// operation if the `operations` is empty.
-    pub fn merge_operations(
+    pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
         tx_description: Option<&str>,
@@ -793,20 +813,20 @@ impl RepoLoader {
         let num_operations = operations.len();
         let mut operations = operations.into_iter();
         let Some(base_op) = operations.next() else {
-            return Ok(self.root_operation());
+            return Ok(self.root_operation().await);
         };
         let final_op = if num_operations > 1 {
-            let base_repo = self.load_at(&base_op)?;
+            let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
-                tx.merge_operation(other_op)?;
-                tx.repo_mut().rebase_descendants()?;
+                tx.merge_operation(other_op).await?;
+                tx.repo_mut().rebase_descendants().await?;
             }
             let tx_description = tx_description.map_or_else(
                 || format!("merge {num_operations} operations"),
                 |tx_description| tx_description.to_string(),
             );
-            let merged_repo = tx.write(tx_description)?.leave_unpublished();
+            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
             merged_repo.operation().clone()
         } else {
             base_op
@@ -815,17 +835,24 @@ impl RepoLoader {
         Ok(final_op)
     }
 
-    fn resolve_op_heads(&self, op_heads: Vec<Operation>) -> Result<Operation, RepoLoaderError> {
+    async fn resolve_op_heads(
+        &self,
+        op_heads: Vec<Operation>,
+    ) -> Result<Operation, RepoLoaderError> {
         assert!(!op_heads.is_empty());
         self.merge_operations(op_heads, Some("reconcile divergent operations"))
+            .await
     }
 
-    fn finish_load(
+    async fn finish_load(
         &self,
         operation: Operation,
         view: View,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let index = self.index_store.get_index_at_op(&operation, &self.store)?;
+        let index = self
+            .index_store
+            .get_index_at_op(&operation, &self.store)
+            .await?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
@@ -1104,20 +1131,20 @@ impl MutableRepo {
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
     /// and/or abandoning commits.
-    pub fn update_rewritten_references(
+    pub async fn update_rewritten_references(
         &mut self,
         options: &RewriteRefsOptions,
     ) -> BackendResult<()> {
-        self.update_all_references(options)?;
+        self.update_all_references(options).await?;
         self.update_heads()
             .map_err(|err| err.into_backend_error())?;
         Ok(())
     }
 
-    fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
+    async fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
         let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
-        self.update_local_bookmarks(&rewrite_mapping, options);
-        self.update_wc_commits(&rewrite_mapping)?;
+        self.update_local_bookmarks(&rewrite_mapping, options)?;
+        self.update_wc_commits(&rewrite_mapping).await?;
         Ok(())
     }
 
@@ -1125,7 +1152,7 @@ impl MutableRepo {
         &mut self,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-    ) {
+    ) -> BackendResult<()> {
         let changed_branches = self
             .view()
             .local_bookmarks()
@@ -1151,11 +1178,13 @@ impl MutableRepo {
                 RefTarget::from_merge(MergeBuilder::from_iter(ids).build())
             };
 
-            self.merge_local_bookmark(&bookmark_name, &old_target, &new_target);
+            self.merge_local_bookmark(&bookmark_name, &old_target, &new_target)
+                .map_err(|err| BackendError::Other(err.into()))?;
         }
+        Ok(())
     }
 
-    fn update_wc_commits(
+    async fn update_wc_commits(
         &mut self,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
     ) -> BackendResult<()> {
@@ -1176,18 +1205,21 @@ impl MutableRepo {
             );
             let new_wc_commit = if !abandoned_old_commit {
                 // We arbitrarily pick a new working-copy commit among the candidates.
-                self.store().get_commit(&new_commit_ids[0])?
+                self.store().get_commit_async(&new_commit_ids[0]).await?
             } else if let Some(commit) = recreated_wc_commits.get(old_commit_id) {
                 commit.clone()
             } else {
-                let new_commits: Vec<_> = new_commit_ids
-                    .iter()
-                    .map(|id| self.store().get_commit(id))
-                    .try_collect()?;
-                let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
+                let new_commits: Vec<_> = try_join_all(
+                    new_commit_ids
+                        .iter()
+                        .map(|id| self.store().get_commit_async(id)),
+                )
+                .await?;
+                let merged_parents_tree = merge_commit_trees(self, &new_commits).await?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
-                    .write()?;
+                    .write()
+                    .await?;
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
@@ -1294,13 +1326,14 @@ impl MutableRepo {
     /// adds new descendants, then the callback will not be called for those.
     /// Similarly, if the callback rewrites unrelated commits, then the callback
     /// will not be called for descendants of those commits.
-    pub fn transform_descendants(
+    pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
         callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
+            .await
     }
 
     /// Rewrite descendants of the given roots with options.
@@ -1310,7 +1343,7 @@ impl MutableRepo {
     /// parents.
     ///
     /// See [`Self::transform_descendants()`] for details.
-    pub fn transform_descendants_with_options(
+    pub async fn transform_descendants_with_options(
         &mut self,
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
@@ -1319,6 +1352,7 @@ impl MutableRepo {
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots)?;
         self.transform_commits(descendants, new_parents_map, options, callback)
+            .await
     }
 
     /// Rewrite the given commits in reverse topological order.
@@ -1328,7 +1362,7 @@ impl MutableRepo {
     /// This function is similar to
     /// [`Self::transform_descendants_with_options()`], but only rewrites the
     /// `commits` provided, and does not rewrite their descendants.
-    pub fn transform_commits(
+    pub async fn transform_commits(
         &mut self,
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
@@ -1342,9 +1376,9 @@ impl MutableRepo {
                 .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
             let new_parent_ids = self.new_parents(parent_ids);
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
-            callback(rewriter).block_on()?;
+            callback(rewriter).await?;
         }
-        self.update_rewritten_references(options)?;
+        self.update_rewritten_references(options).await?;
         // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
         // if they were rewritten in the callback), there can still be commits left to
         // rebase, so we don't clear `parent_mapping` here.
@@ -1372,7 +1406,7 @@ impl MutableRepo {
     ///
     /// The `progress` callback will be invoked for each rebase operation with
     /// `(old_commit, rebased_commit)` as arguments.
-    pub fn rebase_descendants_with_options(
+    pub async fn rebase_descendants_with_options(
         &mut self,
         options: &RebaseOptions,
         mut progress: impl FnMut(Commit, RebasedCommit),
@@ -1385,12 +1419,13 @@ impl MutableRepo {
             async |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
-                    let rebased_commit = rebase_commit_with_options(rewriter, options)?;
+                    let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
                     progress(old_commit, rebased_commit);
                 }
                 Ok(())
             },
-        )?;
+        )
+        .await?;
         self.parent_mapping.clear();
         Ok(())
     }
@@ -1404,12 +1439,13 @@ impl MutableRepo {
     /// All rebased descendant commits will be preserved even if they were
     /// emptied following the rebase operation. To customize the rebase
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
-    pub fn rebase_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let options = RebaseOptions::default();
         let mut num_rebased = 0;
         self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
             num_rebased += 1;
-        })?;
+        })
+        .await?;
         Ok(num_rebased)
     }
 
@@ -1419,17 +1455,18 @@ impl MutableRepo {
     /// be recursively reparented onto the new version of their parents.
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
-    pub fn reparent_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
-                builder.write()?;
+                builder.write().await?;
                 num_reparented += 1;
             }
             Ok(())
-        })?;
+        })
+        .await?;
         self.parent_mapping.clear();
         Ok(num_reparented)
     }
@@ -1490,14 +1527,15 @@ impl MutableRepo {
         self.view_mut().rename_workspace(old_name, new_name)
     }
 
-    pub fn check_out(
+    pub async fn check_out(
         &mut self,
         name: WorkspaceNameBuf,
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
             .new_commit(vec![commit.id().clone()], commit.tree_id().clone())
-            .write()?;
+            .write()
+            .await?;
         self.edit(name, &wc_commit)?;
         Ok(wc_commit)
     }
@@ -1616,9 +1654,23 @@ impl MutableRepo {
                         commit
                             .parent_ids()
                             .iter()
-                            .filter(|id| !self.index().has_id(id))
-                            .map(|id| self.store().get_commit(id))
-                            .map_ok(CommitByCommitterTimestamp)
+                            .filter_map(|id| {
+                                self.index()
+                                    .has_id(id)
+                                    // TODO: indexing error shouldn't be a "BackendError"
+                                    .map_err(|err| BackendError::Other(err.into()))
+                                    .and_then(|has_id| {
+                                        if has_id {
+                                            Ok(None)
+                                        } else {
+                                            self.store()
+                                                .get_commit(id)
+                                                .map(CommitByCommitterTimestamp)
+                                                .map(Some)
+                                        }
+                                    })
+                                    .transpose()
+                            })
                             .collect_vec()
                     },
                     |_| panic!("graph has cycle"),
@@ -1661,12 +1713,13 @@ impl MutableRepo {
         name: &RefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_local_bookmark(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         self.set_local_bookmark_target(name, new_target);
+        Ok(())
     }
 
     pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
@@ -1683,22 +1736,24 @@ impl MutableRepo {
         symbol: RemoteRefSymbol<'_>,
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_ref = view.get_remote_bookmark(symbol);
-        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
         view.set_remote_bookmark(symbol, new_ref);
+        Ok(())
     }
 
     /// Merges the specified remote bookmark in to local bookmark, and starts
     /// tracking it.
-    pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
+    pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) -> IndexResult<()> {
         let mut remote_ref = self.get_remote_bookmark(symbol);
         let base_target = remote_ref.tracked_target();
-        self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target);
+        self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target)?;
         remote_ref.state = RemoteRefState::Tracked;
         self.set_remote_bookmark(symbol, remote_ref);
+        Ok(())
     }
 
     /// Stops tracking the specified remote bookmark.
@@ -1733,12 +1788,13 @@ impl MutableRepo {
         name: &RefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_local_tag(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         view.set_local_tag_target(name, new_target);
+        Ok(())
     }
 
     pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
@@ -1754,12 +1810,13 @@ impl MutableRepo {
         symbol: RemoteRefSymbol<'_>,
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_ref = view.get_remote_tag(symbol);
-        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
         view.set_remote_tag(symbol, new_ref);
+        Ok(())
     }
 
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
@@ -1775,12 +1832,13 @@ impl MutableRepo {
         name: &GitRefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_git_ref(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         view.set_git_ref_target(name, new_target);
+        Ok(())
     }
 
     pub fn git_head(&self) -> RefTarget {
@@ -1800,13 +1858,13 @@ impl MutableRepo {
         &mut self,
         base_repo: &ReadonlyRepo,
         other_repo: &ReadonlyRepo,
-    ) -> BackendResult<()> {
+    ) -> Result<(), RepoLoaderError> {
         // First, merge the index, so we can take advantage of a valid index when
         // merging the view. Merging in base_repo's index isn't typically
         // necessary, but it can be if base_repo is ahead of either self or other_repo
         // (e.g. because we're undoing an operation that hasn't been published).
-        self.index.merge_in(base_repo.readonly_index());
-        self.index.merge_in(other_repo.readonly_index());
+        self.index.merge_in(base_repo.readonly_index())?;
+        self.index.merge_in(other_repo.readonly_index())?;
 
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
         self.merge_view(&base_repo.view, &other_repo.view)?;
@@ -1814,11 +1872,11 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) {
-        self.index.merge_in(other_repo.readonly_index());
+    pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) -> IndexResult<()> {
+        self.index.merge_in(other_repo.readonly_index())
     }
 
-    fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
+    fn merge_view(&mut self, base: &View, other: &View) -> Result<(), RepoLoaderError> {
         let changed_wc_commits = diff_named_commit_ids(base.wc_commit_ids(), other.wc_commit_ids());
         for (name, (base_id, other_id)) in changed_wc_commits {
             self.merge_wc_commit(name, base_id, other_id);
@@ -1851,29 +1909,29 @@ impl MutableRepo {
         let changed_local_bookmarks =
             diff_named_ref_targets(base.local_bookmarks(), other.local_bookmarks());
         for (name, (base_target, other_target)) in changed_local_bookmarks {
-            self.merge_local_bookmark(name, base_target, other_target);
+            self.merge_local_bookmark(name, base_target, other_target)?;
         }
 
         let changed_local_tags = diff_named_ref_targets(base.local_tags(), other.local_tags());
         for (name, (base_target, other_target)) in changed_local_tags {
-            self.merge_local_tag(name, base_target, other_target);
+            self.merge_local_tag(name, base_target, other_target)?;
         }
 
         let changed_git_refs = diff_named_ref_targets(base.git_refs(), other.git_refs());
         for (name, (base_target, other_target)) in changed_git_refs {
-            self.merge_git_ref(name, base_target, other_target);
+            self.merge_git_ref(name, base_target, other_target)?;
         }
 
         let changed_remote_bookmarks =
             diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
         for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
-            self.merge_remote_bookmark(symbol, base_ref, other_ref);
+            self.merge_remote_bookmark(symbol, base_ref, other_ref)?;
         }
 
         let changed_remote_tags =
             diff_named_remote_refs(base.all_remote_tags(), other.all_remote_tags());
         for (symbol, (base_ref, other_ref)) in changed_remote_tags {
-            self.merge_remote_tag(symbol, base_ref, other_ref);
+            self.merge_remote_tag(symbol, base_ref, other_ref)?;
         }
 
         let new_git_head_target = merge_ref_targets(
@@ -1881,7 +1939,7 @@ impl MutableRepo {
             self.view().git_head(),
             base.git_head(),
             other.git_head(),
-        );
+        )?;
         self.set_git_head_target(new_git_head_target);
 
         Ok(())
@@ -1976,13 +2034,20 @@ impl Repo for MutableRepo {
         self.base_repo.submodule_store()
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
-        let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
+    fn resolve_change_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
+        let change_id_index = self
+            .index
+            .change_id_index(&mut self.view().heads().iter())?;
         change_id_index.resolve_prefix(prefix)
     }
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> usize {
-        let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
+    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
+        let change_id_index = self
+            .index
+            .change_id_index(&mut self.view().heads().iter())?;
         change_id_index.shortest_unique_prefix_len(target_id)
     }
 }
