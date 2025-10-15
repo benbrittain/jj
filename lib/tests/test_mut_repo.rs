@@ -355,13 +355,13 @@ fn test_add_head_success() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     assert!(!mut_repo.view().heads().contains(new_commit.id()));
-    assert!(!mut_repo.index().has_id(new_commit.id()));
+    assert!(!mut_repo.index().has_id(new_commit.id()).unwrap());
     mut_repo.add_head(&new_commit).unwrap();
     assert!(mut_repo.view().heads().contains(new_commit.id()));
-    assert!(mut_repo.index().has_id(new_commit.id()));
+    assert!(mut_repo.index().has_id(new_commit.id()).unwrap());
     let repo = tx.commit("test").unwrap();
     assert!(repo.view().heads().contains(new_commit.id()));
-    assert!(repo.index().has_id(new_commit.id()));
+    assert!(repo.index().has_id(new_commit.id()).unwrap());
 }
 
 #[test]
@@ -414,9 +414,9 @@ fn test_add_head_not_immediate_child() {
         mut_repo.view().heads(),
         &hashset! {initial.id().clone(), child.id().clone()}
     );
-    assert!(mut_repo.index().has_id(initial.id()));
-    assert!(mut_repo.index().has_id(rewritten.id()));
-    assert!(mut_repo.index().has_id(child.id()));
+    assert!(mut_repo.index().has_id(initial.id()).unwrap());
+    assert!(mut_repo.index().has_id(rewritten.id()).unwrap());
+    assert!(mut_repo.index().has_id(child.id()).unwrap());
 }
 
 #[test]
@@ -441,17 +441,17 @@ fn test_remove_head() {
     assert!(!heads.contains(commit3.id()));
     assert!(!heads.contains(commit2.id()));
     assert!(!heads.contains(commit1.id()));
-    assert!(mut_repo.index().has_id(commit1.id()));
-    assert!(mut_repo.index().has_id(commit2.id()));
-    assert!(mut_repo.index().has_id(commit3.id()));
+    assert!(mut_repo.index().has_id(commit1.id()).unwrap());
+    assert!(mut_repo.index().has_id(commit2.id()).unwrap());
+    assert!(mut_repo.index().has_id(commit3.id()).unwrap());
     let repo = tx.commit("test").unwrap();
     let heads = repo.view().heads().clone();
     assert!(!heads.contains(commit3.id()));
     assert!(!heads.contains(commit2.id()));
     assert!(!heads.contains(commit1.id()));
-    assert!(repo.index().has_id(commit1.id()));
-    assert!(repo.index().has_id(commit2.id()));
-    assert!(repo.index().has_id(commit3.id()));
+    assert!(repo.index().has_id(commit1.id()).unwrap());
+    assert!(repo.index().has_id(commit2.id()).unwrap());
+    assert!(repo.index().has_id(commit3.id()).unwrap());
 }
 
 #[test]

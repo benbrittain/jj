@@ -415,9 +415,9 @@ fn test_index_commits_hidden_but_referenced() {
     let repo = tx.commit("test").unwrap();
 
     // All commits should be indexed
-    assert!(repo.index().has_id(commit_a.id()));
-    assert!(repo.index().has_id(commit_b.id()));
-    assert!(repo.index().has_id(commit_c.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
+    assert!(repo.index().has_id(commit_b.id()).unwrap());
+    assert!(repo.index().has_id(commit_c.id()).unwrap());
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
@@ -425,9 +425,9 @@ fn test_index_commits_hidden_but_referenced() {
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     // All commits should be reindexed
-    assert!(repo.index().has_id(commit_a.id()));
-    assert!(repo.index().has_id(commit_b.id()));
-    assert!(repo.index().has_id(commit_c.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
+    assert!(repo.index().has_id(commit_b.id()).unwrap());
+    assert!(repo.index().has_id(commit_c.id()).unwrap());
 }
 
 #[test]
@@ -536,7 +536,7 @@ fn test_index_commits_incremental_already_indexed() {
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
     let repo = tx.commit("test").unwrap();
 
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
     assert_eq!(as_readonly_index(&repo).num_commits(), 1 + 1);
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -641,7 +641,7 @@ fn test_reindex_no_segments_dir() {
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 
     // jj <= 0.14 doesn't have "segments" directory
     let segments_dir = test_repo.repo_path().join("index").join("segments");
@@ -649,7 +649,7 @@ fn test_reindex_no_segments_dir() {
     fs::remove_dir_all(&segments_dir).unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 }
 
 #[test]
@@ -662,7 +662,7 @@ fn test_reindex_corrupt_segment_files() {
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 
     // Corrupt the index files
     let segments_dir = test_repo.repo_path().join("index").join("segments");
@@ -678,7 +678,7 @@ fn test_reindex_corrupt_segment_files() {
     }
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(repo.index().has_id(commit_a.id()).unwrap());
 }
 
 #[test]

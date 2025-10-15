@@ -151,8 +151,8 @@ impl CompositeCommitIndex {
         self.0.num_parent_commits() + self.0.num_local_commits()
     }
 
-    pub fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.commit_id_to_pos(commit_id).is_some()
+    pub fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.commit_id_to_pos(commit_id).is_some())
     }
 
     pub fn entry_by_pos(&self, pos: GlobalCommitPosition) -> CommitIndexEntry<'_> {
@@ -585,7 +585,7 @@ impl Index for CompositeIndex {
         Ok(self.commits().resolve_commit_id_prefix(prefix))
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
         self.commits().has_id(commit_id)
     }
 
