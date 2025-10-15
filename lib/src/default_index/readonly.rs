@@ -49,6 +49,7 @@ use crate::backend::CommitId;
 use crate::graph::GraphNode;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
+use crate::index::IndexError;
 use crate::index::IndexResult;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
@@ -712,7 +713,10 @@ impl AsCompositeIndex for DefaultReadonlyIndex {
 }
 
 impl Index for DefaultReadonlyIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
+    fn shortest_unique_commit_id_prefix_len(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<usize, IndexError> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 

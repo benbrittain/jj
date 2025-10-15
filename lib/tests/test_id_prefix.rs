@@ -150,11 +150,15 @@ fn test_id_prefix() {
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[7].id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commits[7].id())
+            .unwrap(),
         2
     );
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[16].id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commits[16].id())
+            .unwrap(),
         1
     );
     assert_eq!(
@@ -218,7 +222,9 @@ fn test_id_prefix() {
     let index = context.populate(repo.as_ref()).unwrap();
     // The prefix is now shorter
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[7].id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commits[7].id())
+            .unwrap(),
         1
     );
     // Shorter prefix within the set can be used
@@ -251,7 +257,9 @@ fn test_id_prefix() {
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), root_commit_id),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), root_commit_id)
+            .unwrap(),
         1
     );
     assert_eq!(
@@ -522,7 +530,9 @@ fn test_id_prefix_hidden() {
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id())
+            .unwrap(),
         2
     );
     assert_eq!(
@@ -564,7 +574,9 @@ fn test_id_prefix_hidden() {
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id()),
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id())
+            .unwrap(),
         1
     );
     assert_eq!(
@@ -626,7 +638,12 @@ fn test_id_prefix_shadowed_by_ref() {
     let context = IdPrefixContext::default();
     let index = context.populate(tx.repo()).unwrap();
 
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
+    assert_eq!(
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
+        1
+    );
     assert_eq!(
         index
             .shortest_change_prefix_len(tx.repo(), commit.change_id())
@@ -640,7 +657,12 @@ fn test_id_prefix_shadowed_by_ref() {
         .set_local_tag_target(commit_id_sym[..2].as_ref(), dummy_target.clone());
     tx.repo_mut()
         .set_local_tag_target(change_id_sym[..2].as_ref(), dummy_target.clone());
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
+    assert_eq!(
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
+        1
+    );
     assert_eq!(
         index
             .shortest_change_prefix_len(tx.repo(), commit.change_id())
@@ -653,7 +675,12 @@ fn test_id_prefix_shadowed_by_ref() {
         .set_local_bookmark_target(commit_id_sym[..1].as_ref(), dummy_target.clone());
     tx.repo_mut()
         .set_local_bookmark_target(change_id_sym[..1].as_ref(), dummy_target.clone());
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 3);
+    assert_eq!(
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
+        3
+    );
     assert_eq!(
         index
             .shortest_change_prefix_len(tx.repo(), commit.change_id())
@@ -671,7 +698,9 @@ fn test_id_prefix_shadowed_by_ref() {
             .set_local_tag_target(change_id_sym[..n].as_ref(), dummy_target.clone());
     }
     assert_eq!(
-        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
         commit_id_sym.len()
     );
     assert_eq!(
@@ -687,7 +716,9 @@ fn test_id_prefix_shadowed_by_ref() {
     tx.repo_mut()
         .set_local_tag_target(change_id_sym.as_ref(), dummy_target.clone());
     assert_eq!(
-        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        index
+            .shortest_commit_prefix_len(tx.repo(), commit.id())
+            .unwrap(),
         commit_id_sym.len()
     );
     assert_eq!(

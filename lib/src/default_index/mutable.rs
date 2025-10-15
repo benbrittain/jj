@@ -545,7 +545,10 @@ impl AsCompositeIndex for DefaultMutableIndex {
 }
 
 impl Index for DefaultMutableIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
+    fn shortest_unique_commit_id_prefix_len(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<usize, IndexError> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
