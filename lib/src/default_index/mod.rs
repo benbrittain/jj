@@ -137,7 +137,9 @@ mod tests {
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let change_id0 = new_change_id();
-        mutable_segment.add_commit_data(id_0.clone(), change_id0.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_0.clone(), change_id0.clone(), &[])
+            .unwrap();
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             // Stats are as expected
@@ -179,7 +181,9 @@ mod tests {
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("111111");
-        index.add_commit_data(id_1, new_change_id(), &[id_0]).unwrap();
+        index
+            .add_commit_data(id_1, new_change_id(), &[id_0])
+            .unwrap();
     }
 
     #[test_case(false, false; "full in memory")]
@@ -203,9 +207,15 @@ mod tests {
         let change_id1 = new_change_id();
         let id_2 = CommitId::from_hex("222222");
         let change_id2 = change_id1.clone();
-        mutable_segment.add_commit_data(id_0.clone(), change_id0, &[]).unwrap();
-        mutable_segment.add_commit_data(id_1.clone(), change_id1.clone(), &[id_0.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_2.clone(), change_id2.clone(), &[id_0.clone()]).unwrap();
+        mutable_segment
+            .add_commit_data(id_0.clone(), change_id0, &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_1.clone(), change_id1.clone(), &[id_0.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_2.clone(), change_id2.clone(), &[id_0.clone()])
+            .unwrap();
 
         // If testing incremental indexing, write the first three commits to one file
         // now and build the remainder as another segment on top.
@@ -220,9 +230,15 @@ mod tests {
         let change_id4 = new_change_id();
         let id_5 = CommitId::from_hex("555555");
         let change_id5 = change_id3.clone();
-        mutable_segment.add_commit_data(id_3.clone(), change_id3.clone(), &[id_2.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_4.clone(), change_id4, &[id_1.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_5.clone(), change_id5, &[id_4.clone(), id_2.clone()]).unwrap();
+        mutable_segment
+            .add_commit_data(id_3.clone(), change_id3.clone(), &[id_2.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_4.clone(), change_id4, &[id_1.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_5.clone(), change_id5, &[id_4.clone(), id_2.clone()])
+            .unwrap();
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             // Stats are as expected
@@ -324,17 +340,31 @@ mod tests {
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
         let id_6 = CommitId::from_hex("666666");
-        mutable_segment.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_3.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_4.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        mutable_segment.add_commit_data(id_5.clone(), new_change_id(), &[id_0]).unwrap();
-        mutable_segment.add_commit_data(
-            id_6.clone(),
-            new_change_id(),
-            &[id_1, id_2, id_3, id_4, id_5],
-        ).unwrap();
+        mutable_segment
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_0])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(
+                id_6.clone(),
+                new_change_id(),
+                &[id_1, id_2, id_3, id_4, id_5],
+            )
+            .unwrap();
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             // Stats are as expected
@@ -377,9 +407,15 @@ mod tests {
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("009999");
         let id_2 = CommitId::from_hex("055488");
-        mutable_segment.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_1.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_2.clone(), new_change_id(), &[])
+            .unwrap();
 
         // Write the first three commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
@@ -388,9 +424,15 @@ mod tests {
         let id_3 = CommitId::from_hex("055444");
         let id_4 = CommitId::from_hex("055555");
         let id_5 = CommitId::from_hex("033333");
-        mutable_segment.add_commit_data(id_3, new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_4, new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_5, new_change_id(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_3, new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_4, new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_5, new_change_id(), &[])
+            .unwrap();
 
         let index = mutable_segment.as_composite();
 
@@ -449,9 +491,15 @@ mod tests {
         let id_0 = CommitId::from_hex("000001");
         let id_1 = CommitId::from_hex("009999");
         let id_2 = CommitId::from_hex("055488");
-        mutable_segment.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_1.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_2.clone(), new_change_id(), &[])
+            .unwrap();
 
         // Write the first three commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
@@ -460,9 +508,15 @@ mod tests {
         let id_3 = CommitId::from_hex("055444");
         let id_4 = CommitId::from_hex("055555");
         let id_5 = CommitId::from_hex("033333");
-        mutable_segment.add_commit_data(id_3.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_4.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_5.clone(), new_change_id(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_3.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_4.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_5.clone(), new_change_id(), &[])
+            .unwrap();
 
         // Local lookup in readonly index, commit_id exists.
         assert_eq!(
@@ -577,9 +631,15 @@ mod tests {
         let id_0 = CommitId::from_hex("000001");
         let id_1 = CommitId::from_hex("009999");
         let id_2 = CommitId::from_hex("055488");
-        mutable_segment.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_1.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_2.clone(), new_change_id(), &[])
+            .unwrap();
 
         // Write the first three commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
@@ -588,9 +648,15 @@ mod tests {
         let id_3 = CommitId::from_hex("055444");
         let id_4 = CommitId::from_hex("055555");
         let id_5 = CommitId::from_hex("033333");
-        mutable_segment.add_commit_data(id_3.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_4.clone(), new_change_id(), &[]).unwrap();
-        mutable_segment.add_commit_data(id_5.clone(), new_change_id(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(id_3.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_4.clone(), new_change_id(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(id_5.clone(), new_change_id(), &[])
+            .unwrap();
 
         let index = mutable_segment.as_composite();
 
@@ -648,22 +714,44 @@ mod tests {
             commit_id: 16,
             change_id: 4,
         });
-        mutable_segment.add_commit_data(new_commit_id(), id_0.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_0.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
 
         // Write these commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
-        mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_4.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_5.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_3.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_3.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_4.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_5.clone(), &[])
+            .unwrap();
 
         // Local lookup in readonly index with the full hex digits
         assert_eq!(
@@ -815,22 +903,44 @@ mod tests {
             commit_id: 16,
             change_id: 4,
         });
-        mutable_segment.add_commit_data(new_commit_id(), id_0.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_0.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
 
         // Write these commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
-        mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_4.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_5.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_3.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_3.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_4.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_5.clone(), &[])
+            .unwrap();
 
         // Local lookup in readonly index, change_id exists.
         assert_eq!(
@@ -964,22 +1074,44 @@ mod tests {
             commit_id: 16,
             change_id: 4,
         });
-        mutable_segment.add_commit_data(new_commit_id(), id_0.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_0.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_2.clone(), &[])
+            .unwrap();
 
         // Write these commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
-        mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_4.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]).unwrap();
-        mutable_segment.add_commit_data(new_commit_id(), id_5.clone(), &[]).unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_3.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_3.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_4.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_1.clone(), &[])
+            .unwrap();
+        mutable_segment
+            .add_commit_data(new_commit_id(), id_5.clone(), &[])
+            .unwrap();
 
         let index = mutable_segment.as_composite();
 
@@ -1027,24 +1159,36 @@ mod tests {
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]).unwrap();
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]).unwrap();
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]).unwrap();
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()])
+            .unwrap();
 
-        assert!(index.is_ancestor(&id_0, &id_0));
-        assert!(index.is_ancestor(&id_0, &id_1));
-        assert!(index.is_ancestor(&id_2, &id_3));
-        assert!(index.is_ancestor(&id_2, &id_5));
-        assert!(index.is_ancestor(&id_1, &id_5));
-        assert!(index.is_ancestor(&id_0, &id_5));
-        assert!(!index.is_ancestor(&id_1, &id_0));
-        assert!(!index.is_ancestor(&id_5, &id_3));
-        assert!(!index.is_ancestor(&id_3, &id_5));
-        assert!(!index.is_ancestor(&id_2, &id_4));
-        assert!(!index.is_ancestor(&id_4, &id_2));
+        assert!(index.is_ancestor(&id_0, &id_0).unwrap());
+        assert!(index.is_ancestor(&id_0, &id_1).unwrap());
+        assert!(index.is_ancestor(&id_2, &id_3).unwrap());
+        assert!(index.is_ancestor(&id_2, &id_5).unwrap());
+        assert!(index.is_ancestor(&id_1, &id_5).unwrap());
+        assert!(index.is_ancestor(&id_0, &id_5).unwrap());
+        assert!(!index.is_ancestor(&id_1, &id_0).unwrap());
+        assert!(!index.is_ancestor(&id_5, &id_3).unwrap());
+        assert!(!index.is_ancestor(&id_3, &id_5).unwrap());
+        assert!(!index.is_ancestor(&id_2, &id_4).unwrap());
+        assert!(!index.is_ancestor(&id_4, &id_2).unwrap());
     }
 
     #[test]
@@ -1066,13 +1210,27 @@ mod tests {
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
         let id_6 = CommitId::from_hex("666666");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]).unwrap();
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]).unwrap();
-        index.add_commit_data(id_6.clone(), new_change_id(), &[id_4.clone()]).unwrap();
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_6.clone(), new_change_id(), &[id_4.clone()])
+            .unwrap();
 
         assert_eq!(
             index.common_ancestors(&[id_0.clone()], &[id_0.clone()]),
@@ -1155,11 +1313,21 @@ mod tests {
         let id_2 = CommitId::from_hex("222222");
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0]).unwrap();
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_1.clone(), id_2.clone()]).unwrap();
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone(), id_2.clone()]).unwrap();
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_1.clone(), id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone(), id_2.clone()])
+            .unwrap();
 
         let mut common_ancestors = index.common_ancestors(&[id_3], &[id_4]);
         common_ancestors.sort();
@@ -1181,12 +1349,24 @@ mod tests {
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        index.add_commit_data(id_1, new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_3, new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_0.clone(), id_2.clone()]).unwrap();
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_0, id_2.clone()]).unwrap();
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1, new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3, new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_0.clone(), id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_0, id_2.clone()])
+            .unwrap();
 
         let mut common_ancestors = index.common_ancestors(&[id_4], &[id_5]);
         common_ancestors.sort();
@@ -1210,12 +1390,24 @@ mod tests {
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]).unwrap();
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]).unwrap();
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]).unwrap();
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()])
+            .unwrap();
 
         // Empty input
         assert!(index.heads(&mut [].iter()).unwrap().is_empty());
@@ -1284,12 +1476,24 @@ mod tests {
         let id_3 = CommitId::from_hex("333333");
         let id_4 = CommitId::from_hex("444444");
         let id_5 = CommitId::from_hex("555555");
-        index.add_commit_data(id_0.clone(), new_change_id(), &[]).unwrap();
-        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]).unwrap();
-        index.add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()]).unwrap();
-        index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]).unwrap();
-        index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]).unwrap();
+        index
+            .add_commit_data(id_0.clone(), new_change_id(), &[])
+            .unwrap();
+        index
+            .add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_3.clone(), new_change_id(), &[id_2.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()])
+            .unwrap();
+        index
+            .add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()])
+            .unwrap();
 
         // Helper function to convert commit IDs to/from index positions and call
         // `heads_from_range_and_filter`.

@@ -148,19 +148,19 @@ fn test_index_commits_standard_cases() {
     assert_eq!(index.generation_number(commit_g.id()).unwrap(), 6);
     assert_eq!(index.generation_number(commit_h.id()).unwrap(), 5);
 
-    assert!(index.is_ancestor(root_commit_id, commit_a.id()));
-    assert!(!index.is_ancestor(commit_a.id(), root_commit_id));
+    assert!(index.is_ancestor(root_commit_id, commit_a.id()).unwrap());
+    assert!(!index.is_ancestor(commit_a.id(), root_commit_id).unwrap());
 
-    assert!(index.is_ancestor(root_commit_id, commit_b.id()));
-    assert!(!index.is_ancestor(commit_b.id(), root_commit_id));
+    assert!(index.is_ancestor(root_commit_id, commit_b.id()).unwrap());
+    assert!(!index.is_ancestor(commit_b.id(), root_commit_id).unwrap());
 
-    assert!(!index.is_ancestor(commit_b.id(), commit_c.id()));
+    assert!(!index.is_ancestor(commit_b.id(), commit_c.id()).unwrap());
 
-    assert!(index.is_ancestor(commit_a.id(), commit_b.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_e.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_f.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_g.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_h.id()));
+    assert!(index.is_ancestor(commit_a.id(), commit_b.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_e.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_f.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_g.id()).unwrap());
+    assert!(index.is_ancestor(commit_a.id(), commit_h.id()).unwrap());
 }
 
 #[test]
@@ -225,14 +225,22 @@ fn test_index_commits_criss_cross() {
     // The left and right commits of the same generation should not be ancestors of
     // each other
     for generation in 0..num_generations {
-        assert!(!index.is_ancestor(
-            left_commits[generation].id(),
-            right_commits[generation].id()
-        ));
-        assert!(!index.is_ancestor(
-            right_commits[generation].id(),
-            left_commits[generation].id()
-        ));
+        assert!(
+            !index
+                .is_ancestor(
+                    left_commits[generation].id(),
+                    right_commits[generation].id()
+                )
+                .unwrap()
+        );
+        assert!(
+            !index
+                .is_ancestor(
+                    right_commits[generation].id(),
+                    left_commits[generation].id()
+                )
+                .unwrap()
+        );
     }
 
     // Both sides of earlier generations should be ancestors. Check a few different
@@ -240,15 +248,27 @@ fn test_index_commits_criss_cross() {
     for generation in 1..num_generations {
         for ancestor_side in &[&left_commits, &right_commits] {
             for descendant_side in &[&left_commits, &right_commits] {
-                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[generation].id()));
-                assert!(index.is_ancestor(
-                    ancestor_side[generation - 1].id(),
-                    descendant_side[generation].id()
-                ));
-                assert!(index.is_ancestor(
-                    ancestor_side[generation / 2].id(),
-                    descendant_side[generation].id()
-                ));
+                assert!(
+                    index
+                        .is_ancestor(ancestor_side[0].id(), descendant_side[generation].id())
+                        .unwrap()
+                );
+                assert!(
+                    index
+                        .is_ancestor(
+                            ancestor_side[generation - 1].id(),
+                            descendant_side[generation].id()
+                        )
+                        .unwrap()
+                );
+                assert!(
+                    index
+                        .is_ancestor(
+                            ancestor_side[generation / 2].id(),
+                            descendant_side[generation].id()
+                        )
+                        .unwrap()
+                );
             }
         }
     }
