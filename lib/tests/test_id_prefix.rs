@@ -162,19 +162,27 @@ fn test_id_prefix() {
         1
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("1"))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("18")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("18"))
+            .unwrap(),
         SingleMatch(commits[7].id().clone())
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("10")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("10"))
+            .unwrap(),
         NoMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("180")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("180"))
+            .unwrap(),
         NoMatch
     );
     assert_eq!(
@@ -229,12 +237,16 @@ fn test_id_prefix() {
     );
     // Shorter prefix within the set can be used
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("1"))
+            .unwrap(),
         SingleMatch(commits[7].id().clone())
     );
     // Can still resolve commits outside the set
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("19")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("19"))
+            .unwrap(),
         SingleMatch(commits[10].id().clone())
     );
     assert_eq!(
@@ -263,11 +275,15 @@ fn test_id_prefix() {
         1
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(""))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("0")),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix("0"))
+            .unwrap(),
         SingleMatch(root_commit_id.clone())
     );
     assert_eq!(
@@ -542,11 +558,15 @@ fn test_id_prefix_hidden() {
         3
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1])),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1]))
+            .unwrap(),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..2])),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..2]))
+            .unwrap(),
         SingleMatch(hidden_commit.id().clone())
     );
     assert_eq!(
@@ -587,7 +607,9 @@ fn test_id_prefix_hidden() {
     );
     // Short commit id can be resolved even if it's hidden.
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1])),
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1]))
+            .unwrap(),
         SingleMatch(hidden_commit.id().clone())
     );
     // OTOH, hidden change id should never be found. The resolution might be
