@@ -138,7 +138,7 @@ pub trait Repo {
 
     fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> IndexResult<PrefixResolution<Vec<CommitId>>>;
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id_bytes: &ChangeId) -> usize;
+    fn shortest_unique_change_id_prefix_len(&self, target_id_bytes: &ChangeId) -> IndexResult<usize>;
 }
 
 pub struct ReadonlyRepo {
@@ -356,7 +356,7 @@ impl Repo for ReadonlyRepo {
         self.change_id_index().resolve_prefix(prefix)
     }
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> usize {
+    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
         self.change_id_index().shortest_unique_prefix_len(target_id)
     }
 }
@@ -1982,7 +1982,7 @@ impl Repo for MutableRepo {
         change_id_index.resolve_prefix(prefix)
     }
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> usize {
+    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
         let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
         change_id_index.shortest_unique_prefix_len(target_id)
     }
