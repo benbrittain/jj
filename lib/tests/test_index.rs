@@ -1185,9 +1185,13 @@ fn test_change_id_index() {
             .mutable_index()
             .change_id_index(&mut commits.iter().map(|commit| commit.id()))
     };
-    let change_id_index = index_for_heads(&[&commit_1, &commit_2, &commit_3, &commit_4, &commit_5]);
-    let prefix_len =
-        |commit: &Commit| change_id_index.shortest_unique_prefix_len(commit.change_id()).unwrap();
+    let change_id_index =
+        index_for_heads(&[&commit_1, &commit_2, &commit_3, &commit_4, &commit_5]).unwrap();
+    let prefix_len = |commit: &Commit| {
+        change_id_index
+            .shortest_unique_prefix_len(commit.change_id())
+            .unwrap()
+    };
     assert_eq!(prefix_len(&root_commit), 1);
     assert_eq!(prefix_len(&commit_1), 2);
     assert_eq!(prefix_len(&commit_2), 6);
@@ -1235,7 +1239,7 @@ fn test_change_id_index() {
     // Test with an index containing only some of the commits. The shortest
     // length doesn't have to be minimized further, but unreachable commits
     // should never be included in the resolved set.
-    let change_id_index = index_for_heads(&[&commit_1, &commit_2]);
+    let change_id_index = index_for_heads(&[&commit_1, &commit_2]).unwrap();
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
