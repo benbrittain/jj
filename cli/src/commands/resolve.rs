@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use pollster::FutureExt as _;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
@@ -115,7 +116,7 @@ pub(crate) fn cmd_resolve(
         .repo_mut()
         .rewrite_commit(&commit)
         .set_tree(new_tree)
-        .write()?;
+        .write().block_on()?;
     tx.finish(
         ui,
         format!("Resolve conflicts in commit {}", commit.id().hex()),

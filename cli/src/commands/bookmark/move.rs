@@ -20,6 +20,7 @@ use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::str_util::StringExpression;
+use pollster::FutureExt;
 
 use super::is_fast_forward;
 use super::warn_unmatched_local_bookmarks;
@@ -132,7 +133,7 @@ pub fn cmd_bookmark_move(
             "Use --allow-backwards to allow it.",
         ));
     }
-    if target_commit.is_discardable(repo.as_ref())? {
+    if target_commit.is_discardable(repo.as_ref()).block_on()? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 
