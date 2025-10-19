@@ -105,7 +105,7 @@ pub(crate) fn cmd_absorb(
     workspace_command.check_rewritable(selected_trees.target_commits.keys())?;
 
     let mut tx = workspace_command.start_transaction();
-    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits)?;
+    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).block_on()?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.rewritten_destinations.is_empty() {
@@ -141,7 +141,7 @@ pub(crate) fn cmd_absorb(
         && let Some(commit) = &stats.rewritten_source
     {
         let repo = workspace_command.repo().as_ref();
-        if !commit.is_empty(repo)? {
+        if !commit.is_empty(repo).block_on()? {
             writeln!(formatter, "Remaining changes:")?;
             let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
             let matcher = &EverythingMatcher; // also print excluded paths

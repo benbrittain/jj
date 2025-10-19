@@ -30,6 +30,7 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::read_file;
@@ -55,6 +56,7 @@ fn create_commit_fn(
             .set_committer(signature.clone())
             .set_description(description)
             .write()
+            .block_on()
             .unwrap()
     }
 }
@@ -70,7 +72,8 @@ fn annotate_within(
     domain: &Arc<ResolvedRevsetExpression>,
     file_path: &RepoPath,
 ) -> String {
-    let mut annotator = FileAnnotator::from_commit(commit, file_path).unwrap();
+    let mut annotator = FileAnnotator::from_commit(commit, file_path)
+        .unwrap();
     annotator.compute(repo, domain).unwrap();
     format_annotation(repo, &annotator.to_annotation())
 }
@@ -82,7 +85,9 @@ fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) 
         value => panic!("unexpected path value: {value:?}"),
     };
     let mut annotator = FileAnnotator::with_file_content(commit.id(), file_path, text);
-    annotator.compute(repo, &RevsetExpression::all()).unwrap();
+    annotator
+        .compute(repo, &RevsetExpression::all())
+        .unwrap();
     format_annotation(repo, &annotator.to_annotation())
 }
 
@@ -210,7 +215,8 @@ fn test_annotate_merge_simple() {
     ");
 
     // Calculate incrementally
-    let mut annotator = FileAnnotator::from_commit(&commit4, file_path).unwrap();
+    let mut annotator = FileAnnotator::from_commit(&commit4, file_path)
+        .unwrap();
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
     commit4:1*: 2

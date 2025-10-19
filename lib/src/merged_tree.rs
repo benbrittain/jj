@@ -963,7 +963,7 @@ impl MergedTreeBuilder {
         // once.
         let merge_builder: MergeBuilder<TreeId> = tree_builders
             .into_iter()
-            .map(|builder| builder.write_tree())
+            .map(|builder| builder.write_tree().block_on())
             .try_collect()?;
         Ok(merge_builder.build())
     }
