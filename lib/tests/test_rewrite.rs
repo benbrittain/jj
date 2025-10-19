@@ -49,7 +49,6 @@ use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
 use testutils::create_tree;
 use testutils::create_tree_with;
-use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -86,6 +85,7 @@ fn test_merge_criss_cross() {
             .new_commit(parents, tree_id)
             .set_description(description)
             .write()
+            .block_on()
             .unwrap()
     };
     let commit_a = make_commit(
@@ -206,8 +206,11 @@ fn test_rebase_descendants_sideways() {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert_eq!(rebase_map.len(), 3);
     let new_commit_c = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_f.id()]);
     let new_commit_d =
@@ -256,8 +259,11 @@ fn test_rebase_descendants_forward() {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_d =
         assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[(commit_f.id())]);
     let new_commit_f =
@@ -313,8 +319,11 @@ fn test_rebase_descendants_reorder() {
         .set_rewritten_commit(commit_c.id().clone(), commit_f.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_g.id().clone(), commit_h.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_i = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_i, &[commit_h.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -345,8 +354,11 @@ fn test_rebase_descendants_backward() {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_b.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_d = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[commit_b.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -383,8 +395,11 @@ fn test_rebase_descendants_chain_becomes_branchy() {
         .set_rewritten_commit(commit_b.id().clone(), commit_e.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_f.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_f = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_f, &[commit_e.id()]);
     let new_commit_d =
         assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[new_commit_f.id()]);
@@ -423,8 +438,11 @@ fn test_rebase_descendants_internal_merge() {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_c = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_f.id()]);
     let new_commit_d = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[commit_f.id()]);
     let new_commit_e = assert_rebased_onto(
@@ -467,8 +485,11 @@ fn test_rebase_descendants_external_merge() {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_f.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_e = assert_rebased_onto(
         tx.repo_mut(),
         &rebase_map,
@@ -507,8 +528,11 @@ fn test_rebase_descendants_abandon() {
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().record_abandoned_commit(&commit_e);
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_c = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_a.id()]);
     let new_commit_d = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[commit_a.id()]);
     let new_commit_f =
@@ -541,8 +565,11 @@ fn test_rebase_descendants_abandon_no_descendants() {
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().record_abandoned_commit(&commit_c);
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert_eq!(rebase_map.len(), 0);
 
     assert_eq!(
@@ -576,8 +603,11 @@ fn test_rebase_descendants_abandon_and_replace() {
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_e.id().clone());
     tx.repo_mut().record_abandoned_commit(&commit_c);
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_d = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[commit_e.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -607,13 +637,14 @@ fn test_rebase_descendants_abandon_degenerate_merge_simplify() {
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    let rebase_map = rebase_descendants_with_options_return_map(
-        tx.repo_mut(),
-        &RebaseOptions {
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions {
             simplify_ancestor_merge: true,
             ..Default::default()
-        },
-    );
+        })
+        .block_on()
+        .unwrap();
     let new_commit_d = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[commit_c.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -643,13 +674,14 @@ fn test_rebase_descendants_abandon_degenerate_merge_preserve() {
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    let rebase_map = rebase_descendants_with_options_return_map(
-        tx.repo_mut(),
-        &RebaseOptions {
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions {
             simplify_ancestor_merge: false,
             ..Default::default()
-        },
-    );
+        })
+        .block_on()
+        .unwrap();
     let new_commit_d = assert_rebased_onto(
         tx.repo_mut(),
         &rebase_map,
@@ -688,8 +720,11 @@ fn test_rebase_descendants_abandon_widen_merge() {
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_d]);
 
     tx.repo_mut().record_abandoned_commit(&commit_e);
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_f = assert_rebased_onto(
         tx.repo_mut(),
         &rebase_map,
@@ -729,8 +764,11 @@ fn test_rebase_descendants_multiple_sideways() {
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_d.id().clone(), commit_f.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_c = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_f.id()]);
     let new_commit_e = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_e, &[commit_f.id()]);
     assert_eq!(rebase_map.len(), 2);
@@ -768,7 +806,7 @@ fn test_rebase_descendants_multiple_swap() {
         .set_rewritten_commit(commit_b.id().clone(), commit_d.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_d.id().clone(), commit_b.id().clone());
-    let _ = tx.repo_mut().rebase_descendants(); // Panics because of the cycle
+    let _ = tx.repo_mut().rebase_descendants().block_on(); // Panics because of the cycle
 }
 
 #[test]
@@ -791,7 +829,7 @@ fn test_rebase_descendants_multiple_no_descendants() {
         .set_rewritten_commit(commit_b.id().clone(), commit_c.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_b.id().clone());
-    let _ = tx.repo_mut().rebase_descendants(); // Panics because of the cycle
+    let _ = tx.repo_mut().rebase_descendants().block_on(); // Panics because of the cycle
 }
 
 #[test]
@@ -841,8 +879,11 @@ fn test_rebase_descendants_divergent_rewrite() {
     );
     tx.repo_mut()
         .set_rewritten_commit(commit_f.id().clone(), commit_f2.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let new_commit_c =
         assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_b2.id()]);
     let new_commit_g =
@@ -887,9 +928,13 @@ fn test_rebase_descendants_repeated() {
         .rewrite_commit(&commit_b)
         .set_description("b2")
         .write()
+        .block_on()
         .unwrap();
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let commit_c2 = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_b2.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -901,8 +946,11 @@ fn test_rebase_descendants_repeated() {
     );
 
     // We made no more changes, so nothing should be rebased.
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert_eq!(rebase_map.len(), 0);
 
     // Now mark B3 as rewritten from B2 and rebase descendants again.
@@ -911,9 +959,13 @@ fn test_rebase_descendants_repeated() {
         .rewrite_commit(&commit_b2)
         .set_description("b3")
         .write()
+        .block_on()
         .unwrap();
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     let commit_c3 = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c2, &[commit_b3.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -946,6 +998,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
         .write()
+        .block_on()
         .unwrap();
     let path2 = repo_path("file2");
     let tree2 = create_tree(repo, &[(path2, "content")]);
@@ -953,6 +1006,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let path3 = repo_path("file3");
     let tree3 = create_tree(repo, &[(path3, "content")]);
@@ -960,6 +1014,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let path4 = repo_path("file4");
     let tree4 = create_tree(repo, &[(path4, "content")]);
@@ -967,12 +1022,16 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree4.id())
         .write()
+        .block_on()
         .unwrap();
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_d.id().clone());
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert_eq!(rebase_map.len(), 1);
     let new_commit_c = repo
         .store()
@@ -1013,11 +1072,16 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    let commit_b2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_b)
+        .write()
+        .block_on()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
@@ -1047,7 +1111,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_c.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx
@@ -1055,14 +1119,16 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
         .rewrite_commit(&commit_b)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     let commit_c2 = tx
         .repo_mut()
         .rewrite_commit(&commit_c)
         .set_description("more different")
         .write()
+        .block_on()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let heads = tx.repo().view().heads();
     assert_eq!(heads.len(), 1);
     let c3_id = heads.iter().next().unwrap().clone();
@@ -1101,11 +1167,16 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
         .set_local_tag_target("v1".as_ref(), RefTarget::normal(commit_b.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    let commit_b2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_b)
+        .write()
+        .block_on()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
@@ -1154,7 +1225,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
         .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_c.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1164,7 +1235,11 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         },
         ..Default::default()
     };
-    let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(options)
+        .block_on()
+        .unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
@@ -1214,16 +1289,22 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
         .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_c.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_b)
+        .write()
+        .block_on()
+        .unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     // Different description so they're not the same commit
     let commit_b4 = tx
@@ -1231,6 +1312,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         .rewrite_commit(&commit_b)
         .set_description("more different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_b.id().clone(),
@@ -1240,18 +1322,24 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
             commit_b4.id().clone(),
         ],
     );
-    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).write().unwrap();
+    let commit_b41 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_b4)
+        .write()
+        .block_on()
+        .unwrap();
     let commit_b42 = tx
         .repo_mut()
         .rewrite_commit(&commit_b4)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_b4.id().clone(),
         vec![commit_b41.id().clone(), commit_b42.id().clone()],
     );
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
 
     let main_target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(main_target.has_conflict());
@@ -1306,24 +1394,36 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
             [commit_b.id().clone(), commit_c.id().clone()],
         ),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write().unwrap();
+    let commit_a2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_a)
+        .write()
+        .block_on()
+        .unwrap();
     // Different description so they're not the same commit
     let commit_a3 = tx
         .repo_mut()
         .rewrite_commit(&commit_a)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_b)
+        .write()
+        .block_on()
+        .unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_a.id().clone(),
@@ -1333,7 +1433,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
         commit_b.id().clone(),
         vec![commit_b2.id().clone(), commit_b3.id().clone()],
     );
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
 
     let target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(target.has_conflict());
@@ -1385,7 +1485,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
             [commit_b.id().clone(), commit_c.id().clone()],
         ),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx
@@ -1393,8 +1493,9 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
         .rewrite_commit(&commit_b)
         .set_parents(vec![commit_c.id().clone()])
         .write()
+        .block_on()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
@@ -1429,7 +1530,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
         "main".as_ref(),
         RefTarget::from_legacy_form([commit_a.id().clone()], [commit_b.id().clone()]),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1439,7 +1540,11 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
         },
         ..Default::default()
     };
-    let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
+    let _rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(options)
+        .block_on()
+        .unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::absent()
@@ -1472,7 +1577,7 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
             Some(commit_c.id().clone()),
         ])),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1482,7 +1587,10 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
         },
         ..Default::default()
     };
-    let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
+    let _rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(options)
+        .block_on();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
@@ -1523,7 +1631,7 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
             Some(commit_c.id().clone()),
         ])),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1533,7 +1641,10 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
         },
         ..Default::default()
     };
-    let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
+    let _rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(options)
+        .block_on();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
@@ -1578,7 +1689,7 @@ fn test_rebase_descendants_update_checkout() {
     tx.repo_mut()
         .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_c = tx
@@ -1586,9 +1697,10 @@ fn test_rebase_descendants_update_checkout() {
         .rewrite_commit(&commit_b)
         .set_description("C")
         .write()
+        .block_on()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
-    let repo = tx.commit("test").unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Workspaces 1 and 2 had B checked out, so they get updated to C. Workspace 3
     // had A checked out, so it doesn't get updated.
@@ -1623,12 +1735,12 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     tx.repo_mut()
         .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    tx.repo_mut().rebase_descendants().unwrap();
-    let repo = tx.commit("test").unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Workspaces 1 and 2 had B checked out, so they get updated to the same new
     // commit on top of C. Workspace 3 had A checked out, so it doesn't get updated.
@@ -1666,12 +1778,12 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     tx.repo_mut()
         .set_wc_commit(ws_name.clone(), commit_d.id().clone())
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_d);
-    tx.repo_mut().rebase_descendants().unwrap();
-    let repo = tx.commit("test").unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let new_checkout_id = repo.view().get_wc_commit_id(&ws_name).unwrap();
     let checkout = repo.store().get_commit(new_checkout_id).unwrap();
@@ -1732,6 +1844,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
             )
             .set_tree_id(tree.id())
             .write()
+            .block_on()
             .unwrap()
     };
     let commit_b = create_commit(&[&commit_a], &tree_b);
@@ -1745,16 +1858,17 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_bd.id().clone());
-    let rebase_map = rebase_descendants_with_options_return_map(
-        tx.repo_mut(),
-        &RebaseOptions {
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions {
             empty: empty_behavior,
             rewrite_refs: RewriteRefsOptions {
                 delete_abandoned_bookmarks: false,
             },
             simplify_ancestor_merge: true,
-        },
-    );
+        })
+        .block_on()
+        .unwrap();
 
     let new_head = match empty_behavior {
         EmptyBehavior::Keep => {
@@ -1850,25 +1964,30 @@ fn test_rebase_abandoning_empty() {
         .set_parents(vec![commit_c.id().clone()])
         .set_tree_id(commit_c.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
     let commit_e = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
         .set_tree_id(commit_c.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
     let commit_b2 = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_a.id().clone()])
         .set_tree_id(commit_b.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
     let commit_f = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
         .write()
+        .block_on()
         .unwrap();
     let commit_g = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
         .set_tree_id(commit_e.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
 
     let workspace = WorkspaceNameBuf::from("ws");
@@ -1884,8 +2003,14 @@ fn test_rebase_abandoning_empty() {
         simplify_ancestor_merge: true,
     };
     let rewriter = CommitRewriter::new(tx.repo_mut(), commit_b, vec![commit_b2.id().clone()]);
-    rebase_commit_with_options(rewriter, &rebase_options).unwrap();
-    let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &rebase_options);
+    rebase_commit_with_options(rewriter, rebase_options)
+        .block_on()
+        .unwrap();
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(rebase_options)
+        .block_on()
+        .unwrap();
     assert_eq!(rebase_map.len(), 5);
     let new_commit_c = assert_rebased_onto(tx.repo(), &rebase_map, &commit_c, &[commit_b2.id()]);
     assert_abandoned_with_parent(tx.repo(), &rebase_map, &commit_d, new_commit_c.id());
@@ -1992,6 +2117,7 @@ fn test_find_duplicate_divergent_commits() {
                 store.change_id_length()
             ]))
             .write()
+            .block_on()
             .unwrap()
     };
 
@@ -2010,6 +2136,7 @@ fn test_find_duplicate_divergent_commits() {
         &[commit_a2.id().clone()],
         &MoveCommitsTarget::Roots(vec![commit_d.id().clone()]),
     )
+    .block_on()
     .unwrap();
     // Commits b2 and c2 are duplicates
     assert_eq!(duplicate_commits, &[commit_c2.clone(), commit_b2.clone()]);
@@ -2020,6 +2147,7 @@ fn test_find_duplicate_divergent_commits() {
         &[commit_e.id().clone()],
         &MoveCommitsTarget::Roots(vec![commit_b1.id().clone()]),
     )
+    .block_on()
     .unwrap();
     // Commits b1 and c1 are duplicates. Commit a2 is not a duplicate, because
     // it already had a1 as an ancestor before the rebase.
@@ -2035,6 +2163,7 @@ fn test_find_duplicate_divergent_commits() {
             commit_e.id().clone(),
         ]),
     )
+    .block_on()
     .unwrap();
     // Commit c2 is a duplicate
     assert_eq!(duplicate_commits, std::slice::from_ref(&commit_c2));
