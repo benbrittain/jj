@@ -143,6 +143,7 @@ fn test_eol_conversion_snapshot(
             None,
             &file_removed_commit,
         )
+        .block_on()
         .unwrap();
     assert!(!file_disk_path.exists());
 
@@ -170,6 +171,7 @@ fn test_eol_conversion_snapshot(
             None,
             &file_added_commit,
         )
+        .block_on()
         .unwrap();
     assert!(file_disk_path.exists());
     let new_tree = test_workspace.snapshot().unwrap();
@@ -218,12 +220,14 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
         .write()
+        .block_on()
         .unwrap();
-    tx.commit("commit parent1").unwrap();
+    tx.commit("commit parent1").block_on().unwrap();
 
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &root_commit)
+        .block_on()
         .unwrap();
     testutils::write_working_copy_file(
         test_workspace.workspace.workspace_root(),
@@ -236,8 +240,9 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
         .write()
+        .block_on()
         .unwrap();
-    tx.commit("commit parent2").unwrap();
+    tx.commit("commit parent2").block_on().unwrap();
 
     // Reload the repo to pick up the new commits.
     test_workspace.repo = test_workspace.repo.reload_at_head().block_on().unwrap();
@@ -251,6 +256,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
+        .block_on()
         .unwrap();
     let mut file = File::options().append(true).open(&file_disk_path).unwrap();
     file.write_all(b"c\r\n").unwrap();
@@ -290,6 +296,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
             None,
             &test_workspace.workspace.repo_loader().store().root_commit(),
         )
+        .block_on()
         .unwrap();
     // We have to query the Commit again. The Workspace is backed by a different
     // Store from the original Commit.
@@ -302,6 +309,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
+        .block_on()
         .unwrap();
 
     assert!(std::fs::exists(&file_disk_path).unwrap());
@@ -416,14 +424,16 @@ fn test_eol_conversion_update_conflicts(
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
         .write()
+        .block_on()
         .unwrap();
     let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent2_contents)]);
     let parent2_commit = tx
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
         .write()
+        .block_on()
         .unwrap();
-    tx.commit("commit parent 2").unwrap();
+    tx.commit("commit parent 2").block_on().unwrap();
 
     // Reload the repo to pick up the new commits.
     test_workspace.repo = test_workspace.repo.reload_at_head().block_on().unwrap();
@@ -437,6 +447,7 @@ fn test_eol_conversion_update_conflicts(
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
+        .block_on()
         .unwrap();
     let contents = std::fs::read(&file_disk_path).unwrap();
     for line in contents.lines_with_terminator() {
@@ -545,6 +556,7 @@ fn test_eol_conversion_checkout(
             None,
             &test_workspace.workspace.repo_loader().store().root_commit(),
         )
+        .block_on()
         .unwrap();
     assert!(!std::fs::exists(&file_disk_path).unwrap());
 
@@ -572,6 +584,7 @@ fn test_eol_conversion_checkout(
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
 
     // When we take a snapshot now, the tree may not be clean, because the EOL our

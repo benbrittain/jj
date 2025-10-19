@@ -24,10 +24,10 @@ use bstr::BString;
 use bstr::ByteSlice as _;
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::future::try_join_all;
 use futures::stream::BoxStream;
 use futures::try_join;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
@@ -1079,19 +1079,20 @@ pub async fn update_from_content(
 
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
-    // TODO: Write these concurrently
-    let new_file_ids: Vec<Option<FileId>> = zip(&contents, &simplified_file_ids)
-        .map(|(content, file_id)| -> BackendResult<Option<FileId>> {
+    let write_futures = zip(&contents, &simplified_file_ids).map(|(content, file_id)| {
+        async {
             if file_id.is_some() || !content.is_empty() {
-                let file_id = store.write_file(path, &mut content.as_slice()).block_on()?;
-                Ok(Some(file_id))
+                let file_id = store.write_file(path, &mut content.as_slice()).await?;
+                Ok::<_, BackendError>(Some(file_id))
             } else {
                 // The missing side of a conflict is still represented by
                 // the empty string we materialized it as
                 Ok(None)
             }
-        })
-        .try_collect()?;
+        }
+    });
+
+    let new_file_ids: Vec<Option<FileId>> = try_join_all(write_futures).await?;
 
     // If the conflict was simplified, expand the conflict to the original
     // number of sides.

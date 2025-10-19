@@ -95,7 +95,7 @@ impl Transaction {
         &mut self.mut_repo
     }
 
-    pub fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
+    pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
         let ancestor_op = dag_walk::closest_common_node_ok(
             self.parent_ops.iter().cloned().map(Ok),
             [Ok(other_op.clone())],
@@ -118,17 +118,17 @@ impl Transaction {
     }
 
     /// Writes the transaction to the operation store and publishes it.
-    pub fn commit(
+    pub async fn commit(
         self,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        self.write(description)?.publish()
+        self.write(description).await?.publish().await
     }
 
     /// Writes the transaction to the operation store, but does not publish it.
     /// That means that a repo can be loaded at the operation, but the
     /// operation will not be seen when loading the repo at head.
-    pub fn write(
+    pub async fn write(
         mut self,
         description: impl Into<String>,
     ) -> Result<UnpublishedOperation, TransactionCommitError> {
@@ -142,10 +142,7 @@ impl Transaction {
         let (mut_index, view, predecessors) = mut_repo.consume();
 
         let operation = {
-            let view_id = base_repo
-                .op_store()
-                .write_view(view.store_view())
-                .block_on()?;
+            let view_id = base_repo.op_store().write_view(view.store_view()).await?;
             self.op_metadata.description = description.into();
             self.op_metadata.time.end = self.end_time.unwrap_or_else(Timestamp::now);
             let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
@@ -158,7 +155,7 @@ impl Transaction {
             let new_op_id = base_repo
                 .op_store()
                 .write_operation(&store_operation)
-                .block_on()?;
+                .await?;
             Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
         };
 
@@ -222,11 +219,11 @@ impl UnpublishedOperation {
         self.repo.operation()
     }
 
-    pub fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let _lock = self.op_heads_store.lock().block_on()?;
+    pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let _lock = self.op_heads_store.lock().await?;
         self.op_heads_store
             .update_op_heads(self.operation().parent_ids(), self.operation().id())
-            .block_on()?;
+            .await?;
         Ok(self.repo)
     }
 
