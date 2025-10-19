@@ -23,7 +23,6 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -290,7 +289,7 @@ pub struct AbsorbStats {
 
 /// Merges selected trees into the specified commits. Abandons the source commit
 /// if it becomes discardable.
-pub fn absorb_hunks(
+pub async fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
@@ -304,16 +303,16 @@ pub fn absorb_hunks(
         // Remove selected hunks from the source commit by reparent()
         if rewriter.old_commit().id() == source.commit.id() {
             let commit_builder = rewriter.reparent();
-            if commit_builder.is_discardable()? {
+            if commit_builder.is_discardable().await? {
                 commit_builder.abandon();
             } else {
-                rewritten_source = Some(commit_builder.write()?);
+                rewritten_source = Some(commit_builder.write().await?);
                 num_rebased += 1;
             }
             return Ok(());
         }
         let Some(tree_builder) = selected_trees.remove(rewriter.old_commit().id()) else {
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             num_rebased += 1;
             return Ok(());
         };
@@ -323,17 +322,18 @@ pub fn absorb_hunks(
         let destination_tree = commit_builder.tree();
         let new_tree = destination_tree
             .merge_unlabeled(source.parent_tree.clone(), selected_tree)
-            .block_on()?;
+            .await?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
         let new_commit = commit_builder
             .set_tree(new_tree)
             .set_predecessors(predecessors)
-            .write()?;
+            .write()
+            .await?;
         rewritten_destinations.push(new_commit);
         Ok(())
     })
-    .block_on()?;
+    .await?;
     Ok(AbsorbStats {
         rewritten_source,
         rewritten_destinations,

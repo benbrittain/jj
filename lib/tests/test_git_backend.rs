@@ -49,6 +49,7 @@ use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
+use pollster::FutureExt as _;
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
     repo.store().backend_impl().unwrap()
@@ -89,7 +90,7 @@ fn make_commit(
     content: &[(&RepoPath, &str)],
 ) -> Commit {
     let tree = create_tree(tx.base_repo(), content);
-    tx.repo_mut().new_commit(parents, tree).write().unwrap()
+    tx.repo_mut().new_commit(parents, tree).write().block_on().unwrap()
 }
 
 #[test]
@@ -129,8 +130,9 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(
         *repo.view().heads(),
         hashset! {
