@@ -40,6 +40,7 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::assert_tree_eq;
@@ -92,7 +93,11 @@ fn make_commit(
     content: &[(&RepoPath, &str)],
 ) -> Commit {
     let tree = create_tree(tx.base_repo(), content);
-    tx.repo_mut().new_commit(parents, tree).write().unwrap()
+    tx.repo_mut()
+        .new_commit(parents, tree)
+        .write()
+        .block_on()
+        .unwrap()
 }
 
 fn list_dir(dir: &Path) -> Vec<String> {
@@ -140,8 +145,9 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(
         *repo.view().heads(),
         hashset! {
@@ -288,7 +294,7 @@ fn test_gc_extra_table() {
     for _ in 0..4 {
         write_random_commit(tx.repo_mut());
     }
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
     // The first 3 will be squashed into one table segment
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);

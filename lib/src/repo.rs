@@ -818,14 +818,14 @@ impl RepoLoader {
             let base_repo = self.load_at(&base_op)?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
-                tx.merge_operation(other_op)?;
+                tx.merge_operation(other_op).await?;
                 tx.repo_mut().rebase_descendants().await?;
             }
             let tx_description = tx_description.map_or_else(
                 || format!("merge {num_operations} operations"),
                 |tx_description| tx_description.to_string(),
             );
-            let merged_repo = tx.write(tx_description)?.leave_unpublished();
+            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
             merged_repo.operation().clone()
         } else {
             base_op
@@ -959,7 +959,9 @@ impl MutableRepo {
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
     pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
-        DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
+        DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor)
+            .block_on()
+            .attach(self)
         // CommitBuilder::write will record the rewrite in
         // `self.rewritten_commits`
     }
@@ -1215,7 +1217,8 @@ impl MutableRepo {
                 let merged_parents_tree = merge_commit_trees(self, &new_commits).await?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree)
-                    .write()?;
+                    .write()
+                    .await?;
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
@@ -1419,7 +1422,7 @@ impl MutableRepo {
             async |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
-                    let rebased_commit = rebase_commit_with_options(rewriter, options)?;
+                    let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
                     progress(old_commit, rebased_commit);
                 }
                 Ok(())
@@ -1461,7 +1464,7 @@ impl MutableRepo {
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
-                builder.write()?;
+                builder.write().await?;
                 num_reparented += 1;
             }
             Ok(())
@@ -1527,14 +1530,15 @@ impl MutableRepo {
         self.view_mut().rename_workspace(old_name, new_name)
     }
 
-    pub fn check_out(
+    pub async fn check_out(
         &mut self,
         name: WorkspaceNameBuf,
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
             .new_commit(vec![commit.id().clone()], commit.tree())
-            .write()?;
+            .write()
+            .await?;
         self.edit(name, &wc_commit)?;
         Ok(wc_commit)
     }
@@ -1569,7 +1573,7 @@ impl MutableRepo {
                 .store()
                 .get_commit(&wc_commit_id)
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
-            if wc_commit.is_discardable(self)?
+            if wc_commit.is_discardable(self).block_on()?
                 && self
                     .view
                     .with_ref(|v| !is_commit_referenced(v, wc_commit.id()))
