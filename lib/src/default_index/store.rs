@@ -574,7 +574,7 @@ impl DefaultIndexStore {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl IndexStore for DefaultIndexStore {
     fn name(&self) -> &str {
         Self::name()
@@ -584,7 +584,7 @@ impl IndexStore for DefaultIndexStore {
         &self,
         op: &Operation,
         store: &Arc<Store>,
-    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>> {
+    ) -> IndexStoreResult<Arc<dyn ReadonlyIndex>> {
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -620,20 +620,20 @@ impl IndexStore for DefaultIndexStore {
             result => result,
         }
         .map_err(|err| IndexStoreError::Read(err.into()))?;
-        Ok(Box::new(index))
+        Ok(Arc::new(index))
     }
 
     async fn write_index(
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
-    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>> {
+    ) -> IndexStoreResult<Arc<dyn ReadonlyIndex>> {
         let index: Box<DefaultMutableIndex> = index
             .downcast()
             .expect("index to merge in must be a DefaultMutableIndex");
         let index = self
             .save_mutable_index(*index, op.id())
             .map_err(|err| IndexStoreError::Write(err.into()))?;
-        Ok(Box::new(index))
+        Ok(Arc::new(index))
     }
 }

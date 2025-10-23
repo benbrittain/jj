@@ -208,7 +208,7 @@ impl UnpublishedOperation {
         repo_loader: &RepoLoader,
         operation: Operation,
         view: View,
-        index: Box<dyn ReadonlyIndex>,
+        index: Arc<dyn ReadonlyIndex>,
     ) -> Self {
         Self {
             op_heads_store: repo_loader.op_heads_store().clone(),

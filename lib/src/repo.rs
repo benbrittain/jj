@@ -151,7 +151,7 @@ pub trait Repo: Send + Sync {
 pub struct ReadonlyRepo {
     loader: RepoLoader,
     operation: Operation,
-    index: Box<dyn ReadonlyIndex>,
+    index: Arc<dyn ReadonlyIndex>,
     change_id_index: OnceCell<Box<dyn ChangeIdIndex>>,
     // TODO: This should eventually become part of the index and not be stored fully in memory.
     view: View,
@@ -276,7 +276,7 @@ impl ReadonlyRepo {
         Ok(Arc::new(Self {
             loader,
             operation: root_operation,
-            index,
+            index: Arc::from(index),
             change_id_index: OnceCell::new(),
             view: root_view,
         }))
@@ -774,7 +774,7 @@ impl RepoLoader {
         &self,
         operation: Operation,
         view: View,
-        index: Box<dyn ReadonlyIndex>,
+        index: Arc<dyn ReadonlyIndex>,
     ) -> Arc<ReadonlyRepo> {
         let repo = ReadonlyRepo {
             loader: self.clone(),
