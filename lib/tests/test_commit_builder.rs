@@ -454,14 +454,19 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .block_on()
         .unwrap();
     let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+        rebase_descendants_with_options_return_map(tx.repo_mut(), RebaseOptions::default());
     assert_eq!(rebase_map.len(), 0);
 
     // Test with for_rewrite_from()
     let mut tx = repo.start_transaction();
-    let commit4 = tx.repo_mut().rewrite_commit(&commit2).write().block_on().unwrap();
+    let commit4 = tx
+        .repo_mut()
+        .rewrite_commit(&commit2)
+        .write()
+        .block_on()
+        .unwrap();
     let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+        rebase_descendants_with_options_return_map(tx.repo_mut(), RebaseOptions::default());
     assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit3, &[commit4.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -475,6 +480,6 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .block_on()
         .unwrap();
     let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+        rebase_descendants_with_options_return_map(tx.repo_mut(), RebaseOptions::default());
     assert!(rebase_map.is_empty());
 }

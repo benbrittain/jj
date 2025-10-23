@@ -1408,7 +1408,7 @@ impl MutableRepo {
     /// `(old_commit, rebased_commit)` as arguments.
     pub async fn rebase_descendants_with_options(
         &mut self,
-        options: &RebaseOptions,
+        options: RebaseOptions,
         mut progress: impl FnMut(Commit, RebasedCommit),
     ) -> BackendResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
@@ -1442,7 +1442,7 @@ impl MutableRepo {
     pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let options = RebaseOptions::default();
         let mut num_rebased = 0;
-        self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
+        self.rebase_descendants_with_options(options, |_old_commit, _rebased_commit| {
             num_rebased += 1;
         })
         .await?;

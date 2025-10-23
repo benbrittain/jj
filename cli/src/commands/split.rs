@@ -366,7 +366,7 @@ async fn move_first_commit(
             new_child_ids,
             target: MoveCommitsTarget::Commits(vec![first_commit.id().clone()]),
         },
-        &RebaseOptions {
+        RebaseOptions {
             empty: EmptyBehavior::Keep,
             rewrite_refs: RewriteRefsOptions {
                 delete_abandoned_bookmarks: false,

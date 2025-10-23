@@ -649,7 +649,7 @@ pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents:
 /// ID to rebased (or abandoned parent) commit ID.
 pub fn rebase_descendants_with_options_return_map(
     repo: &mut MutableRepo,
-    options: &RebaseOptions,
+    options: RebaseOptions,
 ) -> HashMap<CommitId, CommitId> {
     let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
     repo.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
