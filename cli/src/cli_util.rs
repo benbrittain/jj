@@ -2437,7 +2437,7 @@ impl WorkspaceCommandTransaction<'_> {
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().edit(name, commit)
+        self.tx.repo_mut().edit(name, commit).block_on()
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {

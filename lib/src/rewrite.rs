@@ -333,7 +333,7 @@ pub enum RebasedCommit {
 
 pub async fn rebase_commit_with_options(
     mut rewriter: CommitRewriter<'_>,
-    options: &RebaseOptions,
+    options: RebaseOptions,
 ) -> BackendResult<RebasedCommit> {
     // If specified, don't create commit where one parent is an ancestor of another.
     if options.simplify_ancestor_merge {
@@ -404,7 +404,7 @@ pub enum EmptyBehavior {
 // change the RebaseOptions construction in the CLI, and changing the
 // rebase_commit function to actually use the flag, and ensure we don't need to
 // plumb it in.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RebaseOptions {
     pub empty: EmptyBehavior,
     pub rewrite_refs: RewriteRefsOptions,
@@ -414,7 +414,7 @@ pub struct RebaseOptions {
 }
 
 /// Configuration for [`MutableRepo::update_rewritten_references()`].
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RewriteRefsOptions {
     /// Whether or not delete bookmarks pointing to the abandoned commits.
     ///
@@ -485,7 +485,7 @@ impl ComputedMoveCommits {
     pub async fn apply(
         self,
         mut_repo: &mut MutableRepo,
-        options: &RebaseOptions,
+        options: RebaseOptions,
     ) -> BackendResult<MoveCommitsStats> {
         apply_move_commits(mut_repo, self, options).await
     }
@@ -502,7 +502,7 @@ impl ComputedMoveCommits {
 pub async fn move_commits(
     mut_repo: &mut MutableRepo,
     loc: &MoveCommitsLocation,
-    options: &RebaseOptions,
+    options: RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
     compute_move_commits(mut_repo, loc)
         .await?
@@ -811,7 +811,7 @@ pub async fn compute_move_commits(
 async fn apply_move_commits(
     mut_repo: &mut MutableRepo,
     commits: ComputedMoveCommits,
-    options: &RebaseOptions,
+    options: RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
     let mut num_rebased_targets = 0;
     let mut num_rebased_descendants = 0;
@@ -819,7 +819,7 @@ async fn apply_move_commits(
     let mut num_abandoned_empty = 0;
 
     // Always keep empty commits when rebasing descendants.
-    let rebase_descendant_options = &RebaseOptions {
+    let rebase_descendant_options = RebaseOptions {
         empty: EmptyBehavior::Keep,
         rewrite_refs: options.rewrite_refs.clone(),
         simplify_ancestor_merge: options.simplify_ancestor_merge,
@@ -1246,7 +1246,7 @@ pub async fn squash_commits<'repo>(
         // changes we're moving, so applying them will have no effect and the
         // changes will disappear.
         let options = RebaseOptions::default();
-        repo.rebase_descendants_with_options(&options, |old_commit, rebased_commit| {
+        repo.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
             if old_commit.id() != destination.id() {
                 return;
             }

@@ -134,7 +134,7 @@ pub(crate) fn cmd_absorb(
         && let Some(commit) = &stats.rewritten_source
     {
         let repo = workspace_command.repo().as_ref();
-        if !commit.is_empty(repo)? {
+        if !commit.is_empty(repo).block_on()? {
             writeln!(formatter, "Remaining changes:")?;
             let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
             let matcher = &EverythingMatcher; // also print excluded paths

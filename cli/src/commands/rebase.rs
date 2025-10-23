@@ -415,7 +415,7 @@ pub(crate) fn cmd_rebase(
         }
     };
     let stats = computed_move
-        .apply(tx.repo_mut(), &rebase_options)
+        .apply(tx.repo_mut(), rebase_options)
         .block_on()?;
     print_move_commits_stats(ui, &stats)?;
     tx.finish(ui, tx_description(&loc.target))?;

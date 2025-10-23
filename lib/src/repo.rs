@@ -25,6 +25,7 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use futures::TryFutureExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
@@ -1223,11 +1224,13 @@ impl MutableRepo {
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
-            self.edit(name, &new_wc_commit).map_err(|err| match err {
-                EditCommitError::BackendError(backend_error) => backend_error,
-                EditCommitError::WorkingCopyCommitNotFound(_)
-                | EditCommitError::RewriteRootCommit(_) => panic!("unexpected error: {err:?}"),
-            })?;
+            self.edit(name, &new_wc_commit)
+                .map_err(|err| match err {
+                    EditCommitError::BackendError(backend_error) => backend_error,
+                    EditCommitError::WorkingCopyCommitNotFound(_)
+                    | EditCommitError::RewriteRootCommit(_) => panic!("unexpected error: {err:?}"),
+                })
+                .await?;
         }
         Ok(())
     }
@@ -1408,7 +1411,7 @@ impl MutableRepo {
     /// `(old_commit, rebased_commit)` as arguments.
     pub async fn rebase_descendants_with_options(
         &mut self,
-        options: &RebaseOptions,
+        options: RebaseOptions,
         mut progress: impl FnMut(Commit, RebasedCommit),
     ) -> BackendResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
@@ -1442,7 +1445,7 @@ impl MutableRepo {
     pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let options = RebaseOptions::default();
         let mut num_rebased = 0;
-        self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
+        self.rebase_descendants_with_options(options, |_old_commit, _rebased_commit| {
             num_rebased += 1;
         })
         .await?;
@@ -1483,8 +1486,8 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn remove_wc_commit(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
-        self.maybe_abandon_wc_commit(name)?;
+    pub async fn remove_wc_commit(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
+        self.maybe_abandon_wc_commit(name).await?;
         self.view_mut().remove_wc_commit(name);
         Ok(())
     }
@@ -1536,17 +1539,21 @@ impl MutableRepo {
             .new_commit(vec![commit.id().clone()], commit.tree_id().clone())
             .write()
             .await?;
-        self.edit(name, &wc_commit)?;
+        self.edit(name, &wc_commit).await?;
         Ok(wc_commit)
     }
 
-    pub fn edit(&mut self, name: WorkspaceNameBuf, commit: &Commit) -> Result<(), EditCommitError> {
-        self.maybe_abandon_wc_commit(&name)?;
+    pub async fn edit(
+        &mut self,
+        name: WorkspaceNameBuf,
+        commit: &Commit,
+    ) -> Result<(), EditCommitError> {
+        self.maybe_abandon_wc_commit(&name).await?;
         self.add_head(commit)?;
         Ok(self.set_wc_commit(name, commit.id().clone())?)
     }
 
-    fn maybe_abandon_wc_commit(
+    async fn maybe_abandon_wc_commit(
         &mut self,
         workspace_name: &WorkspaceName,
     ) -> Result<(), EditCommitError> {
@@ -1570,7 +1577,7 @@ impl MutableRepo {
                 .store()
                 .get_commit(&wc_commit_id)
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
-            if wc_commit.is_discardable(self)?
+            if wc_commit.is_discardable(self).await?
                 && self
                     .view
                     .with_ref(|v| !is_commit_referenced(v, wc_commit.id()))
