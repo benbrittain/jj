@@ -1329,8 +1329,11 @@ impl MutableRepo {
     pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
             .await
@@ -1348,8 +1351,11 @@ impl MutableRepo {
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let descendants = self.find_descendants_for_rebase(roots)?;
         self.transform_commits(descendants, new_parents_map, options, callback)
             .await
@@ -1367,8 +1373,11 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
@@ -1379,18 +1388,8 @@ impl MutableRepo {
             callback(rewriter).await?;
         }
         self.update_rewritten_references(options).await?;
-        // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
-        // if they were rewritten in the callback), there can still be commits left to
-        // rebase, so we don't clear `parent_mapping` here.
-        // TODO: Should we make this stricter? We could check that there were no
-        // rewrites before this function was called, and we can check that only
-        // commits in the `to_visit` set were added by the callback. Then we
-        // could clear `parent_mapping` here and not have to scan it again at
-        // the end of the transaction when we call `rebase_descendants()`.
-
         Ok(())
     }
-
     /// Rebase descendants of the rewritten commits with options and callback.
     ///
     /// The descendants of the commits registered in `self.parent_mappings` will
@@ -1409,18 +1408,21 @@ impl MutableRepo {
     pub async fn rebase_descendants_with_options(
         &mut self,
         options: RebaseOptions,
-        mut progress: impl FnMut(Commit, RebasedCommit),
-    ) -> BackendResult<()> {
+        mut progress: impl AsyncFnMut(Commit, RebasedCommit) -> () + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let roots = self.parent_mapping.keys().cloned().collect();
         self.transform_descendants_with_options(
             roots,
             &HashMap::new(),
             &options.rewrite_refs,
-            async |rewriter| {
+            async move |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
                     let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
-                    progress(old_commit, rebased_commit);
+                    progress(old_commit, rebased_commit).await;
                 }
                 Ok(())
             },
@@ -1428,6 +1430,42 @@ impl MutableRepo {
         .await?;
         self.parent_mapping.clear();
         Ok(())
+    }
+
+    pub(crate) async fn rebase_descendants_with_rewritten_destination(
+        &mut self,
+        destination: Commit,
+        options: RebaseOptions,
+    ) -> BackendResult<Commit> {
+        let roots = self.parent_mapping.keys().cloned().collect();
+        let new_parents_map: &HashMap<CommitId, Vec<CommitId>> = &HashMap::new();
+        let descendants = self.find_descendants_for_rebase(roots)?;
+        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
+        let mut commit = destination.clone();
+        while let Some(old_commit) = to_visit.pop() {
+            let parent_ids = new_parents_map
+                .get(old_commit.id())
+                .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
+            let new_parent_ids = self.new_parents(parent_ids);
+            let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
+            if rewriter.parents_changed() {
+                let old_commit = rewriter.old_commit().clone();
+                let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
+                if old_commit.id() != destination.id() {
+                    return Ok(old_commit);
+                }
+                match rebased_commit {
+                    RebasedCommit::Rewritten(r) => commit = r,
+                    RebasedCommit::Abandoned { .. } => {
+                        panic!("all commits should be kept")
+                    }
+                }
+            }
+        }
+        self.update_rewritten_references(&options.rewrite_refs)
+            .await?;
+        self.parent_mapping.clear();
+        Ok(commit)
     }
 
     /// Rebase descendants of the rewritten commits.
@@ -1441,12 +1479,12 @@ impl MutableRepo {
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
     pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let options = RebaseOptions::default();
-        let mut num_rebased = 0;
-        self.rebase_descendants_with_options(options, |_old_commit, _rebased_commit| {
-            num_rebased += 1;
+        // let mut num_rebased = 0;
+        self.rebase_descendants_with_options(options, |_old_commit, _rebased_commit| async {
+            // num_rebased += 1;
         })
         .await?;
-        Ok(num_rebased)
+        Ok(0)
     }
 
     /// Reparent descendants of the rewritten commits.
@@ -1458,7 +1496,7 @@ impl MutableRepo {
     pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
-        self.transform_descendants(roots, async |rewriter| {
+        self.transform_descendants(roots, async move |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
                 builder.write().await?;
