@@ -24,6 +24,7 @@ use std::fs;
 use std::path::Path;
 use std::slice;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use futures::TryFutureExt as _;
 use futures::future::try_join_all;
@@ -1332,8 +1333,11 @@ impl MutableRepo {
     pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
             .await
@@ -1351,8 +1355,11 @@ impl MutableRepo {
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let descendants = self.find_descendants_for_rebase(roots)?;
         self.transform_commits(descendants, new_parents_map, options, callback)
             .await
@@ -1370,8 +1377,11 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
@@ -1393,7 +1403,6 @@ impl MutableRepo {
 
         Ok(())
     }
-
     /// Rebase descendants of the rewritten commits with options and callback.
     ///
     /// The descendants of the commits registered in `self.parent_mappings` will
@@ -1412,18 +1421,21 @@ impl MutableRepo {
     pub async fn rebase_descendants_with_options(
         &mut self,
         options: RebaseOptions,
-        mut progress: impl FnMut(Commit, RebasedCommit),
-    ) -> BackendResult<()> {
+        mut progress: impl AsyncFnMut(Commit, RebasedCommit) -> () + Send,
+    ) -> BackendResult<()>
+    where
+        Self: Send,
+    {
         let roots = self.parent_mapping.keys().cloned().collect();
         self.transform_descendants_with_options(
             roots,
             &HashMap::new(),
             &options.rewrite_refs,
-            async |rewriter| {
+            async move |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
                     let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
-                    progress(old_commit, rebased_commit);
+                    progress(old_commit, rebased_commit).await;
                 }
                 Ok(())
             },
@@ -1431,6 +1443,84 @@ impl MutableRepo {
         .await?;
         self.parent_mapping.clear();
         Ok(())
+    }
+
+    pub(crate) async fn rebase_descendants_with_rewritten_destination(
+        &mut self,
+        destination: Commit,
+        options: RebaseOptions,
+    ) -> BackendResult<Commit> {
+        let roots = self.parent_mapping.keys().cloned().collect();
+        let new_parents_map: &HashMap<CommitId, Vec<CommitId>> = &HashMap::new();
+        let descendants = self.find_descendants_for_rebase(roots)?;
+        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
+        let destination_id = destination.id().clone();
+        let mut rewritten_destination = None;
+
+        while let Some(old_commit) = to_visit.pop() {
+            let parent_ids = new_parents_map
+                .get(old_commit.id())
+                .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
+            let new_parent_ids = self.new_parents(parent_ids);
+            let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
+            if rewriter.parents_changed() {
+                let old_commit = rewriter.old_commit().clone();
+                let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
+
+                if old_commit.id() == &destination_id {
+                    rewritten_destination = Some(match rebased_commit {
+                        RebasedCommit::Rewritten(r) => r,
+                        RebasedCommit::Abandoned { .. } => {
+                            panic!("destination commit should be kept")
+                        }
+                    });
+                }
+            }
+        }
+
+        self.update_rewritten_references(&options.rewrite_refs)
+            .await?;
+        self.parent_mapping.clear();
+
+        rewritten_destination.ok_or_else(|| {
+            // Handle case where destination wasn't rebased (parents didn't change)
+            BackendError::Other("destination commit was not rewritten".into())
+        })
+    }
+
+    /// Rebase descendants of the rewritten commits. Returns map of original
+    /// commit ID to rebased (or abandoned parent) commit ID.
+    pub async fn rebase_descendants_with_options_return_map(
+        &mut self,
+        options: RebaseOptions,
+    ) -> BackendResult<HashMap<CommitId, CommitId>> {
+        let roots = self.parent_mapping.keys().cloned().collect();
+        let new_parents_map: &HashMap<CommitId, Vec<CommitId>> = &HashMap::new();
+        let descendants = self.find_descendants_for_rebase(roots)?;
+        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
+        let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
+        while let Some(old_commit) = to_visit.pop() {
+            let parent_ids = new_parents_map
+                .get(old_commit.id())
+                .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
+            let new_parent_ids = self.new_parents(parent_ids);
+            let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
+            if rewriter.parents_changed() {
+                let old_commit = rewriter.old_commit().clone();
+                let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
+
+                let old_commit_id = old_commit.id().clone();
+                let new_commit_id = match rebased_commit {
+                    RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
+                    RebasedCommit::Abandoned { parent_id } => parent_id,
+                };
+                rebased.insert(old_commit_id, new_commit_id);
+            }
+        }
+        self.update_rewritten_references(&options.rewrite_refs)
+            .await?;
+        self.parent_mapping.clear();
+        Ok(rebased)
     }
 
     /// Rebase descendants of the rewritten commits.
@@ -1444,12 +1534,12 @@ impl MutableRepo {
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
     pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let options = RebaseOptions::default();
-        let mut num_rebased = 0;
-        self.rebase_descendants_with_options(options, |_old_commit, _rebased_commit| {
-            num_rebased += 1;
+        let num_rebased = AtomicUsize::new(0);
+        self.rebase_descendants_with_options(options, |_old_commit, _rebased_commit| async {
+            num_rebased.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         })
         .await?;
-        Ok(num_rebased)
+        Ok(num_rebased.into_inner())
     }
 
     /// Reparent descendants of the rewritten commits.
@@ -1460,18 +1550,18 @@ impl MutableRepo {
     /// Returns the number of reparented descendants.
     pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
-        let mut num_reparented = 0;
+        let num_reparented = AtomicUsize::new(0);
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
                 builder.write().await?;
-                num_reparented += 1;
+                num_reparented.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
             Ok(())
         })
         .await?;
         self.parent_mapping.clear();
-        Ok(num_reparented)
+        Ok(num_reparented.into_inner())
     }
 
     pub fn set_wc_commit(

@@ -37,7 +37,6 @@ use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::assert_rebased_onto;
 use testutils::create_tree;
-use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -453,8 +452,11 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .write()
         .block_on()
         .unwrap();
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert_eq!(rebase_map.len(), 0);
 
     // Test with for_rewrite_from()
@@ -465,8 +467,11 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .write()
         .block_on()
         .unwrap();
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit3, &[commit4.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -479,7 +484,10 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .write()
         .block_on()
         .unwrap();
-    let rebase_map =
-        rebase_descendants_with_options_return_map(tx.repo_mut(), RebaseOptions::default());
+    let rebase_map = tx
+        .repo_mut()
+        .rebase_descendants_with_options_return_map(RebaseOptions::default())
+        .block_on()
+        .unwrap();
     assert!(rebase_map.is_empty());
 }

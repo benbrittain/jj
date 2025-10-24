@@ -1246,16 +1246,10 @@ pub async fn squash_commits<'repo>(
         // changes we're moving, so applying them will have no effect and the
         // changes will disappear.
         let options = RebaseOptions::default();
-        repo.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
-            if old_commit.id() != destination.id() {
-                return;
-            }
-            rewritten_destination = match rebased_commit {
-                RebasedCommit::Rewritten(commit) => commit,
-                RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
-            };
-        })
-        .await?;
+
+        rewritten_destination = repo
+            .rebase_descendants_with_rewritten_destination(destination.clone(), options)
+            .await?;
     }
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree_async().await?;
