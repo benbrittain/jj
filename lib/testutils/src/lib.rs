@@ -645,26 +645,6 @@ pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents:
     file.write_all(contents.as_ref()).unwrap();
 }
 
-/// Rebase descendants of the rewritten commits. Returns map of original commit
-/// ID to rebased (or abandoned parent) commit ID.
-pub fn rebase_descendants_with_options_return_map(
-    repo: &mut MutableRepo,
-    options: RebaseOptions,
-) -> HashMap<CommitId, CommitId> {
-    let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
-    repo.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
-        let old_commit_id = old_commit.id().clone();
-        let new_commit_id = match rebased_commit {
-            RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
-            RebasedCommit::Abandoned { parent_id } => parent_id,
-        };
-        rebased.insert(old_commit_id, new_commit_id);
-    })
-    .block_on()
-    .unwrap();
-    rebased
-}
-
 fn assert_in_rebased_map(
     repo: &impl Repo,
     rebased: &HashMap<CommitId, CommitId>,
