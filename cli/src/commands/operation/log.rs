@@ -15,6 +15,7 @@
 use std::slice;
 
 use clap_complete::ArgValueCandidates;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::reverse_graph;
@@ -202,8 +203,12 @@ fn do_op_log(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
-    let iter =
-        op_walk::walk_ancestors(slice::from_ref(current_op)).take(args.limit.unwrap_or(usize::MAX));
+    let iter = op_walk::walk_ancestors(slice::from_ref(current_op))
+        .block_on()
+        .take(args.limit.unwrap_or(usize::MAX))
+        .collect::<Vec<_>>()
+        .block_on()
+        .into_iter();
 
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;

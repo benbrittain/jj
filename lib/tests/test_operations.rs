@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use assert_matches::assert_matches;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
@@ -41,6 +42,7 @@ use testutils::write_random_commit_with_parents;
 
 fn get_predecessors(repo: &ReadonlyRepo, id: &CommitId) -> Vec<CommitId> {
     let entries: Vec<_> = walk_predecessors(repo, slice::from_ref(id))
+        .block_on()
         .try_collect()
         .expect("unreachable predecessors shouldn't be visited");
     let first = entries
@@ -518,7 +520,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
-    tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
+    tx.repo_mut().add_head(&commit_b0).block_on().unwrap(); // resurrect rewritten commits
     let repo_2 = tx.commit("op2").block_on().unwrap();
 
     let mut tx = repo_2.start_transaction();
@@ -755,7 +757,9 @@ fn test_resolve_current_op() {
     let repo = test_repo.repo;
 
     assert_eq!(
-        op_walk::resolve_op_with_repo(&repo, "@").block_on().unwrap(),
+        op_walk::resolve_op_with_repo(&repo, "@")
+            .block_on()
+            .unwrap(),
         *repo.operation()
     );
 }
@@ -778,11 +782,15 @@ fn test_resolve_op_parents_children() {
     // Parent
     let op2_id_hex = operations[2].id().hex();
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}-")).block_on().unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}-"))
+            .block_on()
+            .unwrap(),
         *operations[1]
     );
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--")).block_on().unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--"))
+            .block_on()
+            .unwrap(),
         *operations[0]
     );
     // "{op2_id_hex}----" is the root operation
@@ -796,11 +804,15 @@ fn test_resolve_op_parents_children() {
     // Child
     let op0_id_hex = operations[0].id().hex();
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}+")).block_on().unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}+"))
+            .block_on()
+            .unwrap(),
         *operations[1]
     );
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}++")).block_on().unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}++"))
+            .block_on()
+            .unwrap(),
         *operations[2]
     );
     assert_matches!(
@@ -812,13 +824,17 @@ fn test_resolve_op_parents_children() {
 
     // Child of parent
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--+")).block_on().unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--+"))
+            .block_on()
+            .unwrap(),
         *operations[1]
     );
 
     // Child at old repo: new operations shouldn't be visible
     assert_eq!(
-        op_walk::resolve_op_with_repo(&repos[1], &format!("{op0_id_hex}+")).block_on().unwrap(),
+        op_walk::resolve_op_with_repo(&repos[1], &format!("{op0_id_hex}+"))
+            .block_on()
+            .unwrap(),
         *operations[1]
     );
     assert_matches!(
@@ -838,19 +854,25 @@ fn test_resolve_op_parents_children() {
     // op ids) should be reported, not the full expression provided by the user.
     let op5_id_hex = repo.operation().id().hex();
     let parents_op_str = format!("{op5_id_hex}-");
-    let error = op_walk::resolve_op_with_repo(&repo, &parents_op_str).block_on().unwrap_err();
+    let error = op_walk::resolve_op_with_repo(&repo, &parents_op_str)
+        .block_on()
+        .unwrap_err();
     assert_eq!(
         extract_multiple_operations_error(&error).unwrap(),
         (&parents_op_str, parent_op_ids)
     );
     let grandparents_op_str = format!("{op5_id_hex}--");
-    let error = op_walk::resolve_op_with_repo(&repo, &grandparents_op_str).block_on().unwrap_err();
+    let error = op_walk::resolve_op_with_repo(&repo, &grandparents_op_str)
+        .block_on()
+        .unwrap_err();
     assert_eq!(
         extract_multiple_operations_error(&error).unwrap(),
         (&parents_op_str, parent_op_ids)
     );
     let children_of_parents_op_str = format!("{op5_id_hex}-+");
-    let error = op_walk::resolve_op_with_repo(&repo, &children_of_parents_op_str).block_on().unwrap_err();
+    let error = op_walk::resolve_op_with_repo(&repo, &children_of_parents_op_str)
+        .block_on()
+        .unwrap_err();
     assert_eq!(
         extract_multiple_operations_error(&error).unwrap(),
         (&parents_op_str, parent_op_ids)
@@ -858,7 +880,9 @@ fn test_resolve_op_parents_children() {
 
     let op2_id_hex = operations[2].id().hex();
     let op_str = format!("{op2_id_hex}+");
-    let error = op_walk::resolve_op_with_repo(&repo, &op_str).block_on().unwrap_err();
+    let error = op_walk::resolve_op_with_repo(&repo, &op_str)
+        .block_on()
+        .unwrap_err();
     assert_eq!(
         extract_multiple_operations_error(&error).unwrap(),
         (&op_str, parent_op_ids)
@@ -877,12 +901,18 @@ fn test_walk_ancestors() {
     }
 
     fn collect_ancestors(head_ops: &[Operation]) -> Vec<Operation> {
-        op_walk::walk_ancestors(head_ops).try_collect().unwrap()
+        op_walk::walk_ancestors(head_ops)
+            .block_on()
+            .try_collect()
+            .block_on()
+            .unwrap()
     }
 
     fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
         op_walk::walk_ancestors_range(head_ops, root_ops)
+            .block_on()
             .try_collect()
+            .block_on()
             .unwrap()
     }
 

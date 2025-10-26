@@ -29,6 +29,7 @@ use bstr::BString;
 use futures::StreamExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
+use pollster::FutureExt;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -505,6 +506,7 @@ pub fn import_some_refs(
     // can still occur.
     mut_repo
         .add_heads(&head_commits)
+        .block_on()
         .map_err(GitImportError::Backend)?;
 
     // Allocate views for new remotes configured externally. There may be
@@ -828,7 +830,7 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
         // error can still occur.
         store
             .get_commit(head_id)
-            .and_then(|commit| mut_repo.add_head(&commit))
+            .and_then(|commit| mut_repo.add_head(&commit).block_on())
             .map_err(GitImportError::Backend)?;
     }
 

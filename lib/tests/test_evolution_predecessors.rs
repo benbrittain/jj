@@ -29,6 +29,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use maplit::btreemap;
+use pollster::FutureExt;
 use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::commit_transactions;
@@ -36,6 +37,7 @@ use testutils::write_random_commit;
 
 fn collect_predecessors(repo: &ReadonlyRepo, start_commit: &CommitId) -> Vec<CommitEvolutionEntry> {
     walk_predecessors(repo, slice::from_ref(start_commit))
+        .block_on()
         .try_collect()
         .unwrap()
 }
@@ -472,7 +474,9 @@ fn test_walk_predecessors_direct_cycle_within_op() {
         loader.load_at(&op).block_on().unwrap()
     };
     assert_matches!(
-        walk_predecessors(&repo1, slice::from_ref(commit1.id())).next(),
+        walk_predecessors(&repo1, slice::from_ref(commit1.id()))
+            .block_on()
+            .next(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
     );
 }
@@ -501,7 +505,9 @@ fn test_walk_predecessors_indirect_cycle_within_op() {
         loader.load_at(&op).block_on().unwrap()
     };
     assert_matches!(
-        walk_predecessors(&repo1, slice::from_ref(commit3.id())).next(),
+        walk_predecessors(&repo1, slice::from_ref(commit3.id()))
+            .block_on()
+            .next(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
     );
 }
@@ -576,9 +582,13 @@ fn test_accumulate_predecessors() {
     let repo_d = tx.commit("d").block_on().unwrap();
 
     // Empty old/new ops
-    let predecessors = accumulate_predecessors(&[], slice::from_ref(repo_c.operation())).unwrap();
+    let predecessors = accumulate_predecessors(&[], slice::from_ref(repo_c.operation()))
+        .block_on()
+        .unwrap();
     assert!(predecessors.is_empty());
-    let predecessors = accumulate_predecessors(slice::from_ref(repo_c.operation()), &[]).unwrap();
+    let predecessors = accumulate_predecessors(slice::from_ref(repo_c.operation()), &[])
+        .block_on()
+        .unwrap();
     assert!(predecessors.is_empty());
 
     // Empty range
@@ -586,6 +596,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_c.operation()),
         slice::from_ref(repo_c.operation()),
     )
+    .block_on()
     .unwrap();
     assert!(predecessors.is_empty());
 
@@ -594,6 +605,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_c.operation()),
         slice::from_ref(repo_b.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
@@ -609,6 +621,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_c.operation()),
         slice::from_ref(repo_a.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
@@ -626,6 +639,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_a.operation()),
         slice::from_ref(repo_c.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
@@ -644,6 +658,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_d.operation()),
         slice::from_ref(repo_c.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
