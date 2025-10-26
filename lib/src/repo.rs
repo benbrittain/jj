@@ -1951,7 +1951,7 @@ impl MutableRepo {
         self.view.mark_dirty();
     }
 
-    pub fn merge(
+    pub async fn merge(
         &mut self,
         base_repo: &ReadonlyRepo,
         other_repo: &ReadonlyRepo,
@@ -1964,7 +1964,7 @@ impl MutableRepo {
         self.index.merge_in(other_repo.readonly_index())?;
 
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
-        self.merge_view(&base_repo.view, &other_repo.view)?;
+        self.merge_view(&base_repo.view, &other_repo.view).await?;
         self.view.mark_dirty();
         Ok(())
     }
@@ -1973,7 +1973,7 @@ impl MutableRepo {
         self.index.merge_in(other_repo.readonly_index())
     }
 
-    fn merge_view(&mut self, base: &View, other: &View) -> Result<(), RepoLoaderError> {
+    async fn merge_view(&mut self, base: &View, other: &View) -> Result<(), RepoLoaderError> {
         let changed_wc_commits = diff_named_commit_ids(base.wc_commit_ids(), other.wc_commit_ids());
         for (name, (base_id, other_id)) in changed_wc_commits {
             self.merge_wc_commit(name, base_id, other_id);
@@ -1990,8 +1990,8 @@ impl MutableRepo {
         // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten commits
         // given `base_heads`, `own_heads` and `other_heads`?
         if self.is_backed_by_default_index() {
-            self.record_rewrites(&base_heads, &own_heads)?;
-            self.record_rewrites(&base_heads, &other_heads)?;
+            self.record_rewrites(&base_heads, &own_heads).await?;
+            self.record_rewrites(&base_heads, &other_heads).await?;
             // No need to remove heads removed by `other` because we already
             // marked them abandoned or rewritten.
         } else {
@@ -2044,7 +2044,7 @@ impl MutableRepo {
 
     /// Finds and records commits that were rewritten or abandoned between
     /// `old_heads` and `new_heads`.
-    fn record_rewrites(
+    async fn record_rewrites(
         &mut self,
         old_heads: &[CommitId],
         new_heads: &[CommitId],
@@ -2095,7 +2095,7 @@ impl MutableRepo {
         for (change_id, removed_commit_ids) in &removed_changes {
             if !rewritten_changes.contains(change_id) {
                 for id in removed_commit_ids {
-                    let commit = self.store().get_commit(id)?;
+                    let commit = self.store().get_commit_async(id).await?;
                     self.record_abandoned_commit(&commit);
                 }
             }

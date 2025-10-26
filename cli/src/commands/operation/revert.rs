@@ -68,7 +68,7 @@ pub fn cmd_op_revert(
     let repo_loader = tx.base_repo().loader();
     let bad_repo = repo_loader.load_at(&bad_op).block_on()?;
     let parent_repo = repo_loader.load_at(&parent_of_bad_op).block_on()?;
-    tx.repo_mut().merge(&bad_repo, &parent_repo)?;
+    tx.repo_mut().merge(&bad_repo, &parent_repo).block_on()?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),
         tx.base_repo().view().store_view(),
