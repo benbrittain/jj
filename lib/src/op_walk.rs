@@ -20,7 +20,12 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
+use futures::Stream;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
+use futures::stream;
 use itertools::Itertools as _;
+use pollster::FutureExt;
 use thiserror::Error;
 
 use crate::dag_walk;
@@ -156,7 +161,7 @@ async fn resolve_single_op(
     for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
             '-' => operation.parents().try_collect()?,
-            '+' => find_child_ops(head_ops.as_ref().unwrap(), operation.id())?,
+            '+' => find_child_ops(head_ops.as_ref().unwrap(), operation.id()).await?,
             _ => unreachable!(),
         };
         operation = match neighbor_ops.len() {
@@ -227,14 +232,27 @@ pub async fn get_current_head_ops(
 ///
 /// This will be slow if the `root_op_id` is far away (or unreachable) from the
 /// `head_ops`.
-fn find_child_ops(
+async fn find_child_ops(
     head_ops: &[Operation],
     root_op_id: &OperationId,
 ) -> OpStoreResult<Vec<Operation>> {
-    walk_ancestors(head_ops)
-        .take_while(|res| res.as_ref().map_or(true, |op| op.id() != root_op_id))
-        .filter_ok(|op| op.parent_ids().iter().any(|id| id == root_op_id))
-        .try_collect()
+    let mut walk_ancestors_stream = walk_ancestors(head_ops).await;
+    let mut accum = vec![];
+    'b: while let Some(ancestor_res) = walk_ancestors_stream.next().await {
+        let take = ancestor_res
+            .as_ref()
+            .map_or(true, |op| op.id() != root_op_id);
+        if take {
+            if let Ok(op) = ancestor_res {
+                if op.parent_ids().iter().any(|id| id == root_op_id) {
+                    accum.push(op);
+                }
+            }
+        } else {
+            break 'b;
+        }
+    }
+    Ok(accum)
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -257,9 +275,9 @@ impl PartialOrd for OperationByEndTime {
 }
 
 /// Walks `head_ops` and their ancestors in reverse topological order.
-pub fn walk_ancestors(
+pub async fn walk_ancestors(
     head_ops: &[Operation],
-) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
+) -> impl Stream<Item = OpStoreResult<Operation>> + use<> {
     let head_ops = head_ops
         .iter()
         .cloned()
@@ -270,18 +288,22 @@ pub fn walk_ancestors(
     dag_walk::topo_order_reverse_lazy_ok(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |OperationByEndTime(op)| {
+            let op = op.clone();
+            async move { op.parents().map_ok(OperationByEndTime).collect_vec() }
+        },
         |_| panic!("graph has cycle"),
     )
+    .await
     .map_ok(|OperationByEndTime(op)| op)
 }
 
 /// Walks ancestors from `head_ops` in reverse topological order, excluding
 /// ancestors of `root_ops`.
-pub fn walk_ancestors_range(
+pub async fn walk_ancestors_range(
     head_ops: &[Operation],
     root_ops: &[Operation],
-) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
+) -> impl Stream<Item = OpStoreResult<Operation>> {
     let mut start_ops = itertools::chain(head_ops, root_ops)
         .cloned()
         .map(OperationByEndTime)
@@ -292,31 +314,40 @@ pub fn walk_ancestors_range(
         vec![]
     } else {
         let unwanted_ids = root_ops.iter().map(|op| op.id().clone()).collect();
-        collect_ancestors_until_roots(&mut start_ops, unwanted_ids)
+        collect_ancestors_until_roots(&mut start_ops, unwanted_ids).await
     };
 
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    let trailing_iter = dag_walk::topo_order_reverse_lazy_ok(
+    let trailing_stream = dag_walk::topo_order_reverse_lazy_ok(
         start_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |OperationByEndTime(op)| {
+            let op = op.clone();
+            async move { op.parents().map_ok(OperationByEndTime).collect_vec() }
+        },
         |_| panic!("graph has cycle"),
     )
+    .await
     .map_ok(|OperationByEndTime(op)| op);
-    itertools::chain(leading_items, trailing_iter)
+    stream::iter(leading_items.into_iter()).chain(trailing_stream)
 }
 
-fn collect_ancestors_until_roots(
+async fn collect_ancestors_until_roots(
     start_ops: &mut Vec<OperationByEndTime>,
     mut unwanted_ids: HashSet<OperationId>,
 ) -> Vec<OpStoreResult<Operation>> {
     let sorted_ops = match dag_walk::topo_order_reverse_chunked(
         start_ops,
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |OperationByEndTime(op)| {
+            let op = op.clone();
+            async move { op.parents().map_ok(OperationByEndTime).collect_vec() }
+        },
         |_| panic!("graph has cycle"),
-    ) {
+    )
+    .await
+    {
         Ok(sorted_ops) => sorted_ops,
         Err(err) => return vec![Err(err)],
     };
@@ -360,8 +391,16 @@ pub async fn reparent_range(
     head_ops: &[Operation],
     dest_op: &Operation,
 ) -> OpStoreResult<ReparentStats> {
-    let ops_to_reparent: Vec<_> = walk_ancestors_range(head_ops, root_ops).try_collect()?;
+    let ops_to_reparent: Vec<_> = walk_ancestors_range(head_ops, root_ops)
+        .await
+        .try_collect()
+        .await?;
+
     let unreachable_count = walk_ancestors_range(root_ops, slice::from_ref(dest_op))
+        .await
+        .collect::<Vec<OpStoreResult<_>>>()
+        .await
+        .into_iter()
         .process_results(|iter| iter.count())?;
 
     assert!(

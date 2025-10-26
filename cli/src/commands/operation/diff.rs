@@ -512,7 +512,8 @@ fn compute_operation_commits_diff(
     let predecessor_commits = accumulate_predecessors(
         slice::from_ref(to_repo.operation()),
         slice::from_ref(from_repo.operation()),
-    )?;
+    )
+    .block_on()?;
 
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();

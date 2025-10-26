@@ -1099,18 +1099,25 @@ impl MutableRepo {
     /// Fully resolves transitive replacements in `parent_mapping`.
     ///
     /// If `parent_mapping` contains cycles, this function will panic.
-    fn resolve_rewrite_mapping_with(
+    async fn resolve_rewrite_mapping_with(
         &self,
         mut predicate: impl FnMut(&Rewrite) -> bool,
     ) -> HashMap<CommitId, Vec<CommitId>> {
+        let filtered_mapping: HashMap<_, _> = self
+            .parent_mapping
+            .iter()
+            .filter_map(|(id, rewrite)| {
+                predicate(rewrite).then(|| (id.clone(), rewrite.new_parent_ids()))
+            })
+            .collect();
+
         let sorted_ids = dag_walk::topo_order_forward(
             self.parent_mapping.keys(),
             |&id| id,
-            |&id| match self.parent_mapping.get(id).filter(|&v| predicate(v)) {
-                None => &[],
-                Some(rewrite) => rewrite.new_parent_ids(),
-            },
-        );
+            |&id| async { filtered_mapping.get(id).map(|ids| &ids[..]).unwrap_or(&[]) },
+        )
+        .await;
+
         let mut new_mapping: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for old_id in sorted_ids {
             let Some(rewrite) = self.parent_mapping.get(old_id).filter(|&v| predicate(v)) else {
@@ -1143,7 +1150,7 @@ impl MutableRepo {
     }
 
     async fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
-        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
+        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true).await;
         self.update_local_bookmarks(&rewrite_mapping, options)?;
         self.update_wc_commits(&rewrite_mapping).await?;
         Ok(())
@@ -1229,7 +1236,9 @@ impl MutableRepo {
                 .map_err(|err| match err {
                     EditCommitError::BackendError(backend_error) => backend_error,
                     EditCommitError::WorkingCopyCommitNotFound(_)
-                    | EditCommitError::RewriteRootCommit(_) => panic!("unexpected error: {err:?}"),
+                    | EditCommitError::RewriteRootCommit(_) => {
+                        panic!("unexpected error: {err:?}")
+                    }
                 })
                 .await?;
         }
@@ -1276,49 +1285,61 @@ impl MutableRepo {
 
     /// Order a set of commits in an order they should be rebased in. The result
     /// is in reverse order so the next value can be removed from the end.
-    fn order_commits_for_rebase(
+    async fn order_commits_for_rebase(
         &self,
         to_visit: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
     ) -> BackendResult<Vec<Commit>> {
         let to_visit_set: HashSet<CommitId> =
             to_visit.iter().map(|commit| commit.id().clone()).collect();
-        let mut visited = HashSet::new();
-        // Calculate an order where we rebase parents first, but if the parents were
-        // rewritten, make sure we rebase the rewritten parent first.
         let store = self.store();
+
+        let visited = Arc::new(std::sync::Mutex::new(HashSet::new()));
+
         dag_walk::topo_order_reverse_ok(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
-            |commit| -> Vec<BackendResult<Commit>> {
-                visited.insert(commit.id().clone());
-                let mut dependents = vec![];
-                let parent_ids = new_parents_map
-                    .get(commit.id())
-                    .map_or(commit.parent_ids(), |parent_ids| parent_ids);
-                for parent_id in parent_ids {
-                    let parent = store.get_commit(parent_id);
-                    let Ok(parent) = parent else {
-                        dependents.push(parent);
-                        continue;
-                    };
-                    if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
-                        for target in rewrite.new_parent_ids() {
-                            if to_visit_set.contains(target) && !visited.contains(target) {
-                                dependents.push(store.get_commit(target));
+            |commit| {
+                let visited = visited.clone();
+                let to_visit_set = to_visit_set.clone();
+                let commit = commit.clone();
+                async move {
+                    {
+                        visited.lock().unwrap().insert(commit.id().clone());
+                    }
+
+                    let mut dependents = vec![];
+                    let parent_ids = new_parents_map
+                        .get(commit.id())
+                        .map_or(commit.parent_ids(), |parent_ids| parent_ids);
+
+                    for parent_id in parent_ids {
+                        let parent = store.get_commit_async(parent_id).await;
+                        let Ok(parent) = parent else {
+                            dependents.push(parent);
+                            continue;
+                        };
+
+                        if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
+                            for target in rewrite.new_parent_ids() {
+                                let contains = { visited.lock().unwrap().contains(target) };
+                                if to_visit_set.contains(target) && !contains {
+                                    dependents.push(store.get_commit_async(target).await);
+                                }
                             }
                         }
+
+                        if to_visit_set.contains(parent.id()) {
+                            dependents.push(Ok(parent));
+                        }
                     }
-                    if to_visit_set.contains(parent.id()) {
-                        dependents.push(Ok(parent));
-                    }
+                    dependents
                 }
-                dependents
             },
             |_| panic!("graph has cycle"),
         )
+        .await
     }
-
     /// Rewrite descendants of the given roots.
     ///
     /// The callback will be called for each commit with the new parents
@@ -1382,7 +1403,9 @@ impl MutableRepo {
     where
         Self: Send,
     {
-        let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
+        let mut to_visit = self
+            .order_commits_for_rebase(commits, new_parents_map)
+            .await?;
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
                 .get(old_commit.id())
@@ -1453,7 +1476,9 @@ impl MutableRepo {
         let roots = self.parent_mapping.keys().cloned().collect();
         let new_parents_map: &HashMap<CommitId, Vec<CommitId>> = &HashMap::new();
         let descendants = self.find_descendants_for_rebase(roots)?;
-        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
+        let mut to_visit = self
+            .order_commits_for_rebase(descendants, new_parents_map)
+            .await?;
         let destination_id = destination.id().clone();
         let mut rewritten_destination = None;
 
@@ -1497,7 +1522,9 @@ impl MutableRepo {
         let roots = self.parent_mapping.keys().cloned().collect();
         let new_parents_map: &HashMap<CommitId, Vec<CommitId>> = &HashMap::new();
         let descendants = self.find_descendants_for_rebase(roots)?;
-        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
+        let mut to_visit = self
+            .order_commits_for_rebase(descendants, new_parents_map)
+            .await?;
         let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
@@ -1639,7 +1666,7 @@ impl MutableRepo {
         commit: &Commit,
     ) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(&name).await?;
-        self.add_head(commit)?;
+        self.add_head(commit).await?;
         Ok(self.set_wc_commit(name, commit.id().clone())?)
     }
 
@@ -1707,8 +1734,8 @@ impl MutableRepo {
 
     /// Ensures that the given `head` and ancestor commits are reachable from
     /// the visible heads.
-    pub fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
-        self.add_heads(slice::from_ref(head))
+    pub async fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
+        self.add_heads(slice::from_ref(head)).await
     }
 
     /// Ensures that the given `heads` and ancestor commits are reachable from
@@ -1717,7 +1744,7 @@ impl MutableRepo {
     /// The `heads` may contain redundant commits such as already visible ones
     /// and ancestors of the other heads. The `heads` and ancestor commits
     /// should exist in the store.
-    pub fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
+    pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
         let current_heads = self.view.get_mut().heads();
         // Use incremental update for common case of adding a single commit on top a
         // current head. TODO: Also use incremental update when adding a single
@@ -1748,30 +1775,40 @@ impl MutableRepo {
                         .map(Ok),
                     |CommitByCommitterTimestamp(commit)| commit.id().clone(),
                     |CommitByCommitterTimestamp(commit)| {
-                        commit
+                        let commits: Vec<Result<CommitId, BackendError>> = commit
                             .parent_ids()
                             .iter()
                             .filter_map(|id| {
                                 self.index()
                                     .has_id(id)
-                                    // TODO: indexing error shouldn't be a "BackendError"
                                     .map_err(|err| BackendError::Other(err.into()))
                                     .and_then(|has_id| {
                                         if has_id {
                                             Ok(None)
                                         } else {
-                                            self.store()
-                                                .get_commit(id)
-                                                .map(CommitByCommitterTimestamp)
-                                                .map(Some)
+                                            Ok(Some(id.clone()))
                                         }
                                     })
                                     .transpose()
                             })
-                            .collect_vec()
+                            .collect_vec();
+                        let store = self.store().clone();
+                        async move {
+                            let mut accum = vec![];
+                            for id in commits {
+                                accum.push(
+                                    store
+                                        .get_commit_async(&id.unwrap())
+                                        .await
+                                        .map(CommitByCommitterTimestamp),
+                                );
+                            }
+                            accum
+                        }
                     },
                     |_| panic!("graph has cycle"),
-                )?;
+                )
+                .await?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)
