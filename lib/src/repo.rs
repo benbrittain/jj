@@ -1698,7 +1698,8 @@ impl MutableRepo {
         if let Some(wc_commit_id) = maybe_wc_commit_id {
             let wc_commit = self
                 .store()
-                .get_commit(&wc_commit_id)
+                .get_commit_async(&wc_commit_id)
+                .await
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
             if wc_commit.is_discardable(self).await?
                 && self
