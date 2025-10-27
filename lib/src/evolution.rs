@@ -118,23 +118,23 @@ where
         while !self.to_visit.is_empty() && self.queued.is_empty() {
             let Some(op) = self.op_ancestors.next().transpose()? else {
                 // Scanned all operations, no fallback needed.
-                self.flush_commits()?;
+                self.flush_commits().block_on()?;
                 break;
             };
             if !op.stores_commit_predecessors() {
                 // There may be concurrent ops, but let's simply switch to the
                 // legacy commit traversal. Operation history should be mostly
                 // linear.
-                self.scan_commits()?;
+                self.scan_commits().block_on()?;
                 break;
             }
-            self.visit_op(&op)?;
+            self.visit_op(&op).block_on()?;
         }
         Ok(self.queued.pop_front())
     }
 
     /// Looks for predecessors within the given operation.
-    fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
+    async fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
         let mut to_emit = Vec::new(); // transitive edges should be short
         let mut has_dup = false;
         let mut i = 0;
@@ -152,30 +152,34 @@ where
         }
 
         let store = self.repo.store();
-        let mut emit = |id: &CommitId| -> BackendResult<()> {
-            let commit = store.get_commit(id)?;
-            self.queued.push_back(CommitEvolutionEntry {
-                commit,
-                operation: Some(op.clone()),
-                reachable_predecessors: None,
-            });
-            Ok(())
-        };
         match &*to_emit {
             [] => {}
-            [id] if !has_dup => emit(id)?,
+            [id] if !has_dup => {
+                let commit = store.get_commit_async(id).await?;
+                self.queued.push_back(CommitEvolutionEntry {
+                    commit,
+                    operation: Some(op.clone()),
+                    reachable_predecessors: None,
+                });
+            }
             _ => {
                 let sorted_ids = dag_walk::topo_order_reverse_ok(
                     to_emit.iter().map(Ok),
                     |&id| id,
                     |&id| async { op.predecessors_for_commit(id).into_iter().flatten().map(Ok) },
-                    |id| id, // Err(&CommitId) if graph has cycle
+                    |id| id,
                 )
-                .block_on()
+                .await
                 .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
+
                 for &id in &sorted_ids {
                     if op.predecessors_for_commit(id).is_some() {
-                        emit(id)?;
+                        let commit = store.get_commit_async(id).await?;
+                        self.queued.push_back(CommitEvolutionEntry {
+                            commit,
+                            operation: Some(op.clone()),
+                            reachable_predecessors: None,
+                        });
                     }
                 }
             }
@@ -184,7 +188,7 @@ where
     }
 
     /// Traverses predecessors from remainder commits.
-    fn scan_commits(&mut self) -> Result<(), WalkPredecessorsError> {
+    async fn scan_commits(&mut self) -> Result<(), WalkPredecessorsError> {
         let store = self.repo.store();
         let index = self.repo.index();
         let commit_predecessors: Arc<Mutex<HashMap<CommitId, Vec<CommitId>>>> =
@@ -243,7 +247,7 @@ where
             },
             |_| panic!("graph has cycle"),
         )
-        .block_on()?;
+        .await?;
         self.queued.extend(commits.into_iter().map(|commit| {
             let predecessors = commit_predecessors
                 .lock()
@@ -260,10 +264,10 @@ where
     }
 
     /// Moves remainder commits to output queue.
-    fn flush_commits(&mut self) -> BackendResult<()> {
+    async fn flush_commits(&mut self) -> BackendResult<()> {
         self.queued.reserve(self.to_visit.len());
         for id in self.to_visit.drain(..) {
-            let commit = self.repo.store().get_commit(&id)?;
+            let commit = self.repo.store().get_commit_async(&id).await?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: None,
