@@ -1635,7 +1635,7 @@ impl MutableRepo {
                         .map(CommitByCommitterTimestamp)
                         .map(Ok),
                     |CommitByCommitterTimestamp(commit)| commit.id().clone(),
-                    |CommitByCommitterTimestamp(commit)| {
+                    async |CommitByCommitterTimestamp(commit)| {
                         commit
                             .parent_ids()
                             .iter()
@@ -1650,7 +1650,8 @@ impl MutableRepo {
                             .collect_vec()
                     },
                     |_| panic!("graph has cycle"),
-                )?;
+                )
+                .block_on()?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)

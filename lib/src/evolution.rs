@@ -18,8 +18,11 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::collections::hash_map::Entry;
+use std::pin::pin;
 use std::slice;
 
+use futures::Stream;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -85,9 +88,10 @@ pub fn walk_predecessors<'repo>(
     repo: &'repo ReadonlyRepo,
     start_commits: &[CommitId],
 ) -> impl Iterator<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
+    let op_ancestors = Box::pin(op_walk::walk_ancestors(slice::from_ref(repo.operation())));
     WalkPredecessors {
         repo,
-        op_ancestors: op_walk::walk_ancestors(slice::from_ref(repo.operation())),
+        op_ancestors,
         to_visit: start_commits.to_vec(),
         queued: VecDeque::new(),
     }
@@ -102,11 +106,11 @@ struct WalkPredecessors<'repo, I> {
 
 impl<I> WalkPredecessors<'_, I>
 where
-    I: Iterator<Item = OpStoreResult<Operation>>,
+    I: Stream<Item = OpStoreResult<Operation>> + std::marker::Unpin,
 {
-    fn try_next(&mut self) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
+    async fn try_next(&mut self) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
         while !self.to_visit.is_empty() && self.queued.is_empty() {
-            let Some(op) = self.op_ancestors.next().transpose()? else {
+            let Some(op) = self.op_ancestors.next().await.transpose()? else {
                 // Scanned all operations, no fallback needed.
                 self.flush_commits()?;
                 break;
@@ -118,13 +122,13 @@ where
                 self.scan_commits()?;
                 break;
             }
-            self.visit_op(&op)?;
+            self.visit_op(&op).await?;
         }
         Ok(self.queued.pop_front())
     }
 
     /// Looks for predecessors within the given operation.
-    fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
+    async fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
         let mut to_emit = Vec::new(); // transitive edges should be short
         let mut has_dup = false;
         let mut i = 0;
@@ -246,12 +250,12 @@ where
 
 impl<I> Iterator for WalkPredecessors<'_, I>
 where
-    I: Iterator<Item = OpStoreResult<Operation>>,
+    I: Stream<Item = OpStoreResult<Operation>> + Unpin,
 {
     type Item = Result<CommitEvolutionEntry, WalkPredecessorsError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.try_next().transpose()
+        self.try_next().block_on().transpose()
     }
 }
 
@@ -304,9 +308,10 @@ pub fn accumulate_predecessors(
 
 fn try_collect_predecessors_into(
     collected: &mut BTreeMap<CommitId, Vec<CommitId>>,
-    ops: impl IntoIterator<Item = OpStoreResult<Operation>>,
+    ops: impl Stream<Item = OpStoreResult<Operation>>,
 ) -> OpStoreResult<bool> {
-    for op in ops {
+    let mut ops = pin!(ops);
+    while let Some(op) = ops.next().block_on() {
         let op = op?;
         let Some(map) = &op.store_operation().commit_predecessors else {
             return Ok(false);
