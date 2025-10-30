@@ -23,6 +23,7 @@ use std::iter;
 use std::mem;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
 
@@ -81,10 +82,10 @@ where
 ///
 /// If the graph has cycle, `cycle_fn()` is called with one of the nodes
 /// involved in the cycle.
-pub fn topo_order_forward<T, ID, E, II, NI>(
+pub async fn topo_order_forward<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
@@ -92,8 +93,8 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    topo_order_forward_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn)
+    let neighbors_fn = async move |node: &T| to_ok_iter(neighbors_fn(node).await);
+    topo_order_forward_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).await
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
@@ -102,10 +103,10 @@ where
 /// If `start` or `neighbors_fn()` yields an `Err`, this function terminates and
 /// returns the error. If the graph has cycle, `cycle_fn()` is called with one
 /// of the nodes involved in the cycle.
-pub fn topo_order_forward_ok<T, ID, E, II, NI>(
+pub async fn topo_order_forward_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
@@ -126,7 +127,7 @@ where
             if !visiting.insert(id.clone()) {
                 return Err(cycle_fn(node));
             }
-            let neighbors_iter = neighbors_fn(&node).into_iter();
+            let neighbors_iter = neighbors_fn(&node).await.into_iter();
             stack.reserve(neighbors_iter.size_hint().0 + 1);
             stack.push((node, true));
             for neighbor in neighbors_iter {
@@ -146,10 +147,10 @@ where
 ///
 /// If the graph has cycle, `cycle_fn()` is called with one of the nodes
 /// involved in the cycle.
-pub fn topo_order_reverse<T, ID, E, II, NI>(
+pub async fn topo_order_reverse<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
@@ -157,8 +158,8 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    topo_order_reverse_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn)
+    let neighbors_fn = async move |node: &T| to_ok_iter(neighbors_fn(node).await);
+    topo_order_reverse_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).await
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
@@ -167,10 +168,10 @@ where
 /// If `start` or `neighbors_fn()` yields an `Err`, this function terminates and
 /// returns the error. If the graph has cycle, `cycle_fn()` is called with one
 /// of the nodes involved in the cycle.
-pub fn topo_order_reverse_ok<T, ID, E, II, NI>(
+pub async fn topo_order_reverse_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    neighbors_fn: impl FnMut(&T) -> NI,
+    neighbors_fn: impl AsyncFnMut(&T) -> NI,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
@@ -178,7 +179,7 @@ where
     II: IntoIterator<Item = Result<T, E>>,
     NI: IntoIterator<Item = Result<T, E>>,
 {
-    let mut result = topo_order_forward_ok(start, id_fn, neighbors_fn, cycle_fn)?;
+    let mut result = topo_order_forward_ok(start, id_fn, neighbors_fn, cycle_fn).await?;
     result.reverse();
     Ok(result)
 }
@@ -197,7 +198,7 @@ where
 pub fn topo_order_reverse_lazy<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
     cycle_fn: impl FnMut(T) -> E,
 ) -> impl Iterator<Item = Result<T, E>>
 where
@@ -206,7 +207,7 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
+    let neighbors_fn = async move |node: &T| to_ok_iter(neighbors_fn(node).await);
     topo_order_reverse_lazy_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn)
 }
 
@@ -218,7 +219,7 @@ where
 pub fn topo_order_reverse_lazy_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
     mut cycle_fn: impl FnMut(T) -> E,
 ) -> impl Iterator<Item = Result<T, E>>
 where
@@ -266,7 +267,7 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
     fn next<NI: IntoIterator<Item = Result<T, E>>>(
         &mut self,
         id_fn: impl Fn(&T) -> ID,
-        mut neighbors_fn: impl FnMut(&T) -> NI,
+        mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
         mut cycle_fn: impl FnMut(T) -> E,
     ) -> Option<Result<T, E>> {
         if let Some(res) = self.result.pop() {
@@ -276,7 +277,7 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
         // Fast path for linear DAG
         if self.start.len() <= 1 {
             let node = self.start.pop()?;
-            self.extend(neighbors_fn(&node));
+            self.extend(neighbors_fn(&node).block_on());
             if self.emitted.insert(id_fn(&node)) {
                 return Some(Ok(node));
             } else {
@@ -287,15 +288,18 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
         // Extract graph nodes based on T's order, and sort them by using ids
         // (because we wouldn't want to clone T itself)
         let start_ids = self.start.iter().map(&id_fn).collect_vec();
-        match look_ahead_sub_graph(mem::take(&mut self.start), &id_fn, &mut neighbors_fn) {
+        match look_ahead_sub_graph(mem::take(&mut self.start), &id_fn, &mut neighbors_fn).block_on()
+        {
             Ok((mut node_map, neighbor_ids_map, remainder)) => {
                 self.start = remainder;
                 let sorted_ids = match topo_order_forward_ok(
                     start_ids.iter().map(Ok),
                     |id| *id,
-                    |id| neighbor_ids_map[id].iter().map(Ok),
+                    async |id| neighbor_ids_map[id].iter().map(Ok),
                     |id| cycle_fn(node_map.remove(id).unwrap()),
-                ) {
+                )
+                .block_on()
+                {
                     Ok(ids) => ids,
                     Err(err) => return Some(Err(err)),
                 };
@@ -324,10 +328,10 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
 ///
 /// If the split chunk of the graph has cycle, `cycle_fn()` is called with one
 /// of the nodes involved in the cycle.
-pub fn topo_order_reverse_chunked<T, ID, E, NI>(
+pub async fn topo_order_reverse_chunked<T, ID, E, NI>(
     start: &mut Vec<T>,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
     mut cycle_fn: impl FnMut(T) -> E,
 ) -> Result<SmallVec<[T; 1]>, E>
 where
@@ -340,7 +344,7 @@ where
         let Some(node) = start.pop() else {
             return Ok(SmallVec::new());
         };
-        let neighbors_iter = neighbors_fn(&node).into_iter();
+        let neighbors_iter = neighbors_fn(&node).await.into_iter();
         start.reserve(neighbors_iter.size_hint().0);
         for neighbor in neighbors_iter {
             start.push(neighbor?);
@@ -352,14 +356,15 @@ where
     // (because we wouldn't want to clone T itself)
     let start_ids = start.iter().map(&id_fn).collect_vec();
     let (mut node_map, neighbor_ids_map, remainder) =
-        look_ahead_sub_graph(mem::take(start), &id_fn, &mut neighbors_fn)?;
+        look_ahead_sub_graph(mem::take(start), &id_fn, &mut neighbors_fn).await?;
     *start = remainder;
     let sorted_ids = topo_order_forward_ok(
         start_ids.iter().map(Ok),
         |id| *id,
-        |id| neighbor_ids_map[id].iter().map(Ok),
+        async |id| neighbor_ids_map[id].iter().map(Ok),
         |id| cycle_fn(node_map.remove(id).unwrap()),
-    )?;
+    )
+    .await?;
     let sorted_nodes = sorted_ids
         .iter()
         .rev()
@@ -390,10 +395,10 @@ where
 ///
 /// We assume the graph is (mostly) topologically ordered by `T: Ord`.
 #[expect(clippy::type_complexity)]
-fn look_ahead_sub_graph<T, ID, E, NI>(
+async fn look_ahead_sub_graph<T, ID, E, NI>(
     start: Vec<T>,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
 ) -> Result<(HashMap<ID, T>, HashMap<ID, Vec<ID>>, Vec<T>), E>
 where
     T: Ord,
@@ -415,7 +420,7 @@ where
         }
 
         let mut neighbor_ids = Vec::new();
-        let mut neighbors_iter = neighbors_fn(&node).into_iter().peekable();
+        let mut neighbors_iter = neighbors_fn(&node).await.into_iter().peekable();
         has_reached_root |= neighbors_iter.peek().is_none();
         for neighbor in neighbors_iter {
             let neighbor = neighbor?;

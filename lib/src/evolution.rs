@@ -21,6 +21,7 @@ use std::collections::hash_map::Entry;
 use std::slice;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -157,9 +158,10 @@ where
                 let sorted_ids = dag_walk::topo_order_reverse_ok(
                     to_emit.iter().map(Ok),
                     |&id| id,
-                    |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
+                    async |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
                     |id| id, // Err(&CommitId) if graph has cycle
                 )
+                .block_on()
                 .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
                 for &id in &sorted_ids {
                     if op.predecessors_for_commit(id).is_some() {
@@ -183,7 +185,7 @@ where
                     .map_err(WalkPredecessorsError::Backend)
             }),
             |commit: &Commit| commit.id().clone(),
-            |commit: &Commit| {
+            async |commit: &Commit| {
                 let ids = match commit_predecessors.entry(commit.id().clone()) {
                     Entry::Occupied(entry) => entry.into_mut(),
                     Entry::Vacant(entry) => {
@@ -210,7 +212,8 @@ where
                     .collect_vec()
             },
             |_| panic!("graph has cycle"),
-        )?;
+        )
+        .block_on()?;
         self.queued.extend(commits.into_iter().map(|commit| {
             let predecessors = commit_predecessors
                 .remove(commit.id())
@@ -325,9 +328,10 @@ fn resolve_transitive_edges<'a: 'b, 'b>(
     let sorted_ids = dag_walk::topo_order_forward_ok(
         start.into_iter().map(Ok),
         |&id| id,
-        |&id| graph.get(id).into_iter().flatten().map(Ok),
+        async |&id| graph.get(id).into_iter().flatten().map(Ok),
         |id| id, // Err(&CommitId) if graph has cycle
-    )?;
+    )
+    .block_on()?;
     for cur_id in sorted_ids {
         let Some(neighbors) = graph.get(cur_id) else {
             continue;
