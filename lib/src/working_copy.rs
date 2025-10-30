@@ -376,8 +376,9 @@ impl WorkingCopyFreshness {
                 [Ok(wc_operation.clone())],
                 [Ok(repo_operation.clone())],
                 |op: &Operation| op.id().clone(),
-                |op: &Operation| op.parents().collect_vec(),
-            )?
+                async |op: &Operation| op.parents().collect_vec(),
+            )
+            .block_on()?
             .expect("unrelated operations");
             if ancestor_op.id() == repo_operation.id() {
                 // The working copy was updated since we loaded the repo. The repo must be
