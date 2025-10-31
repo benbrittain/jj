@@ -241,7 +241,7 @@ fn init_git_refs(
     let mut tx = start_repo_transaction(&repo, string_args);
     // There should be no old refs to abandon, but enforce it.
     import_options.abandon_unreachable_commits = false;
-    let stats = git::import_refs(tx.repo_mut(), &import_options)?;
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     print_git_import_stats(ui, tx.repo(), &stats, false)?;
     if !tx.repo().has_changes() {
         return Ok(repo);

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(grep:*)",
       "Bash(cargo nextest r:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(jj status:*)",
+      "Bash(jj resolve:*)"
     ],
     "deny": [],
     "ask": []

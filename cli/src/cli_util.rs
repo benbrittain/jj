@@ -947,7 +947,8 @@ impl WorkspaceCommandEnvironment {
 
         let mut commit_id_iter = immutable_expr
             .intersection(to_rewrite_expr)
-            .evaluate(repo)?
+            .evaluate(repo)
+            .block_on()?
             .iter();
         Ok(commit_id_iter.next().transpose()?)
     }
@@ -1257,7 +1258,7 @@ impl WorkspaceCommandHelper {
         let import_options =
             crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
-        let stats = git::import_refs(tx.repo_mut(), &import_options)?;
+        let stats = jj_lib::git::import_refs(tx.repo_mut(), &import_options).block_on()?;
         crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
         if !tx.repo().has_changes() {
             return Ok(());
@@ -1884,7 +1885,8 @@ to the current parents may contain changes from multiple commits.
             )
             .resolve()?
             .intersection(&to_rewrite_expr.descendants())
-            .evaluate(repo)?
+            .evaluate(repo)
+            .block_on()?
             .count_estimate()?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
@@ -2191,7 +2193,8 @@ to the current parents may contain changes from multiple commits.
         let get_commits =
             |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
                 let commits = expr
-                    .evaluate(new_repo)?
+                    .evaluate(new_repo)
+                    .block_on()?
                     .iter()
                     .commits(new_repo.store())
                     .try_collect()?;
@@ -2288,7 +2291,8 @@ to the current parents may contain changes from multiple commits.
         let only_one_conflicted_commit = conflicted_commits.len() == 1;
         let root_conflicts_revset = RevsetExpression::commits(conflicted_commits)
             .roots()
-            .evaluate(repo)?;
+            .evaluate(repo)
+            .block_on()?;
 
         let root_conflict_commits: Vec<_> = root_conflicts_revset
             .iter()
@@ -3214,7 +3218,8 @@ pub fn compute_commit_location(
             (None, Some(after_commit_ids), None) => {
                 let new_child_ids: Vec<_> = RevsetExpression::commits(after_commit_ids.clone())
                     .children()
-                    .evaluate(workspace_command.repo().as_ref())?
+                    .evaluate(workspace_command.repo().as_ref())
+                    .block_on()?
                     .iter()
                     .try_collect()?;
 
@@ -3267,7 +3272,8 @@ fn ensure_no_commit_loop(
 ) -> Result<(), CommandError> {
     if let Some(commit_id) = children_expression
         .dag_range_to(parents_expression)
-        .evaluate(repo)?
+        .evaluate(repo)
+        .block_on()?
         .iter()
         .next()
     {
