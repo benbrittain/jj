@@ -467,7 +467,7 @@ fn test_resolve_symbol_hidden_change_id() {
         .set_description("updated commit")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("rewrite commit").unwrap();
 
     let change_id = commit1.change_id();
@@ -495,7 +495,7 @@ fn test_resolve_symbol_hidden_change_id() {
     // Abandon the new commit as well so that there are only hidden commits.
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit2);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("abandon commit").unwrap();
 
     assert_matches!(
@@ -536,7 +536,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
 
     let mut tx = repo1.start_transaction();
     let commit2 = tx.repo_mut().rewrite_commit(&commit1).write().unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo2 = tx.commit("test").unwrap();
 
     // Set up disambiguation index which only contains the commit2.id().
@@ -1272,7 +1272,7 @@ fn test_evaluate_expression_with_hidden_revisions() {
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit3);
     tx.repo_mut().record_abandoned_commit(&commit4);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     // Sanity check
@@ -1335,7 +1335,7 @@ fn test_evaluate_expression_root_and_checkout() {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
-    let root_operation = repo.loader().root_operation();
+    let root_operation = repo.loader().root_operation().block_on();
     let root_repo = repo.reload_at(&root_operation).unwrap();
 
     let mut tx = repo.start_transaction();
@@ -4146,7 +4146,7 @@ fn test_evaluate_expression_at_operation() {
         .set_description("commit3@op2")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo2 = tx.commit("test").unwrap();
 
     let mut tx = repo2.start_transaction();
@@ -5068,7 +5068,7 @@ fn test_evaluate_expression_divergent() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit1);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("abandon commit").unwrap();
 
     assert_eq!(resolve_commit_ids(repo.as_ref(), "divergent()"), vec![]);
