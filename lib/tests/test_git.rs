@@ -83,6 +83,7 @@ use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
+use pollster::FutureExt;
 use tempfile::TempDir;
 use test_case::test_case;
 use testutils::TestRepo;
@@ -202,7 +203,7 @@ fn test_import_refs() {
     let mut tx = repo.start_transaction();
     git::import_head(tx.repo_mut()).unwrap();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -344,7 +345,7 @@ fn test_import_refs_reimport() {
 
     let mut tx = repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     assert!(stats.abandoned_commits.is_empty());
@@ -372,7 +373,7 @@ fn test_import_refs_reimport() {
 
     let mut tx = repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     assert_eq!(
@@ -456,7 +457,7 @@ fn test_import_refs_reimport_head_removed() {
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let commit_id = jj_id(commit);
     // Test the setup
     assert!(tx.repo().view().heads().contains(&commit_id));
@@ -464,7 +465,7 @@ fn test_import_refs_reimport_head_removed() {
     // Remove the head and re-import
     tx.repo_mut().remove_head(&commit_id);
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(!tx.repo().view().heads().contains(&commit_id));
 }
 
@@ -483,7 +484,7 @@ fn test_import_refs_reimport_git_head_does_not_count() {
     let mut tx = repo.start_transaction();
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
 
     // Delete the bookmark and re-import. The commit should still be there since
     // HEAD points to it
@@ -494,7 +495,7 @@ fn test_import_refs_reimport_git_head_does_not_count() {
         .unwrap();
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(!tx.repo().view().heads().contains(&jj_id(commit)));
 }
 
@@ -516,7 +517,7 @@ fn test_import_refs_reimport_git_head_without_ref() {
     // Import HEAD.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
 
@@ -529,7 +530,7 @@ fn test_import_refs_reimport_git_head_without_ref() {
     // but it should be safer than abandoning old checkout branch.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
 }
@@ -559,7 +560,7 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     // Import HEAD and main.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
 
@@ -577,13 +578,13 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     // Reimport HEAD and main, which abandons the old main branch.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(!tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
     // Reimport HEAD and main, which abandons the old main bookmark.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(!tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
 }
@@ -615,7 +616,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
 
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let expected_heads = hashset! {
@@ -672,7 +673,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
 
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let view = repo.view();
@@ -740,7 +741,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
 
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let expected_heads = hashset! {
@@ -807,7 +808,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
 
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let view = repo.view();
@@ -871,7 +872,7 @@ fn test_import_refs_reimport_with_moved_untracked_remote_ref() {
     let commit_remote_t0 = empty_git_commit(&git_repo, remote_ref_name, &[commit_base]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -891,7 +892,7 @@ fn test_import_refs_reimport_with_moved_untracked_remote_ref() {
     let commit_remote_t1 = empty_git_commit(&git_repo, remote_ref_name, &[commit_base]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -925,7 +926,7 @@ fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() {
     let commit_remote_b = empty_git_commit(&git_repo, remote_ref_name_b, &[commit_remote_a]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -951,7 +952,7 @@ fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() {
     delete_git_ref(&git_repo, remote_ref_name_a);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -986,7 +987,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
     let commit_remote_b = empty_git_commit(&git_repo, remote_ref_name_b, &[commit_remote_a]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -1018,7 +1019,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
         .get_commit(&jj_id(commit_remote_b))
         .unwrap();
     tx.repo_mut().record_abandoned_commit(&jj_commit_remote_b);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
     assert_eq!(*view.heads(), hashset! { jj_id(commit_remote_a) });
@@ -1029,7 +1030,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
     delete_git_ref(&git_repo, remote_ref_name_a);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();
 
@@ -1266,7 +1267,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
     // Import HEAD and main.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
 
@@ -1276,7 +1277,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
     // Reimport HEAD, which shouldn't abandon the old HEAD branch.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
 }
@@ -1293,7 +1294,7 @@ fn test_import_refs_reimport_all_from_root_removed() {
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     // Test the setup
     assert!(tx.repo().view().heads().contains(&jj_id(commit)));
 
@@ -1304,7 +1305,7 @@ fn test_import_refs_reimport_all_from_root_removed() {
         .delete()
         .unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(!tx.repo().view().heads().contains(&jj_id(commit)));
 }
 
@@ -1323,7 +1324,7 @@ fn test_import_refs_reimport_abandoning_disabled() {
     let commit2 = empty_git_commit(&git_repo, "refs/heads/delete-me", &[commit1]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     // Test the setup
     assert!(tx.repo().view().heads().contains(&jj_id(commit2)));
 
@@ -1334,7 +1335,7 @@ fn test_import_refs_reimport_abandoning_disabled() {
         .delete()
         .unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert!(tx.repo().view().heads().contains(&jj_id(commit2)));
 }
 
@@ -1436,7 +1437,7 @@ fn test_import_some_refs() {
             && symbol.name.as_str().starts_with("feature")
     })
     .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     // There are two heads, feature2 and feature4.
@@ -1529,7 +1530,7 @@ fn test_import_some_refs() {
         kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature2"
     })
     .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     // feature2 and feature4 will still be heads, and all four bookmarks should be
@@ -1546,7 +1547,7 @@ fn test_import_some_refs() {
     })
     .unwrap();
     // No descendant should be rewritten.
-    assert_eq!(tx.repo_mut().rebase_descendants().unwrap(), 0);
+    assert_eq!(tx.repo_mut().rebase_descendants().block_on().unwrap(), 0);
     let repo = tx.commit("test").unwrap();
 
     // feature2 and feature4 should still be the heads, and all three bookmarks
@@ -1563,7 +1564,7 @@ fn test_import_some_refs() {
     })
     .unwrap();
     // No descendant should be rewritten
-    assert_eq!(tx.repo_mut().rebase_descendants().unwrap(), 0);
+    assert_eq!(tx.repo_mut().rebase_descendants().block_on().unwrap(), 0);
     let repo = tx.commit("test").unwrap();
 
     // feature2 and feature4 should still be the heads, and both bookmarks
@@ -1579,7 +1580,7 @@ fn test_import_some_refs() {
     })
     .unwrap();
     // No descendant should be rewritten
-    assert_eq!(tx.repo_mut().rebase_descendants().unwrap(), 0);
+    assert_eq!(tx.repo_mut().rebase_descendants().block_on().unwrap(), 0);
     let repo = tx.commit("test").unwrap();
 
     // feature2 should now be the only head and only bookmark.
@@ -1652,7 +1653,7 @@ fn test_import_refs_empty_git_repo() {
     let heads_before = test_data.repo.view().heads().clone();
     let mut tx = test_data.repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     assert_eq!(*repo.view().heads(), heads_before);
     assert_eq!(repo.view().bookmarks().count(), 0);
@@ -1757,7 +1758,7 @@ fn test_import_refs_detached_head() {
     let mut tx = test_data.repo.start_transaction();
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let expected_heads = hashset! { jj_id(commit1) };
@@ -1779,7 +1780,7 @@ fn test_export_refs_no_detach() {
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo).unwrap();
     git::import_refs(mut_repo, &import_options).unwrap();
-    mut_repo.rebase_descendants().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
 
     // Do an initial export to make sure `main` is considered
     let stats = git::export_refs(mut_repo).unwrap();
@@ -1824,7 +1825,7 @@ fn test_export_refs_bookmark_changed() {
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo).unwrap();
     git::import_refs(mut_repo, &import_options).unwrap();
-    mut_repo.rebase_descendants().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
@@ -1884,7 +1885,7 @@ fn test_export_refs_tag_changed() {
     git::import_head(mut_repo).unwrap();
     let stats = git::import_refs(mut_repo, &import_options).unwrap();
     assert_eq!(stats.changed_remote_tags.len(), 4);
-    mut_repo.rebase_descendants().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
@@ -1973,7 +1974,7 @@ fn test_export_refs_current_bookmark_changed() {
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo).unwrap();
     git::import_refs(mut_repo, &import_options).unwrap();
-    mut_repo.rebase_descendants().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
@@ -2016,7 +2017,7 @@ fn test_export_refs_current_tag_changed() {
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo).unwrap();
     git::import_refs(mut_repo, &import_options).unwrap();
-    mut_repo.rebase_descendants().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
@@ -2058,7 +2059,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo).unwrap();
     git::import_refs(mut_repo, &import_options).unwrap();
-    mut_repo.rebase_descendants().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
@@ -4654,7 +4655,7 @@ fn test_bulk_update_extra_on_import_refs() {
     let import_refs = |repo: &Arc<ReadonlyRepo>| {
         let mut tx = repo.start_transaction();
         git::import_refs(tx.repo_mut(), &import_options).unwrap();
-        tx.repo_mut().rebase_descendants().unwrap();
+        tx.repo_mut().rebase_descendants().block_on().unwrap();
         tx.commit("test").unwrap()
     };
 
@@ -4695,7 +4696,7 @@ fn test_rewrite_imported_commit() {
     let git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let imported_commit = repo.store().get_commit(&jj_id(git_commit)).unwrap();
 
@@ -4782,7 +4783,7 @@ fn test_concurrent_write_commit() {
     assert_eq!(commit_change_ids.len(), num_thread);
 
     // All unique commits should be preserved.
-    let repo = repo.reload_at_head().unwrap();
+    let repo = repo.reload_at_head().block_on().unwrap();
     for (commit_id, change_ids) in &commit_change_ids {
         let commit = repo.store().get_commit(commit_id).unwrap();
         assert_eq!(commit.id(), commit_id);
@@ -4870,7 +4871,7 @@ fn test_concurrent_read_write_commit() {
                     if pending_commit_ids.is_empty() {
                         break;
                     }
-                    repo = repo.reload_at_head().unwrap();
+                    repo = repo.reload_at_head().block_on().unwrap();
                     let git_backend = get_git_backend(&repo);
                     let mut tx = repo.start_transaction();
                     pending_commit_ids = pending_commit_ids
@@ -4917,7 +4918,7 @@ fn test_concurrent_read_write_commit() {
     });
 
     // The index should be consistent with the store.
-    let repo = repo.reload_at_head().unwrap();
+    let repo = repo.reload_at_head().block_on().unwrap();
     for commit_id in &commit_ids {
         assert!(repo.index().has_id(commit_id).unwrap());
         let commit = repo.store().get_commit(commit_id).unwrap();
