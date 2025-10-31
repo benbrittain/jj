@@ -1199,7 +1199,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut())?;
+        jj_lib::git::import_head(tx.repo_mut()).block_on()?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -2459,7 +2459,7 @@ impl WorkspaceCommandTransaction<'_> {
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().edit(name, commit)
+        self.tx.repo_mut().edit(name, commit).block_on()
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {
