@@ -100,11 +100,16 @@ pub enum NextStep {
 impl<'repo> Bisector<'repo> {
     /// Create a new bisector. The range's heads are assumed to be bad.
     /// Parents of the range's roots are assumed to be good.
-    pub fn new(
+    pub async fn new(
         repo: &'repo dyn Repo,
         input_range: Arc<ResolvedRevsetExpression>,
     ) -> Result<Self, BisectionError> {
-        let bad_commits = input_range.heads().evaluate(repo)?.iter().try_collect()?;
+        let bad_commits = input_range
+            .heads()
+            .evaluate(repo)
+            .await?
+            .iter()
+            .try_collect()?;
         Ok(Self {
             repo,
             input_range,
@@ -179,7 +184,7 @@ impl<'repo> Bisector<'repo> {
 
     /// Find the next commit to evaluate, or determine that there are no more
     /// steps.
-    pub fn next_step(&mut self) -> Result<NextStep, BisectionError> {
+    pub async fn next_step(&mut self) -> Result<NextStep, BisectionError> {
         if self.aborted {
             return Ok(NextStep::Done(BisectionResult::Abort));
         }
@@ -198,7 +203,7 @@ impl<'repo> Bisector<'repo> {
             .minus(&skipped_expr)
             .bisect()
             .latest(1);
-        let to_evaluate_set = to_evaluate_expr.evaluate(self.repo)?;
+        let to_evaluate_set = to_evaluate_expr.evaluate(self.repo).await?;
         if let Some(commit) = to_evaluate_set
             .iter()
             .commits(self.repo.store())
@@ -207,7 +212,7 @@ impl<'repo> Bisector<'repo> {
         {
             Ok(NextStep::Evaluate(commit))
         } else {
-            let bad_roots = bad_expr.roots().evaluate(self.repo)?;
+            let bad_roots = bad_expr.roots().evaluate(self.repo).await?;
             let bad_commits: Vec<_> = bad_roots.iter().commits(self.repo.store()).try_collect()?;
             if bad_commits.is_empty() {
                 Ok(NextStep::Done(BisectionResult::Indeterminate))

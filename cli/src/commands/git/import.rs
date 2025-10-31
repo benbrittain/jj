@@ -14,6 +14,7 @@
 
 use jj_lib::git;
 use jj_lib::git::GitSettings;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -43,8 +44,8 @@ pub fn cmd_git_import(
     let mut tx = workspace_command.start_transaction();
     // In non-colocated workspace, Git HEAD will never be moved internally by jj.
     // That's why cmd_git_export() doesn't export the HEAD ref.
-    git::import_head(tx.repo_mut())?;
-    let stats = git::import_refs(tx.repo_mut(), &import_options)?;
+    git::import_head(tx.repo_mut()).block_on()?;
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     print_git_import_stats(ui, &tx, &stats)?;
     tx.finish(ui, "import git refs")?;
     Ok(())

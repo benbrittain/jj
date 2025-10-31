@@ -31,6 +31,7 @@ use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -228,7 +229,7 @@ pub fn cmd_git_fetch(
         git_fetch.fetch(remote, expanded, &mut callback, None, fetch_tags)?;
     }
 
-    let import_stats = git_fetch.import_refs()?;
+    let import_stats = git_fetch.import_refs().block_on()?;
     print_git_import_stats(ui, &tx, &import_stats)?;
 
     if let Some(bookmark_expr) = &common_bookmark_expr {

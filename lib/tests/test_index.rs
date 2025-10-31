@@ -282,7 +282,10 @@ fn test_index_commits_criss_cross() {
             generation,
             parents_range: PARENTS_RANGE_FULL,
         };
-        let revset = index.evaluate_revset(&expression, repo.store()).unwrap();
+        let revset = index
+            .evaluate_revset(&expression, repo.store())
+            .block_on()
+            .unwrap();
         // Don't switch to more efficient .count() implementation. Here we're
         // testing the iterator behavior.
         revset.iter().count()
@@ -560,7 +563,7 @@ fn test_index_commits_incremental_already_indexed() {
     assert_eq!(as_readonly_index(&repo).num_commits(), 1 + 1);
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.add_head(&commit_a).unwrap();
+    mut_repo.add_head(&commit_a).block_on().unwrap();
     assert_eq!(as_mutable_index(mut_repo).num_commits(), 1 + 1);
 }
 
