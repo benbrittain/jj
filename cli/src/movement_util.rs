@@ -23,6 +23,7 @@ use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -184,7 +185,8 @@ fn get_target_commit(
     let target_revset = direction.build_target_revset(&wc_revset, &start_revset, args)?;
 
     let targets: Vec<Commit> = target_revset
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .commits(workspace_command.repo().store())
         .try_collect()?;
@@ -194,7 +196,8 @@ fn get_target_commit(
         [] => {
             // We found no ancestor/descendant.
             let start_commits: Vec<Commit> = start_revset
-                .evaluate(workspace_command.repo().as_ref())?
+                .evaluate(workspace_command.repo().as_ref())
+                .block_on()?
                 .iter()
                 .commits(workspace_command.repo().store())
                 .try_collect()?;

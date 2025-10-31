@@ -18,6 +18,7 @@ use jj_lib::bisect::Bisector;
 use jj_lib::bisect::Evaluation;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -125,9 +126,9 @@ pub(crate) fn cmd_bisect_run(
 
     let initial_repo = workspace_command.repo().clone();
 
-    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range)?;
+    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range).block_on()?;
     let bisection_result = loop {
-        match bisector.next_step()? {
+        match bisector.next_step().block_on()? {
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
