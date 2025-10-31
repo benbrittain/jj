@@ -203,7 +203,7 @@ fn test_import_refs() {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
 
     let mut tx = repo.start_transaction();
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     let stats = git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -498,7 +498,7 @@ fn test_import_refs_reimport_git_head_does_not_count() {
     testutils::git::set_head_to_id(&git_repo, commit);
 
     let mut tx = repo.start_transaction();
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -511,7 +511,7 @@ fn test_import_refs_reimport_git_head_does_not_count() {
         .unwrap()
         .delete()
         .unwrap();
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -535,7 +535,7 @@ fn test_import_refs_reimport_git_head_without_ref() {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -550,7 +550,7 @@ fn test_import_refs_reimport_git_head_without_ref() {
     // would be moved by `git checkout` command. This isn't always true because the
     // detached HEAD commit could be rewritten by e.g. `git commit --amend` command,
     // but it should be safer than abandoning old checkout branch.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -582,7 +582,7 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD and main.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -602,7 +602,7 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit2));
 
     // Reimport HEAD and main, which abandons the old main branch.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -610,7 +610,7 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     assert!(!tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
     // Reimport HEAD and main, which abandons the old main bookmark.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -1285,7 +1285,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD and main.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -1297,7 +1297,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit2));
 
     // Reimport HEAD, which shouldn't abandon the old HEAD branch.
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -1752,7 +1752,7 @@ fn test_import_refs_missing_git_commit() {
         .unwrap();
     testutils::git::set_head_to_id(&git_repo, commit2);
     let mut tx = repo.start_transaction();
-    let result = git::import_head(tx.repo_mut());
+    let result = git::import_head(tx.repo_mut()).block_on();
     assert_matches!(
         result,
         Err(GitImportError::MissingHeadTarget {
@@ -1789,7 +1789,7 @@ fn test_import_refs_missing_git_commit() {
     testutils::git::set_head_to_id(&git_repo, commit1);
     fs::rename(&object_file, &backup_object_file).unwrap();
     let mut tx = repo.start_transaction();
-    let result = git::import_head(tx.repo_mut());
+    let result = git::import_head(tx.repo_mut()).block_on();
     assert!(result.is_ok());
 }
 
@@ -1809,7 +1809,7 @@ fn test_import_refs_detached_head() {
     testutils::git::set_head_to_id(&test_data.git_repo, commit1);
 
     let mut tx = test_data.repo.start_transaction();
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     git::import_refs(tx.repo_mut(), &git_settings)
         .block_on()
         .unwrap();
@@ -1833,7 +1833,7 @@ fn test_export_refs_no_detach() {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo).unwrap();
+    git::import_head(mut_repo).block_on().unwrap();
     git::import_refs(mut_repo, &git_settings)
         .block_on()
         .unwrap();
@@ -1880,7 +1880,7 @@ fn test_export_refs_bookmark_changed() {
 
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo).unwrap();
+    git::import_head(mut_repo).block_on().unwrap();
     git::import_refs(mut_repo, &git_settings)
         .block_on()
         .unwrap();
@@ -1928,7 +1928,7 @@ fn test_export_refs_tag_changed() {
 
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo).unwrap();
+    git::import_head(mut_repo).block_on().unwrap();
     git::import_refs(mut_repo, &git_settings)
         .block_on()
         .unwrap();
@@ -1972,7 +1972,7 @@ fn test_export_refs_current_bookmark_changed() {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo).unwrap();
+    git::import_head(mut_repo).block_on().unwrap();
     git::import_refs(mut_repo, &git_settings)
         .block_on()
         .unwrap();
@@ -2018,7 +2018,7 @@ fn test_export_refs_current_tag_changed() {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/tags/v1.0");
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo).unwrap();
+    git::import_head(mut_repo).block_on().unwrap();
     git::import_refs(mut_repo, &git_settings)
         .block_on()
         .unwrap();
@@ -2063,7 +2063,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo).unwrap();
+    git::import_head(mut_repo).block_on().unwrap();
     git::import_refs(mut_repo, &git_settings)
         .block_on()
         .unwrap();
@@ -2928,7 +2928,7 @@ fn test_reset_head_detached_out_of_sync() {
     );
 
     // Import the HEAD moved by external process
-    git::import_head(tx.repo_mut()).unwrap();
+    git::import_head(tx.repo_mut()).block_on().unwrap();
     assert_eq!(
         tx.repo().git_head(),
         RefTarget::normal(commit5.id().clone())
@@ -4835,7 +4835,7 @@ fn test_concurrent_read_write_commit() {
                                 Ok(()) => {
                                     // update index as git::import_refs() would do
                                     let commit = repo.store().get_commit(&commit_id).unwrap();
-                                    tx.repo_mut().add_head(&commit).unwrap();
+                                    tx.repo_mut().add_head(&commit).block_on().unwrap();
                                     None
                                 }
                                 Err(BackendError::ObjectNotFound { .. }) => Some(commit_id),
