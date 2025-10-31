@@ -150,7 +150,8 @@ pub(crate) fn cmd_fix(
 
     let commits: Vec<Commit> = target_expr
         .descendants()
-        .evaluate(repo.as_ref())?
+        .evaluate(repo.as_ref())
+        .block_on()?
         .iter()
         .commits(repo.store())
         .try_collect()?;

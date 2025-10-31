@@ -218,7 +218,7 @@ impl FileAnnotator {
         repo: &dyn Repo,
         domain: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), RevsetEvaluationError> {
-        process_commits(repo, &mut self.state, domain, &self.file_path)
+        process_commits(repo, &mut self.state, domain, &self.file_path).block_on()
     }
 
     /// Remaining commit ids to visit from.
@@ -293,7 +293,7 @@ pub struct LineOrigin {
 
 /// Starting from the source commits, compute changes at that commit relative to
 /// its direct parents, updating the mappings as we go.
-fn process_commits(
+async fn process_commits(
     repo: &dyn Repo,
     state: &mut AnnotationState,
     domain: &Arc<ResolvedRevsetExpression>,
@@ -308,7 +308,8 @@ fn process_commits(
     let heads = RevsetExpression::commits(state.commit_source_map.keys().cloned().collect());
     let revset = heads
         .union(&domain.intersection(&heads.ancestors()).filtered(predicate))
-        .evaluate(repo)?;
+        .evaluate(repo)
+        .await?;
 
     state.num_unresolved_roots = 0;
     for node in revset.iter_graph() {
