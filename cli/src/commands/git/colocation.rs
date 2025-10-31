@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::io::ErrorKind;
+use pollster::FutureExt as _;
 use std::io::Write as _;
 
 use jj_lib::commit::Commit;
@@ -306,7 +307,7 @@ fn reload_workspace_helper(
     )?;
     let op = workspace
         .repo_loader()
-        .load_operation(workspace_command.repo().op_id())?;
+        .load_operation(workspace_command.repo().op_id()).block_on()?;
     let repo = workspace.repo_loader().load_at(&op)?;
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     Ok(workspace_command)

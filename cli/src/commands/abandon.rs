@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use pollster::FutureExt as _;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
@@ -127,7 +128,7 @@ pub(crate) fn cmd_abandon(
             }
             Ok(())
         },
-    )?;
+    ).block_on()?;
 
     let deleted_bookmarks = diff_named_ref_targets(
         tx.base_repo().view().local_bookmarks(),

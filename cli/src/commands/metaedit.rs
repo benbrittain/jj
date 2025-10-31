@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use pollster::FutureExt as _;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
@@ -253,7 +254,7 @@ pub(crate) fn cmd_metaedit(
                 num_reparented += 1;
             }
             Ok(())
-        })?;
+        }).block_on()?;
     if !modified.is_empty() {
         writeln!(ui.status(), "Modified {} commits:", modified.len())?;
         if let Some(mut formatter) = ui.status_formatter() {

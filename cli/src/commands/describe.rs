@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use pollster::FutureExt as _;
 use std::io;
 use std::io::Read as _;
 use std::iter;
@@ -313,7 +314,7 @@ pub(crate) fn cmd_describe(
             }
             Ok(())
         },
-    )?;
+    ).block_on()?;
     if num_described > 1 {
         writeln!(ui.status(), "Updated {num_described} commits")?;
     }

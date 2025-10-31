@@ -20,6 +20,7 @@
 //! <https://proptest-rs.github.io/proptest/proptest/tutorial/config.html>
 
 use std::sync::Arc;
+use pollster::FutureExt as _;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -36,6 +37,7 @@ use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
 use proptest::prelude::*;
 use testutils::TestRepo;
+use pollster::FutureExt as _;
 
 fn stable_settings() -> UserSettings {
     let mut config = testutils::base_user_config();
@@ -66,6 +68,7 @@ fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
         RebasedCommit::Rewritten(commit) => commits.push(commit),
         RebasedCommit::Abandoned { .. } => {}
     })
+    .block_on()
     .unwrap();
     commits
 }

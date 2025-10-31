@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cargo nextest r -p jj-lib)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}

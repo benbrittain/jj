@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use pollster::FutureExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
@@ -90,7 +91,7 @@ pub fn cmd_unsign(
             }
             Ok(())
         },
-    )?;
+    ).block_on()?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && !unsigned_commits.is_empty()

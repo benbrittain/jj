@@ -17,6 +17,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::io;
 use std::io::Write as _;
+
+use pollster::FutureExt as _;
 use std::iter;
 
 use clap::ArgGroup;
@@ -624,7 +626,7 @@ fn sign_commits_before_push(
             }
             Ok(())
         },
-    )?;
+    ).block_on()?;
 
     let bookmark_updates = bookmark_updates
         .into_iter()

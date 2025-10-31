@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::fs;
+use pollster::FutureExt as _;
 use std::io;
 use std::io::Write as _;
 use std::num::NonZeroU32;
@@ -292,7 +293,7 @@ fn configure_remote(
     )?;
     let op = workspace
         .repo_loader()
-        .load_operation(workspace_command.repo().op_id())?;
+        .load_operation(workspace_command.repo().op_id()).block_on()?;
     let repo = workspace.repo_loader().load_at(&op)?;
     command.for_workable_repo(ui, workspace, repo)
 }
