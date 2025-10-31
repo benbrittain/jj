@@ -576,9 +576,13 @@ fn test_accumulate_predecessors() {
     let repo_d = tx.commit("d").block_on().unwrap();
 
     // Empty old/new ops
-    let predecessors = accumulate_predecessors(&[], slice::from_ref(repo_c.operation())).unwrap();
+    let predecessors = accumulate_predecessors(&[], slice::from_ref(repo_c.operation()))
+        .block_on()
+        .unwrap();
     assert!(predecessors.is_empty());
-    let predecessors = accumulate_predecessors(slice::from_ref(repo_c.operation()), &[]).unwrap();
+    let predecessors = accumulate_predecessors(slice::from_ref(repo_c.operation()), &[])
+        .block_on()
+        .unwrap();
     assert!(predecessors.is_empty());
 
     // Empty range
@@ -586,6 +590,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_c.operation()),
         slice::from_ref(repo_c.operation()),
     )
+    .block_on()
     .unwrap();
     assert!(predecessors.is_empty());
 
@@ -594,6 +599,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_c.operation()),
         slice::from_ref(repo_b.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
@@ -609,6 +615,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_c.operation()),
         slice::from_ref(repo_a.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
@@ -626,6 +633,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_a.operation()),
         slice::from_ref(repo_c.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
@@ -644,6 +652,7 @@ fn test_accumulate_predecessors() {
         slice::from_ref(repo_d.operation()),
         slice::from_ref(repo_c.operation()),
     )
+    .block_on()
     .unwrap();
     assert_eq!(
         predecessors,
