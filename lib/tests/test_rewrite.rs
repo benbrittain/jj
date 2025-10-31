@@ -825,7 +825,7 @@ fn test_rebase_descendants_multiple_swap() {
         .set_rewritten_commit(commit_b.id().clone(), commit_d.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_d.id().clone(), commit_b.id().clone());
-    tx.repo_mut().rebase_descendants().ok(); // Panics because of the cycle
+    tx.repo_mut().rebase_descendants().block_on().ok(); // Panics because of the cycle
 }
 
 #[test]
@@ -847,7 +847,7 @@ fn test_rebase_descendants_multiple_no_descendants() {
         .set_rewritten_commit(commit_b.id().clone(), commit_c.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_b.id().clone());
-    let result = tx.repo_mut().rebase_descendants();
+    let result = tx.repo_mut().rebase_descendants().block_on();
     assert_matches!(result, Err(err) if err.to_string().contains("Cycle"));
 }
 
@@ -1074,7 +1074,7 @@ fn test_rebase_descendants_basic_bookmark_update() {
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
@@ -1119,7 +1119,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
         .set_description("more different")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let heads = tx.repo().view().heads();
     assert_eq!(heads.len(), 1);
     let c3_id = heads.iter().next().unwrap().clone();
@@ -1162,7 +1162,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
@@ -1308,7 +1308,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         commit_b4.id().clone(),
         vec![commit_b41.id().clone(), commit_b42.id().clone()],
     );
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
 
     let main_target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(main_target.has_conflict());
@@ -1390,7 +1390,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
         commit_b.id().clone(),
         vec![commit_b2.id().clone(), commit_b3.id().clone()],
     );
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
 
     let target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(target.has_conflict());
@@ -1451,7 +1451,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
         .set_parents(vec![commit_c.id().clone()])
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
@@ -1644,7 +1644,7 @@ fn test_rebase_descendants_update_checkout() {
         .set_description("C")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     // Workspaces 1 and 2 had B checked out, so they get updated to C. Workspace 3
@@ -1684,7 +1684,7 @@ fn test_rebase_descendants_update_checkout_abandoned() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     // Workspaces 1 and 2 had B checked out, so they get updated to the same new
@@ -1727,7 +1727,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_d);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let new_checkout_id = repo.view().get_wc_commit_id(&ws_name).unwrap();
