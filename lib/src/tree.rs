@@ -22,6 +22,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -133,7 +134,7 @@ impl Tree {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
                     let subdir = self.dir.join(name);
-                    let sub_tree = self.store.get_tree(subdir, sub_tree_id)?;
+                    let sub_tree = self.store.get_tree_async(subdir, sub_tree_id).block_on()?;
                     Ok(Some(sub_tree))
                 }
                 _ => Ok(None),
@@ -144,7 +145,7 @@ impl Tree {
     }
 
     fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
-        self.store.get_tree(subdir, id).unwrap()
+        self.store.get_tree_async(subdir, id).block_on().unwrap()
     }
 
     /// Look up the tree at the given path.

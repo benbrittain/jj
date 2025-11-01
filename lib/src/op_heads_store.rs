@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -138,9 +139,9 @@ where
     let filtered_op_heads = dag_walk::heads_ok(
         op_heads.into_iter().map(Ok),
         |op: &Operation| op.id().clone(),
-        async |op: &Operation| op.parents().collect_vec(),
+        async |op: &Operation| op.parents().collect::<Vec<_>>().await,
     )
-    .block_on()?;
+    .await?;
     let op_head_ids_after: HashSet<_> =
         filtered_op_heads.iter().map(|op| op.id().clone()).collect();
     let ancestor_op_heads = op_head_ids_before

@@ -1505,7 +1505,8 @@ fn builtin_commit_evolution_entry_methods<'repo>()
             let matcher: Rc<dyn Matcher> = files.to_matcher().into();
             let out_property = self_property.and_then(move |entry| {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
-                let from_tree = rebase_to_dest_parent(repo, &predecessors, &entry.commit)?;
+                let from_tree =
+                    rebase_to_dest_parent(repo, &predecessors, &entry.commit).block_on()?;
                 let to_tree = entry.commit.tree();
                 Ok(TreeDiff {
                     from_tree,
@@ -1690,7 +1691,9 @@ impl CommitRef {
             .get_or_try_init(|| {
                 let self_ids = self.target.added_ids().cloned().collect_vec();
                 let other_ids = tracking.target.added_ids().cloned().collect_vec();
-                Ok(revset::walk_revs(repo, &self_ids, &other_ids).block_on()?.count_estimate()?)
+                Ok(revset::walk_revs(repo, &self_ids, &other_ids)
+                    .block_on()?
+                    .count_estimate()?)
             })
             .copied()
     }
@@ -1705,7 +1708,9 @@ impl CommitRef {
             .get_or_try_init(|| {
                 let self_ids = self.target.added_ids().cloned().collect_vec();
                 let other_ids = tracking.target.added_ids().cloned().collect_vec();
-                Ok(revset::walk_revs(repo, &other_ids, &self_ids).block_on()?.count_estimate()?)
+                Ok(revset::walk_revs(repo, &other_ids, &self_ids)
+                    .block_on()?
+                    .count_estimate()?)
             })
             .copied()
     }

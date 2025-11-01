@@ -15,6 +15,7 @@
 use std::slice;
 
 use assert_matches::assert_matches;
+use futures::StreamExt;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -24,6 +25,8 @@ use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::evolution::accumulate_predecessors;
 use jj_lib::evolution::walk_predecessors;
+use jj_lib::op_store::OpStoreResult;
+use jj_lib::operation::Operation;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -158,6 +161,9 @@ fn test_walk_predecessors_concurrent_ops() {
     let [op2, op3] = repo4
         .operation()
         .parents()
+        .collect::<Vec<OpStoreResult<Operation>>>()
+        .block_on()
+        .into_iter()
         .map(Result::unwrap)
         .collect_array()
         .unwrap();
