@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::operation::Operation;
 use pollster::FutureExt as _;
 
@@ -82,7 +82,7 @@ pub fn cmd_op_show(
     let repo_loader = workspace_command.workspace().repo_loader();
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
-    let parent_ops: Vec<_> = op.parents().try_collect()?;
+    let parent_ops: Vec<_> = op.parents().try_collect().block_on()?;
     let merged_parent_op = repo_loader
         .merge_operations(parent_ops.clone(), None)
         .block_on()?;

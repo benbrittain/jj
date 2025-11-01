@@ -160,7 +160,7 @@ fn do_op_log(
                          formatter: &mut dyn Formatter,
                          op: &Operation,
                          with_content_format: &LogContentFormat| {
-            let parent_ops: Vec<_> = op.parents().try_collect()?;
+            let parent_ops: Vec<_> = op.parents().try_collect().block_on()?;
             let merged_parent_op = repo_loader
                 .merge_operations(parent_ops.clone(), None)
                 .block_on()?;

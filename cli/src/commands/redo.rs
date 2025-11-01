@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OpStoreResult;
 use jj_lib::op_store::OperationId;
+use jj_lib::operation::Operation;
 use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
@@ -118,7 +121,15 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
         return Err(user_error("Nothing to redo"));
     }
 
-    let mut op_to_restore = match op_to_redo.parents().at_most_one().ok().flatten() {
+    let mut op_to_restore = match op_to_redo
+        .parents()
+        .collect::<Vec<OpStoreResult<Operation>>>()
+        .block_on()
+        .into_iter()
+        .at_most_one()
+        .ok()
+        .flatten()
+    {
         Some(parent_of_op_to_redo) => parent_of_op_to_redo?,
         None => {
             return Err(internal_error("Undo operation should have a single parent"));

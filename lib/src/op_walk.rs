@@ -162,7 +162,7 @@ async fn resolve_single_op(
     }?;
     for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
-            '-' => operation.parents().try_collect()?,
+            '-' => operation.parents().try_collect().await?,
             '+' => find_child_ops(head_ops.as_ref(), operation.id()).await?,
             _ => unreachable!(),
         };
@@ -277,7 +277,12 @@ pub fn walk_ancestors(head_ops: &[Operation]) -> impl Stream<Item = OpStoreResul
     dag_walk::topo_order_reverse_lazy_ok(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        async |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        async |OperationByEndTime(op)| {
+            op.parents()
+                .map_ok(OperationByEndTime)
+                .collect::<Vec<_>>()
+                .await
+        },
         |_| panic!("graph has cycle"),
     )
     .map_ok(|OperationByEndTime(op)| op)
@@ -307,7 +312,12 @@ pub fn walk_ancestors_range(
     let trailing_stream = dag_walk::topo_order_reverse_lazy_ok(
         start_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        async |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        async |OperationByEndTime(op)| {
+            op.parents()
+                .map_ok(OperationByEndTime)
+                .collect::<Vec<_>>()
+                .await
+        },
         |_| panic!("graph has cycle"),
     )
     .map_ok(|OperationByEndTime(op)| op);
@@ -321,7 +331,12 @@ fn collect_ancestors_until_roots(
     let sorted_ops = match dag_walk::topo_order_reverse_chunked(
         start_ops,
         |OperationByEndTime(op)| op.id().clone(),
-        async |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        async |OperationByEndTime(op)| {
+            op.parents()
+                .map_ok(OperationByEndTime)
+                .collect::<Vec<_>>()
+                .await
+        },
         |_| panic!("graph has cycle"),
     )
     .block_on()

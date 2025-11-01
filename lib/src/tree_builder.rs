@@ -78,7 +78,7 @@ impl TreeBuilder {
             return Ok(self.base_tree_id);
         }
 
-        let mut trees_to_write = self.get_base_trees()?;
+        let mut trees_to_write = self.get_base_trees().await?;
 
         // Update entries in parent trees for file overrides
         for (path, file_override) in self.overrides {
@@ -125,13 +125,15 @@ impl TreeBuilder {
         unreachable!("trees_to_write must contain the root tree");
     }
 
-    fn get_base_trees(
+    async fn get_base_trees(
         &self,
     ) -> BackendResult<BTreeMap<RepoPathBuf, BTreeMap<RepoPathComponentBuf, TreeValue>>> {
         let store = &self.store;
         let mut tree_cache = {
             let dir = RepoPathBuf::root();
-            let tree = store.get_tree(dir.clone(), &self.base_tree_id)?;
+            let tree = store
+                .get_tree_async(dir.clone(), &self.base_tree_id)
+                .await?;
             BTreeMap::from([(dir, tree)])
         };
 
