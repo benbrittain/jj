@@ -630,7 +630,7 @@ impl<'a> DiffRenderer<'a> {
             .simplify()
         };
         let to_description = Merge::resolved(to_commit.description());
-        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
+        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
         let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
         self.show_diff_commit_descriptions(

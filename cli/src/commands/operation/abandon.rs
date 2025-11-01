@@ -17,6 +17,7 @@ use std::iter;
 use std::slice;
 
 use clap_complete::ArgValueCandidates;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::op_walk;
 use pollster::FutureExt as _;
@@ -84,7 +85,7 @@ pub fn cmd_op_abandon(
             (root_op, head_ops)
         } else {
             let op = resolve_op(&args.operation)?;
-            let parent_ops: Vec<_> = op.parents().try_collect()?;
+            let parent_ops: Vec<_> = op.parents().try_collect().block_on()?;
             let parent_op = match parent_ops.len() {
                 0 => return Err(user_error("Cannot abandon the root operation")),
                 1 => parent_ops.into_iter().next().unwrap(),

@@ -23,6 +23,9 @@ use std::hash::Hasher;
 use std::iter;
 use std::sync::Arc;
 
+use futures::Stream;
+use futures::StreamExt;
+use futures::stream;
 use pollster::FutureExt as _;
 
 use crate::backend::CommitId;
@@ -106,11 +109,14 @@ impl Operation {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Self>> {
+    pub fn parents(&self) -> impl Stream<Item = OpStoreResult<Self>> {
         let op_store = &self.op_store;
-        self.data.parents.iter().map(|parent_id| {
-            let data = op_store.read_operation(parent_id).block_on()?;
-            Ok(Self::new(op_store.clone(), parent_id.clone(), data))
+        stream::iter(self.data.parents.iter()).then(|parent_id| {
+            let op_store = op_store.clone();
+            async move {
+                let data = op_store.read_operation(&parent_id).await?;
+                Ok(Self::new(op_store.clone(), parent_id.clone(), data))
+            }
         })
     }
 

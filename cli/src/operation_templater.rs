@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::object_id::ObjectId as _;
@@ -26,6 +27,7 @@ use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 
 use crate::template_builder;
 use crate::template_builder::BuildContext;
@@ -559,7 +561,7 @@ where
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|op| {
-                let ops: Vec<_> = op.parents().try_collect()?;
+                let ops: Vec<_> = op.parents().try_collect().block_on()?;
                 Ok(ops)
             });
             Ok(out_property.into_dyn_wrapped())
