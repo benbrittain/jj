@@ -13,9 +13,12 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OpStoreResult;
 use jj_lib::op_store::OperationId;
+use jj_lib::operation::Operation;
 use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
@@ -162,7 +165,13 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
     };
 
-    let mut op_to_restore = match op_to_undo.parents().at_most_one() {
+    let mut op_to_restore = match op_to_undo
+        .parents()
+        .collect::<Vec<OpStoreResult<Operation>>>()
+        .block_on()
+        .into_iter()
+        .at_most_one()
+    {
         Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,
         Ok(None) => return Err(user_error("Cannot undo root operation")),
         Err(_) => {

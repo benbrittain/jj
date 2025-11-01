@@ -385,7 +385,7 @@ pub async fn rebase_commit_with_options(
 }
 
 /// Moves changes from `sources` to the `destination` parent, returns new tree.
-pub fn rebase_to_dest_parent(
+pub async fn rebase_to_dest_parent(
     repo: &dyn Repo,
     sources: &[Commit],
     destination: &Commit,
@@ -1420,7 +1420,8 @@ pub async fn find_duplicate_divergent_commits(
                 .get_commit_async(&ancestor_candidate_id)
                 .await?;
             let new_tree =
-                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)?;
+                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)
+                    .await?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
             if new_tree.tree_ids() == ancestor_candidate.tree_ids() {
