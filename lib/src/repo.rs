@@ -115,7 +115,7 @@ use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
-pub trait Repo {
+pub trait Repo: Send + Sync {
     /// Base repository that contains all committed data. Returns `self` if this
     /// is a `ReadonlyRepo`,
     fn base_repo(&self) -> &ReadonlyRepo;
@@ -158,7 +158,7 @@ pub struct ReadonlyRepo {
     loader: RepoLoader,
     operation: Operation,
     index: Box<dyn ReadonlyIndex>,
-    change_id_index: OnceCell<Box<dyn ChangeIdIndex>>,
+    change_id_index: OnceCell<Box<dyn ChangeIdIndex + Send>>,
     // TODO: This should eventually become part of the index and not be stored fully in memory.
     view: View,
 }
@@ -272,6 +272,7 @@ impl ReadonlyRepo {
         let index = loader
             .index_store
             .get_index_at_op(&root_operation, &loader.store)
+            .block_on()
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
@@ -335,8 +336,8 @@ impl ReadonlyRepo {
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation)
+    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at(operation).await
     }
 }
 
@@ -382,25 +383,27 @@ pub type BackendInitializer<'a> =
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
+    + Send
     + 'a;
 pub type OpHeadsStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + Send + 'a;
 pub type IndexStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + Send + 'a;
 pub type SubmoduleStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + Send + 'a;
 
 type BackendFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError> + Send>;
 type OpStoreFactory = Box<
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
+    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>
+        + Send,
 >;
 type OpHeadsStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError> + Send>;
 type IndexStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError> + Send>;
 type SubmoduleStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError> + Send>;
 
 pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
     for (name, factory) in ext {
@@ -763,13 +766,13 @@ impl RepoLoader {
         )
         .await?;
         let view = op.view()?;
-        self.finish_load(op, view)
+        self.finish_load(op, view).await
     }
 
     #[instrument(skip(self))]
-    pub fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view()?;
-        self.finish_load(op.clone(), view)
+        self.finish_load(op.clone(), view).await
     }
 
     pub fn create_from(
@@ -817,7 +820,7 @@ impl RepoLoader {
             return Ok(self.root_operation().await);
         };
         let final_op = if num_operations > 1 {
-            let base_repo = self.load_at(&base_op)?;
+            let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
                 tx.merge_operation(other_op).await?;
@@ -845,12 +848,15 @@ impl RepoLoader {
             .await
     }
 
-    fn finish_load(
+    async fn finish_load(
         &self,
         operation: Operation,
         view: View,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let index = self.index_store.get_index_at_op(&operation, &self.store)?;
+        let index = self
+            .index_store
+            .get_index_at_op(&operation, &self.store)
+            .await?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
@@ -1055,7 +1061,7 @@ impl MutableRepo {
     fn rewritten_ids_with(
         &self,
         old_ids: &[CommitId],
-        mut predicate: impl FnMut(&Rewrite) -> bool,
+        mut predicate: impl FnMut(&Rewrite) -> bool + Send,
     ) -> Vec<CommitId> {
         assert!(!old_ids.is_empty());
         let mut new_ids = Vec::with_capacity(old_ids.len());
@@ -1096,7 +1102,7 @@ impl MutableRepo {
     /// Returns an error if `parent_mapping` contains cycles
     async fn resolve_rewrite_mapping_with(
         &self,
-        mut predicate: impl FnMut(&Rewrite) -> bool,
+        mut predicate: impl FnMut(&Rewrite) -> bool + Send,
     ) -> BackendResult<HashMap<CommitId, Vec<CommitId>>> {
         let sorted_ids = dag_walk::topo_order_forward(
             self.parent_mapping.keys(),
@@ -1339,7 +1345,7 @@ impl MutableRepo {
     pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
     ) -> BackendResult<()> {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
@@ -1358,7 +1364,7 @@ impl MutableRepo {
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots).await?;
         self.transform_commits(descendants, new_parents_map, options, callback)
@@ -1377,7 +1383,7 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()> + Send,
     ) -> BackendResult<()> {
         let mut to_visit = self
             .order_commits_for_rebase(commits, new_parents_map)
@@ -1421,7 +1427,7 @@ impl MutableRepo {
     pub async fn rebase_descendants_with_options(
         &mut self,
         options: &RebaseOptions,
-        mut progress: impl FnMut(Commit, RebasedCommit),
+        mut progress: impl FnMut(Commit, RebasedCommit) + Send,
     ) -> BackendResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
         self.transform_descendants_with_options(
@@ -1652,6 +1658,7 @@ impl MutableRepo {
             {
                 self.index
                     .add_commit(head)
+                    .await
                     // TODO: indexing error shouldn't be a "BackendError"
                     .map_err(|err| BackendError::Other(err.into()))?;
                 self.view.get_mut().add_head(head.id());
@@ -1689,6 +1696,7 @@ impl MutableRepo {
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)
+                        .await
                         // TODO: indexing error shouldn't be a "BackendError"
                         .map_err(|err| BackendError::Other(err.into()))?;
                 }

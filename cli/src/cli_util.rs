@@ -477,7 +477,7 @@ impl CommandHelper {
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
-        let repo = workspace.repo_loader().load_at(&op_head)?;
+        let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
         let env = self.workspace_environment(ui, &workspace)?;
         revset_util::warn_unresolvable_trunk(ui, repo.as_ref(), &env.revset_parse_context())?;
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
@@ -540,7 +540,7 @@ impl CommandHelper {
 
         match workspace.repo_loader().load_operation(op_id).block_on() {
             Ok(op) => {
-                let repo = workspace.repo_loader().load_at(&op)?;
+                let repo = workspace.repo_loader().load_at(&op).block_on()?;
                 let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
                 workspace_command.check_working_copy_writable()?;
 
@@ -674,7 +674,7 @@ impl CommandHelper {
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
                     )?;
-                    let base_repo = repo_loader.load_at(&op_heads[0])?;
+                    let base_repo = repo_loader.load_at(&op_heads[0]).block_on()?;
                     // TODO: It may be helpful to print each operation we're merging here
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
@@ -1148,7 +1148,11 @@ impl WorkspaceCommandHelper {
                     .command
                     .resolve_operation(ui, repo.loader())
                     .map_err(snapshot_command_error)?;
-                let current_repo = repo.loader().load_at(&op).map_err(snapshot_command_error)?;
+                let current_repo = repo
+                    .loader()
+                    .load_at(&op)
+                    .block_on()
+                    .map_err(snapshot_command_error)?;
                 self.user_repo = ReadonlyUserRepo::new(current_repo);
             }
         }
@@ -1221,7 +1225,9 @@ impl WorkspaceCommandHelper {
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
             tx.repo_mut().rebase_descendants().block_on()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
-            locked_ws.finish(self.user_repo.repo.op_id().clone()).block_on()?;
+            locked_ws
+                .finish(self.user_repo.repo.op_id().clone())
+                .block_on()?;
             if old_git_head.is_present() {
                 writeln!(
                     ui.status(),
@@ -2647,6 +2653,7 @@ fn handle_stale_working_copy(
         Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
             let repo = repo
                 .reload_at(&wc_operation)
+                .block_on()
                 .map_err(snapshot_command_error)?;
             if let Some(wc_commit) = get_wc_commit(&repo)? {
                 Ok(Some((repo, wc_commit)))

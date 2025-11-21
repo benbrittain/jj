@@ -25,6 +25,7 @@ use std::pin::pin;
 use std::slice;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
@@ -572,12 +573,13 @@ impl DefaultIndexStore {
     }
 }
 
+#[async_trait]
 impl IndexStore for DefaultIndexStore {
     fn name(&self) -> &str {
         Self::name()
     }
 
-    fn get_index_at_op(
+    async fn get_index_at_op(
         &self,
         op: &Operation,
         store: &Arc<Store>,

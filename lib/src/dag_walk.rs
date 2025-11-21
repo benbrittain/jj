@@ -85,11 +85,11 @@ where
 pub async fn topo_order_forward<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Send + Sync,
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
@@ -106,11 +106,11 @@ where
 pub async fn topo_order_forward_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Send + Sync,
     II: IntoIterator<Item = Result<T, E>>,
     NI: IntoIterator<Item = Result<T, E>>,
 {
@@ -150,11 +150,11 @@ where
 pub async fn topo_order_reverse<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Send + Sync,
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
@@ -171,11 +171,11 @@ where
 pub async fn topo_order_reverse_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Send + Sync,
     II: IntoIterator<Item = Result<T, E>>,
     NI: IntoIterator<Item = Result<T, E>>,
 {
@@ -198,12 +198,12 @@ where
 pub fn topo_order_reverse_lazy<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnMut(T) -> E,
 ) -> impl Stream<Item = Result<T, E>>
 where
     T: Ord,
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Send + Sync,
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
@@ -219,12 +219,12 @@ where
 pub fn topo_order_reverse_lazy_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnMut(T) -> E,
 ) -> impl Stream<Item = Result<T, E>>
 where
     T: Ord,
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Sync,
     II: IntoIterator<Item = Result<T, E>>,
     NI: IntoIterator<Item = Result<T, E>>,
 {
@@ -248,7 +248,7 @@ struct TopoOrderReverseLazyInner<T, ID, E> {
     emitted: HashSet<ID>,
 }
 
-impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
+impl<T: Ord, ID: Hash + Eq + Clone + Sync, E> TopoOrderReverseLazyInner<T, ID, E> {
     fn empty() -> Self {
         Self {
             start: Vec::new(),
@@ -275,7 +275,7 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
     async fn next<NI: IntoIterator<Item = Result<T, E>>>(
         &mut self,
         id_fn: impl Fn(&T) -> ID,
-        mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+        mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
         mut cycle_fn: impl FnMut(T) -> E,
     ) -> Option<Result<T, E>> {
         if let Some(res) = self.result.pop() {
@@ -338,12 +338,12 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
 pub async fn topo_order_reverse_chunked<T, ID, E, NI>(
     start: &mut Vec<T>,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     mut cycle_fn: impl FnMut(T) -> E,
 ) -> Result<SmallVec<[T; 1]>, E>
 where
     T: Ord,
-    ID: Hash + Eq + Clone,
+    ID: Hash + Eq + Clone + Sync,
     NI: IntoIterator<Item = Result<T, E>>,
 {
     // Fast path for linear DAG
@@ -405,7 +405,7 @@ where
 async fn look_ahead_sub_graph<T, ID, E, NI>(
     start: Vec<T>,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
 ) -> Result<(HashMap<ID, T>, HashMap<ID, Vec<ID>>, Vec<T>), E>
 where
     T: Ord,
@@ -462,7 +462,7 @@ where
 pub async fn topo_order_reverse_ord<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
@@ -487,7 +487,7 @@ where
 pub async fn topo_order_reverse_ord_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
     cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
@@ -575,7 +575,7 @@ where
 pub async fn heads<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
 ) -> HashSet<T>
 where
     T: Hash + Eq + Clone,
@@ -596,7 +596,7 @@ where
 pub async fn heads_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
 ) -> Result<HashSet<T>, E>
 where
     T: Hash + Eq + Clone,
@@ -641,7 +641,7 @@ pub async fn closest_common_node<T, ID, II1, II2, NI>(
     set1: II1,
     set2: II2,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
 ) -> Option<T>
 where
     ID: Hash + Eq,
@@ -668,7 +668,7 @@ pub async fn closest_common_node_ok<T, ID, E, II1, II2, NI>(
     set1: II1,
     set2: II2,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> NI,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Send,
 ) -> Result<Option<T>, E>
 where
     ID: Hash + Eq,

@@ -35,7 +35,6 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::store::Store;
-use pollster::FutureExt as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
@@ -49,6 +48,7 @@ use jj_lib::working_copy::WorkingCopyStateError;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use pollster::FutureExt as _;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -75,10 +75,10 @@ fn run_custom_command(
                 wc_path,
                 &backend_initializer,
                 Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
-                &ReadonlyRepo::default_op_store_initializer(),
-                &ReadonlyRepo::default_op_heads_store_initializer(),
-                &ReadonlyRepo::default_index_store_initializer(),
-                &ReadonlyRepo::default_submodule_store_initializer(),
+                ReadonlyRepo::default_op_store_initializer(),
+                ReadonlyRepo::default_op_heads_store_initializer(),
+                ReadonlyRepo::default_index_store_initializer(),
+                ReadonlyRepo::default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
                 WorkspaceName::DEFAULT.to_owned(),
             )

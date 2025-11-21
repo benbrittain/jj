@@ -2582,15 +2582,18 @@ fn reload_repo_at_operation(
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
         .block_on()
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
-    base_repo.reload_at(&operation).map_err(|err| match err {
-        RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
-        RepoLoaderError::Index(_)
-        | RepoLoaderError::IndexStore(_)
-        | RepoLoaderError::OpHeadResolution(_)
-        | RepoLoaderError::OpHeadsStoreError(_)
-        | RepoLoaderError::OpStore(_)
-        | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
-    })
+    base_repo
+        .reload_at(&operation)
+        .block_on()
+        .map_err(|err| match err {
+            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::Index(_)
+            | RepoLoaderError::IndexStore(_)
+            | RepoLoaderError::OpHeadResolution(_)
+            | RepoLoaderError::OpHeadsStoreError(_)
+            | RepoLoaderError::OpStore(_)
+            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+        })
 }
 
 fn resolve_remote_bookmark(
