@@ -31,7 +31,6 @@ use bstr::BString;
 use futures::StreamExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -1552,7 +1551,10 @@ impl GitResetHeadError {
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
-pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitResetHeadError> {
+pub async fn reset_head(
+    mut_repo: &mut MutableRepo,
+    wc_commit: &Commit,
+) -> Result<(), GitResetHeadError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
     let first_parent_id = &wc_commit.parent_ids()[0];
@@ -1595,7 +1597,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         clear_operation_state(&git_repo)?;
     }
 
-    reset_index(mut_repo, &git_repo, wc_commit)
+    reset_index(mut_repo, &git_repo, wc_commit).await
 }
 
 // TODO: Polish and upstream this to `gix`.
@@ -1631,12 +1633,12 @@ fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadE
     Ok(())
 }
 
-fn reset_index(
+async fn reset_index(
     repo: &dyn Repo,
     git_repo: &gix::Repository,
     wc_commit: &Commit,
 ) -> Result<(), GitResetHeadError> {
-    let parent_tree = wc_commit.parent_tree(repo)?;
+    let parent_tree = wc_commit.parent_tree_async(repo).await?;
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
@@ -1661,7 +1663,7 @@ fn reset_index(
     };
 
     let wc_tree = wc_commit.tree();
-    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
+    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).await?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1805,7 +1807,7 @@ fn build_index_from_merged_tree(
 ///
 /// Should be called when the diff between the working-copy commit and its
 /// parent(s) has changed.
-pub fn update_intent_to_add(
+pub async fn update_intent_to_add(
     repo: &dyn Repo,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
@@ -1815,7 +1817,7 @@ pub fn update_intent_to_add(
         .index_or_empty()
         .map_err(GitResetHeadError::from_git)?;
     let mut_index = Arc::make_mut(&mut index);
-    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).block_on()?;
+    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).await?;
     debug_assert!(mut_index.verify_entries().is_ok());
     mut_index
         .write(gix::index::write::Options::default())

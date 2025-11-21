@@ -59,9 +59,9 @@ pub struct AbsorbSource {
 
 impl AbsorbSource {
     /// Create an absorb source from a single commit.
-    pub fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
-        let parents = commit.parents().try_collect()?;
-        let parent_tree = commit.parent_tree(repo)?;
+    pub async fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
+        let parents = commit.parents_async().await?;
+        let parent_tree = commit.parent_tree_async(repo).await?;
         Ok(Self {
             commit,
             parents,
