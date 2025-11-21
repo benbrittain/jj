@@ -101,9 +101,9 @@ pub(crate) fn cmd_interdiff(
         &fileset_expression,
         // We check the parent commits to account for deleted files.
         [
-            &from.parent_tree(repo.as_ref())?,
+            &from.parent_tree_async(repo.as_ref()).block_on()?,
             &from.tree(),
-            &to.parent_tree(repo.as_ref())?,
+            &to.parent_tree_async(repo.as_ref()).block_on()?,
             &to.tree(),
         ],
     )?;
