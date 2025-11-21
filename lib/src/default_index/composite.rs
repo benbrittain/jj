@@ -570,7 +570,7 @@ impl AsCompositeIndex for CompositeIndex {
 }
 
 // In revset engine, we need to convert &CompositeIndex to &dyn Index.
-#[async_trait(?Send)]
+#[async_trait]
 impl Index for CompositeIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         Ok(self

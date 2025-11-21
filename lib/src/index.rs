@@ -96,7 +96,7 @@ impl dyn IndexStore {
 
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`CommitId`].
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Index: Send + Sync {
     /// Returns the minimum prefix length to disambiguate `commit_id` from other
     /// commits in the index. The length returned is the number of hexadecimal

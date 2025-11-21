@@ -21,7 +21,6 @@ use std::convert::Infallible;
 use std::fmt;
 use std::iter;
 use std::ops::Range;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use bstr::BString;
@@ -70,13 +69,17 @@ use crate::tree_merge::resolve_file_values;
 use crate::union_find;
 
 type BoxedPredicateFn<'a> = Box<
-    dyn FnMut(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + 'a,
+    dyn FnMut(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError>
+        + Send
+        + 'a,
 >;
 pub(super) type BoxedRevWalk<'a> = Box<
-    dyn RevWalk<CompositeIndex, Item = Result<GlobalCommitPosition, RevsetEvaluationError>> + 'a,
+    dyn RevWalk<CompositeIndex, Item = Result<GlobalCommitPosition, RevsetEvaluationError>>
+        + Send
+        + 'a,
 >;
 
-trait ToPredicateFn: fmt::Debug {
+trait ToPredicateFn: fmt::Debug + Send {
     /// Creates function that tests if the given entry is included in the set.
     ///
     /// The predicate function is evaluated in order of `RevsetIterator`.
@@ -94,7 +97,7 @@ impl<T: ToPredicateFn + ?Sized> ToPredicateFn for Box<T> {
     }
 }
 
-trait InternalRevset: fmt::Debug + ToPredicateFn {
+trait InternalRevset: fmt::Debug + ToPredicateFn + Send {
     // All revsets currently iterate in order of descending index position
     fn positions<'a>(&self) -> BoxedRevWalk<'a>
     where
@@ -326,7 +329,7 @@ impl<W> fmt::Debug for RevWalkRevset<W> {
 
 impl<W> InternalRevset for RevWalkRevset<W>
 where
-    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Clone,
+    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Clone + Send,
 {
     fn positions<'a>(&self) -> BoxedRevWalk<'a>
     where
@@ -338,7 +341,7 @@ where
 
 impl<W> ToPredicateFn for RevWalkRevset<W>
 where
-    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Clone,
+    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Clone + Send,
 {
     fn to_predicate_fn<'a>(&self) -> BoxedPredicateFn<'a>
     where
@@ -350,7 +353,7 @@ where
 
 fn predicate_fn_from_rev_walk<'a, W>(walk: W) -> BoxedPredicateFn<'a>
 where
-    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + 'a,
+    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Send + 'a,
 {
     let mut walk = walk.peekable();
     Box::new(move |index, entry_pos| {
@@ -1168,7 +1171,9 @@ impl<F> fmt::Debug for PurePredicateFn<F> {
 
 impl<F> ToPredicateFn for PurePredicateFn<F>
 where
-    F: Fn(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + Clone,
+    F: Fn(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError>
+        + Clone
+        + Send,
 {
     fn to_predicate_fn<'a>(&self) -> BoxedPredicateFn<'a>
     where
@@ -1185,10 +1190,12 @@ where
     PurePredicateFn(f)
 }
 
-fn box_pure_predicate_fn<'a, F>(f: F) -> Box<dyn ToPredicateFn + 'a>
+fn box_pure_predicate_fn<'a, F>(f: F) -> Box<dyn ToPredicateFn + Send + Sync + 'a>
 where
     F: Fn(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError>
         + Clone
+        + Send
+        + Sync
         + 'a,
 {
     Box::new(PurePredicateFn(f))
@@ -1207,7 +1214,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::Description(expression) => {
-            let matcher = Rc::new(expression.to_matcher());
+            let matcher = Arc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1215,7 +1222,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::Subject(expression) => {
-            let matcher = Rc::new(expression.to_matcher());
+            let matcher = Arc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1223,7 +1230,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::AuthorName(expression) => {
-            let matcher = Rc::new(expression.to_matcher());
+            let matcher = Arc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1231,7 +1238,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::AuthorEmail(expression) => {
-            let matcher = Rc::new(expression.to_matcher());
+            let matcher = Arc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1248,7 +1255,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::CommitterName(expression) => {
-            let matcher = Rc::new(expression.to_matcher());
+            let matcher = Arc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1256,7 +1263,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::CommitterEmail(expression) => {
-            let matcher = Rc::new(expression.to_matcher());
+            let matcher = Arc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
@@ -1273,7 +1280,7 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::File(expr) => {
-            let matcher: Rc<dyn Matcher> = expr.to_matcher().into();
+            let matcher: Arc<dyn Matcher> = expr.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
                 if let Some(mut paths) = index.changed_paths().changed_paths(pos) {
                     return Ok(paths.any(|path| matcher.matches(path)));
@@ -1284,8 +1291,8 @@ async fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::DiffContains { text, files } => {
-            let text_matcher = Rc::new(text.to_matcher());
-            let files_matcher: Rc<dyn Matcher> = files.to_matcher().into();
+            let text_matcher = Arc::new(text.to_matcher());
+            let files_matcher: Arc<dyn Matcher> = files.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
                 let narrowed_files_matcher;
                 let files_matcher = if let Some(paths) = index.changed_paths().changed_paths(pos) {
