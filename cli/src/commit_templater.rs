@@ -1453,7 +1453,7 @@ fn builtin_commit_evolution_entry_methods<'repo>()
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|entry| {
-                let commits: Vec<_> = entry.predecessors().try_collect()?;
+                let commits: Vec<_> = entry.predecessors().block_on().into_iter().try_collect()?;
                 Ok(commits)
             });
             Ok(out_property.into_dyn_wrapped())
@@ -1471,7 +1471,8 @@ fn builtin_commit_evolution_entry_methods<'repo>()
             let repo = language.repo;
             let matcher: Rc<dyn Matcher> = files.to_matcher().into();
             let out_property = self_property.and_then(move |entry| {
-                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
+                let predecessors: Vec<_> =
+                    entry.predecessors().block_on().into_iter().try_collect()?;
                 let from_tree =
                     rebase_to_dest_parent(repo, &predecessors, &entry.commit).block_on()?;
                 let to_tree = entry.commit.tree();
