@@ -2517,7 +2517,7 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     if file_path_str != ".git" {
         std::fs::write(&disk_path, "").unwrap();
     }

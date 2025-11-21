@@ -23,8 +23,6 @@ use jj_lib::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use jj_lib::local_working_copy::LocalWorkingCopy;
 #[cfg(feature = "watchman")]
-use pollster::FutureExt as _;
-#[cfg(feature = "watchman")]
 use jj_lib::working_copy::WorkingCopy;
 #[cfg(feature = "watchman")]
 use pollster::FutureExt as _;

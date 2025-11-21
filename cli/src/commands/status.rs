@@ -15,12 +15,14 @@
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
+use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
+use jj_lib::tree::Tree;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -255,7 +257,7 @@ async fn visit_collapsed_untracked_files(
 
         let mut it = path.components().dropping_back(1);
         let first_mismatch = it.by_ref().enumerate().find(|(i, component)| {
-            stack.get(i + 1).is_none_or(|tree| {
+            stack.get(i + 1).is_none_or(|tree: &Merge<Tree>| {
                 tree.dir()
                     .components()
                     .next_back()
