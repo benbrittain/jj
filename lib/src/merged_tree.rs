@@ -614,12 +614,12 @@ impl<'matcher> TreeDiffIterator<'matcher> {
     }
 
     /// Gets the given trees if `values` are trees, otherwise an empty tree.
-    fn trees(
+    async fn trees(
         store: &Arc<Store>,
         dir: &RepoPath,
         values: &MergedTreeValue,
     ) -> BackendResult<Merge<Tree>> {
-        if let Some(trees) = values.to_tree_merge(store, dir).block_on()? {
+        if let Some(trees) = values.to_tree_merge(store, dir).await? {
             Ok(trees)
         } else {
             Ok(Merge::resolved(Tree::empty(store.clone(), dir.to_owned())))
@@ -677,8 +677,8 @@ impl Iterator for TreeDiffIterator<'_> {
 
             if diff.before.is_tree() || diff.after.is_tree() {
                 let (before_tree, after_tree) = match (
-                    Self::trees(&self.store, &path, &diff.before),
-                    Self::trees(&self.store, &path, &diff.after),
+                    Self::trees(&self.store, &path, &diff.before).block_on(),
+                    Self::trees(&self.store, &path, &diff.after).block_on(),
                 ) {
                     (Ok(before_tree), Ok(after_tree)) => (before_tree, after_tree),
                     (Err(before_err), _) => {

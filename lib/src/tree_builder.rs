@@ -137,7 +137,7 @@ impl TreeBuilder {
             BTreeMap::from([(dir, tree)])
         };
 
-        fn populate_trees<'a>(
+        async fn populate_trees<'a>(
             tree_cache: &'a mut BTreeMap<RepoPathBuf, Tree>,
             store: &Arc<Store>,
             dir: &RepoPath,
@@ -147,15 +147,18 @@ impl TreeBuilder {
                 return Ok(tree_cache.get(dir).unwrap());
             }
             let (parent, basename) = dir.split().expect("root must be populated");
-            let tree = populate_trees(tree_cache, store, parent)?
-                .sub_tree(basename)?
+            let tree_fut = populate_trees(tree_cache, store, parent);
+            let tree = Box::pin(tree_fut)
+                .await?
+                .sub_tree(basename)
+                .await?
                 .unwrap_or_else(|| Tree::empty(store.clone(), dir.to_owned()));
             Ok(tree_cache.entry(dir.to_owned()).or_insert(tree))
         }
 
         for path in self.overrides.keys() {
             let parent = path.parent().unwrap();
-            populate_trees(&mut tree_cache, store, parent)?;
+            populate_trees(&mut tree_cache, store, parent).await?;
         }
 
         Ok(tree_cache

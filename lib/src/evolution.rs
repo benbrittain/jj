@@ -64,11 +64,13 @@ impl CommitEvolutionEntry {
     }
 
     /// Predecessor commit objects of this commit.
-    pub fn predecessors(&self) -> impl ExactSizeIterator<Item = BackendResult<Commit>> {
+    pub async fn predecessors(&self) -> Vec<BackendResult<Commit>> {
         let store = self.commit.store();
-        self.predecessor_ids()
-            .iter()
-            .map(|id| store.get_commit_async(id).block_on())
+        let mut accum = vec![];
+        for id in self.predecessor_ids() {
+            accum.push(store.get_commit_async(id).await)
+        }
+        accum
     }
 }
 
