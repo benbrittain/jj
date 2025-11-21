@@ -144,7 +144,7 @@ pub(crate) fn cmd_revert(
     for (commit_to_revert, new_commit_description) in
         &commits_to_revert_with_new_commit_descriptions
     {
-        let old_base_tree = commit_to_revert.parent_tree(tx.repo())?;
+        let old_base_tree = commit_to_revert.parent_tree_async(tx.repo()).block_on()?;
         let old_tree = commit_to_revert.tree();
         let new_tree = new_base_tree
             .merge_unlabeled(old_tree, old_base_tree)

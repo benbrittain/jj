@@ -24,7 +24,6 @@ use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendError;
@@ -132,10 +131,6 @@ impl Commit {
 
     pub fn tree_ids(&self) -> &Merge<TreeId> {
         &self.data.root_tree
-    }
-
-    pub fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
-        self.parent_tree_async(repo).block_on()
     }
 
     /// Return the parent tree, merging the parent trees if there are multiple

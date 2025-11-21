@@ -378,16 +378,15 @@ pub async fn rebase_to_dest_parent(
     {
         return Ok(source.tree());
     }
-    sources.iter().try_fold(
-        destination.parent_tree(repo)?,
-        |destination_tree, source| {
-            let source_parent_tree = source.parent_tree(repo)?;
-            let source_tree = source.tree();
-            destination_tree
-                .merge_unlabeled(source_parent_tree, source_tree)
-                .block_on()
-        },
-    )
+    let mut destination_tree = destination.parent_tree_async(repo).await?;
+    for source in sources {
+        let source_parent_tree = source.parent_tree_async(repo).await?;
+        let source_tree = source.tree();
+        destination_tree = destination_tree
+            .merge_unlabeled(source_parent_tree, source_tree)
+            .await?;
+    }
+    Ok(destination_tree)
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]

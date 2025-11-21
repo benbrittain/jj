@@ -139,7 +139,7 @@ pub(crate) fn cmd_commit(
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
-    let base_tree = commit.parent_tree(tx.repo())?;
+    let base_tree = commit.parent_tree_async(tx.repo()).block_on()?;
     let format_instructions = || {
         format!(
             "\

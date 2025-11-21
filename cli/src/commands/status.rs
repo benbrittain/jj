@@ -78,7 +78,7 @@ pub(crate) fn cmd_status(
     let formatter = formatter.as_mut();
 
     if let Some(wc_commit) = &maybe_wc_commit {
-        let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
+        let parent_tree = wc_commit.parent_tree_async(repo.as_ref()).block_on()?;
         let tree = wc_commit.tree();
 
         print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;

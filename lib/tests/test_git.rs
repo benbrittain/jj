@@ -2878,7 +2878,7 @@ fn test_reset_head_to_root() {
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).block_on().unwrap();
     assert!(git_repo.head().unwrap().is_detached(), "HEAD is detached");
     assert_eq!(
         tx.repo().git_head(),
@@ -2886,7 +2886,7 @@ fn test_reset_head_to_root() {
     );
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), &commit1).unwrap();
+    git::reset_head(tx.repo_mut(), &commit1).block_on().unwrap();
     assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
     assert!(tx.repo().git_head().is_absent());
 
@@ -2899,7 +2899,7 @@ fn test_reset_head_to_root() {
             "",
         )
         .unwrap();
-    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).block_on().unwrap();
     assert!(git_repo.head_id().is_ok());
     assert_eq!(
         tx.repo().git_head(),
@@ -2908,7 +2908,7 @@ fn test_reset_head_to_root() {
     assert!(git_repo.find_reference("refs/jj/root").is_ok());
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), &commit1).unwrap();
+    git::reset_head(tx.repo_mut(), &commit1).block_on().unwrap();
     assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
     assert!(tx.repo().git_head().is_absent());
     // The placeholder ref should be deleted
@@ -2942,7 +2942,7 @@ fn test_reset_head_detached_out_of_sync() {
     let commit5 = write_random_commit(tx.repo_mut());
 
     // unborn -> commit1 (= commit2's parent)
-    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).block_on().unwrap();
     assert_eq!(
         tx.repo().git_head(),
         RefTarget::normal(commit1.id().clone())
@@ -2956,7 +2956,7 @@ fn test_reset_head_detached_out_of_sync() {
 
     // {expected: commit1, actual: commit5} -> commit1 (= commit3's parent):
     // works because the expected HEAD is unchanged.
-    git::reset_head(tx.repo_mut(), &commit3).unwrap();
+    git::reset_head(tx.repo_mut(), &commit3).block_on().unwrap();
     assert_eq!(
         tx.repo().git_head(),
         RefTarget::normal(commit1.id().clone())
@@ -2964,7 +2964,7 @@ fn test_reset_head_detached_out_of_sync() {
 
     // {expected: commit1, actual: commit5} -> commit3 (= commit4's parent)
     assert_matches!(
-        git::reset_head(tx.repo_mut(), &commit4),
+        git::reset_head(tx.repo_mut(), &commit4).block_on(),
         Err(GitResetHeadError::UpdateHeadRef(_))
     );
     assert_eq!(
@@ -2981,7 +2981,7 @@ fn test_reset_head_detached_out_of_sync() {
     );
 
     // commit5 -> commit3 (= commit4's parent)
-    git::reset_head(tx.repo_mut(), &commit4).unwrap();
+    git::reset_head(tx.repo_mut(), &commit4).block_on().unwrap();
     assert_eq!(
         tx.repo().git_head(),
         RefTarget::normal(commit3.id().clone())
@@ -3033,7 +3033,7 @@ fn test_reset_head_with_index() {
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).block_on().unwrap();
     insta::assert_snapshot!(get_index_state(&workspace_root), @"");
 
     // Add "staged changes" to the Git index
@@ -3045,7 +3045,7 @@ fn test_reset_head_with_index() {
     insta::assert_snapshot!(get_index_state(&workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
     // Reset head and the Git index
-    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).block_on().unwrap();
     insta::assert_snapshot!(get_index_state(&workspace_root), @"");
 }
 
@@ -3091,7 +3091,7 @@ fn test_reset_head_with_index_no_conflict() {
         .unwrap();
 
     // Reset head to working copy commit
-    git::reset_head(mut_repo, &wc_commit).unwrap();
+    git::reset_head(mut_repo, &wc_commit).block_on().unwrap();
 
     // Git index should contain all files from the tree.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
@@ -3192,7 +3192,7 @@ fn test_reset_head_with_index_merge_conflict() {
         .unwrap();
 
     // Reset head to working copy commit with merge conflict
-    git::reset_head(mut_repo, &wc_commit).unwrap();
+    git::reset_head(mut_repo, &wc_commit).block_on().unwrap();
 
     // Index should contain conflicted files from merge of parent commits.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
@@ -3261,7 +3261,7 @@ fn test_reset_head_with_index_file_directory_conflict() {
         .unwrap();
 
     // Reset head to working copy commit with file-directory conflict
-    git::reset_head(mut_repo, &wc_commit).unwrap();
+    git::reset_head(mut_repo, &wc_commit).block_on().unwrap();
 
     // Only the file should be added to the index (the tree should be skipped).
     insta::assert_snapshot!(get_index_state(&workspace_root), @"Theirs test Mode(FILE)");
