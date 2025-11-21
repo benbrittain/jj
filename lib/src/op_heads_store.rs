@@ -71,7 +71,7 @@ pub trait OpHeadsStore: Any + Send + Sync + Debug {
     /// is to prevent concurrent processes from resolving the same divergent
     /// operations. It is not needed for correctness; implementations are free
     /// to return a type that doesn't hold a lock.
-    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError>;
+    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + Send + '_>, OpHeadsStoreError>;
 }
 
 impl dyn OpHeadsStore {

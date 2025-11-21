@@ -550,7 +550,7 @@ impl AsCompositeIndex for DefaultMutableIndex {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl Index for DefaultMutableIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)

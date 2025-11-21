@@ -146,7 +146,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         Ok(op_heads)
     }
 
-    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
+    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + Send + '_>, OpHeadsStoreError> {
         let lock = FileLock::lock(self.dir.join("lock"))
             .map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
         Ok(Box::new(SimpleOpHeadsStoreLock { _lock: lock }))
