@@ -73,7 +73,7 @@ pub fn cmd_workspace_rename(
             new = new_name.as_symbol()
         ))
         .block_on()?;
-    locked_ws.finish(repo.op_id().clone())?;
+    locked_ws.finish(repo.op_id().clone()).block_on()?;
 
     Ok(())
 }

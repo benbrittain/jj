@@ -35,6 +35,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::store::Store;
+use pollster::FutureExt as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
@@ -80,7 +81,8 @@ fn run_custom_command(
                 &ReadonlyRepo::default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
                 WorkspaceName::DEFAULT.to_owned(),
-            )?;
+            )
+            .block_on()?;
             Ok(())
         }
     }

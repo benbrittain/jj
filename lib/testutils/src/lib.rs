@@ -336,6 +336,7 @@ impl TestWorkspace {
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
         )
+        .block_on()
         .unwrap();
 
         Self {
@@ -363,7 +364,10 @@ impl TestWorkspace {
         let mut locked_ws = self.workspace.start_working_copy_mutation().unwrap();
         let (tree, stats) = locked_ws.locked_wc().snapshot(options).block_on()?;
         // arbitrary operation id
-        locked_ws.finish(self.repo.op_id().clone()).unwrap();
+        locked_ws
+            .finish(self.repo.op_id().clone())
+            .block_on()
+            .unwrap();
         Ok((tree, stats))
     }
 
