@@ -213,12 +213,12 @@ impl FileAnnotator {
     /// The `domain` expression narrows the range of ancestors to search. It
     /// will be intersected as `domain & ::pending_commits & files(file_path)`.
     /// The `pending_commits` is assumed to be included in the `domain`.
-    pub fn compute(
+    pub async fn compute(
         &mut self,
         repo: &dyn Repo,
         domain: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), RevsetEvaluationError> {
-        process_commits(repo, &mut self.state, domain, &self.file_path).block_on()
+        process_commits(repo, &mut self.state, domain, &self.file_path).await
     }
 
     /// Remaining commit ids to visit from.
