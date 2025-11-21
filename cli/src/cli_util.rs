@@ -1172,7 +1172,7 @@ impl WorkspaceCommandHelper {
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
             tx.repo_mut().rebase_descendants().block_on()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
-            locked_ws.finish(self.user_repo.repo.op_id().clone())?;
+            locked_ws.finish(self.user_repo.repo.op_id().clone()).block_on()?;
             if old_git_head.is_present() {
                 writeln!(
                     ui.status(),
@@ -1297,7 +1297,7 @@ to the current parents may contain changes from multiple commits.
             "Created and checked out recovery commit {}",
             short_commit_hash(new_commit.id())
         )?;
-        locked_ws.finish(repo.op_id().clone())?;
+        locked_ws.finish(repo.op_id().clone()).block_on()?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
         self.maybe_snapshot_impl(ui)
@@ -1978,6 +1978,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         }
         locked_ws
             .finish(self.user_repo.repo.op_id().clone())
+            .block_on()
             .map_err(snapshot_command_error)?;
         Ok(stats)
     }
@@ -2615,7 +2616,7 @@ fn update_stale_working_copy(
                 err,
             )
         })?;
-    locked_ws.finish(op_id)?;
+    locked_ws.finish(op_id).block_on()?;
 
     Ok(stats)
 }
