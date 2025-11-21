@@ -270,7 +270,8 @@ pub(crate) fn cmd_squash(
         let commit = tx
             .repo_mut()
             .new_commit(parent_ids.clone(), merged_tree)
-            .write().block_on()?;
+            .write()
+            .block_on()?;
         let mut rewritten = HashMap::new();
         tx.repo_mut()
             .transform_descendants(child_ids.clone(), async |mut rewriter| {

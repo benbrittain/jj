@@ -128,7 +128,9 @@ pub(crate) fn cmd_restore(
     } else {
         to_commit = workspace_command
             .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))?;
-        from_tree = to_commit.parent_tree_async(workspace_command.repo().as_ref()).block_on()?;
+        from_tree = to_commit
+            .parent_tree_async(workspace_command.repo().as_ref())
+            .block_on()?;
         from_commits = to_commit.parents().try_collect()?;
     }
     workspace_command.check_rewritable([to_commit.id()])?;
@@ -178,7 +180,8 @@ pub(crate) fn cmd_restore(
         tx.repo_mut()
             .rewrite_commit(&to_commit)
             .set_tree(new_tree)
-            .write().block_on()?;
+            .write()
+            .block_on()?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {

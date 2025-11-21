@@ -208,7 +208,10 @@ impl SplitArgs {
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
         let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
-        if target_commit.is_empty(workspace_command.repo().as_ref()).block_on()? {
+        if target_commit
+            .is_empty(workspace_command.repo().as_ref())
+            .block_on()?
+        {
             return Err(user_error(format!(
                 "Refusing to split empty commit {}.",
                 target_commit.id().hex()
@@ -525,7 +528,9 @@ fn rewrite_descendants(
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
         if working_copy_commit == target.commit.id() {
-            tx.repo_mut().edit(name.clone(), &second_commit).block_on()?;
+            tx.repo_mut()
+                .edit(name.clone(), &second_commit)
+                .block_on()?;
         }
     }
 

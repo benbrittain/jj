@@ -746,7 +746,7 @@ fn test_reset() {
         .reset(&commit_without_file)
         .block_on()
         .unwrap();
-    locked_ws.finish(op_id.clone()).unwrap();
+    locked_ws.finish(op_id.clone()).block_on().unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(!wc.file_states().unwrap().contains_path(ignored_path));
@@ -762,7 +762,7 @@ fn test_reset() {
         .reset(&commit_with_file)
         .block_on()
         .unwrap();
-    locked_ws.finish(op_id.clone()).unwrap();
+    locked_ws.finish(op_id.clone()).block_on().unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(ignored_path));
@@ -1483,7 +1483,10 @@ fn test_snapshot_special_file() {
         .snapshot(&empty_snapshot_options())
         .block_on()
         .unwrap();
-    locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
+    locked_ws
+        .finish(OperationId::from_hex("abc123"))
+        .block_on()
+        .unwrap();
     // Only the regular files should be in the tree
     assert_eq!(
         tree.entries().map(|(path, _value)| path).collect_vec(),
@@ -1610,7 +1613,10 @@ fn test_gitignores_in_ignored_dir() {
         .start_working_copy_mutation()
         .unwrap();
     locked_ws.locked_wc().reset(&commit2).block_on().unwrap();
-    locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
+    locked_ws
+        .finish(OperationId::from_hex("abc123"))
+        .block_on()
+        .unwrap();
 
     let new_tree = test_workspace.snapshot().unwrap();
     assert_tree_eq!(new_tree, tree2);
@@ -2258,7 +2264,7 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     if ![".git", ".jj"].contains(&file_path_str) {
         std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
         std::fs::write(&disk_path, "").unwrap();
@@ -2317,7 +2323,7 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
     std::fs::write(&disk_path, "").unwrap();
 
@@ -2382,7 +2388,7 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
     std::fs::write(&disk_path, "").unwrap();
 
@@ -2452,7 +2458,7 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     if is_vfat {
         std::fs::create_dir_all(vfat_disk_path.parent().unwrap()).unwrap();
         std::fs::write(&vfat_disk_path, "").unwrap();
@@ -2514,7 +2520,7 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     if file_path_str != ".git" {
         std::fs::write(&disk_path, "").unwrap();
     }
@@ -2965,6 +2971,7 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
         .unwrap();
     locked_ws
         .finish(test_workspace.repo.op_id().clone())
+        .block_on()
         .unwrap();
 
     assert!(!std::fs::exists(&link_path).unwrap());
@@ -2978,6 +2985,7 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
     locked_ws.locked_wc().check_out(&commit).block_on().unwrap();
     locked_ws
         .finish(test_workspace.repo.op_id().clone())
+        .block_on()
         .unwrap();
 
     let actual_target = std::fs::read_link(&link_path).expect("The symlink itself should exist.");

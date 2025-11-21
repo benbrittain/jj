@@ -24,7 +24,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -413,10 +412,7 @@ pub async fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter
-        .rebase_with_empty_behavior(options.empty)
-        .block_on()?
-    {
+    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty).await? {
         let new_commit = builder.write().await?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
@@ -439,27 +435,24 @@ pub async fn rebase_to_dest_parent(
         return Ok(source.tree());
     }
 
-    let diffs: Vec<_> = sources
-        .iter()
-        .map(|source| -> BackendResult<_> {
-            Ok(Diff::new(
-                (
-                    source.parent_tree_async(repo).block_on()?,
-                    format!("{} (original parents)", source.parents_conflict_label()?),
-                ),
-                (
-                    source.tree(),
-                    format!("{} (original revision)", source.conflict_label()),
-                ),
-            ))
-        })
-        .try_collect()?;
+    let diffs = sources.iter().map(|source| async {
+        Ok::<_, BackendError>(Diff::new(
+            (
+                source.parent_tree_async(repo).await?,
+                format!("{} (original parents)", source.parents_conflict_label()?),
+            ),
+            (
+                source.tree(),
+                format!("{} (original revision)", source.conflict_label()),
+            ),
+        ))
+    });
     MergedTree::merge(Merge::from_diffs(
         (
             destination.parent_tree_async(repo).await?,
             format!("{} (new parents)", destination.parents_conflict_label()?),
         ),
-        diffs,
+        try_join_all(diffs).await?,
     ))
     .await
 }
@@ -1386,7 +1379,7 @@ pub async fn squash_commits<'repo>(
         ),
         source_commits.into_iter().map(|source| source.diff),
     ))
-    .block_on()?;
+    .await?;
 
     let commit_builder = repo
         .rewrite_commit(&rewritten_destination)

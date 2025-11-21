@@ -119,7 +119,8 @@ pub(crate) fn cmd_file_chmod(
     tx.repo_mut()
         .rewrite_commit(&commit)
         .set_tree(new_tree)
-        .write().block_on()?;
+        .write()
+        .block_on()?;
     tx.finish(
         ui,
         format!(

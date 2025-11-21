@@ -41,7 +41,9 @@ fn test_init_local() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical).unwrap();
+    let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical)
+        .block_on()
+        .unwrap();
     assert!(repo.store().backend_impl::<GitBackend>().is_none());
     assert_eq!(workspace.workspace_root(), &canonical);
 
@@ -55,7 +57,9 @@ fn test_init_internal_git() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_internal_git(&settings, &uncanonical).unwrap();
+    let (workspace, repo) = Workspace::init_internal_git(&settings, &uncanonical)
+        .block_on()
+        .unwrap();
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
@@ -79,7 +83,9 @@ fn test_init_colocated_git() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_colocated_git(&settings, &uncanonical).unwrap();
+    let (workspace, repo) = Workspace::init_colocated_git(&settings, &uncanonical)
+        .block_on()
+        .unwrap();
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
@@ -108,6 +114,7 @@ fn test_init_external_git() {
         &uncanonical.join("jj"),
         &git_repo_path.join(".git"),
     )
+    .block_on()
     .unwrap();
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     assert_eq!(workspace.workspace_root(), &canonical.join("jj"));
@@ -200,7 +207,9 @@ fn test_init_load_non_utf8_path() {
     // Workspace can be created
     let workspace_root = test_env.root().join(OsStr::from_bytes(b"jj\xe0"));
     std::fs::create_dir(&workspace_root).unwrap();
-    Workspace::init_external_git(&settings, &workspace_root, &git_repo_path.join(".git")).unwrap();
+    Workspace::init_external_git(&settings, &workspace_root, &git_repo_path.join(".git"))
+        .block_on()
+        .unwrap();
 
     // Workspace can be loaded
     let workspace = Workspace::load(

@@ -132,7 +132,8 @@ pub fn cmd_workspace_add(
         repo,
         working_copy_factory,
         workspace_name.clone(),
-    )?;
+    )
+    .block_on()?;
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
@@ -171,7 +172,7 @@ pub fn cmd_workspace_add(
             .block_on()
             .map_err(|err| internal_error_with_message("Failed to set sparse patterns", err))?;
         let operation_id = locked_ws.locked_wc().old_operation_id().clone();
-        locked_ws.finish(operation_id)?;
+        locked_ws.finish(operation_id).block_on()?;
     }
 
     let mut tx = new_workspace_command.start_transaction();

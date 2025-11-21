@@ -224,7 +224,8 @@ new working-copy commit.
         let new_wc_commit = tx
             .repo_mut()
             .new_commit(vec![new_commit.id().clone()], commit.tree())
-            .write().block_on()?;
+            .write()
+            .block_on()?;
 
         // Does nothing if there's no bookmarks to advance.
         tx.advance_bookmarks(advanceable_bookmarks, new_commit.id())?;

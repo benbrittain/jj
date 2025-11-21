@@ -102,8 +102,7 @@ pub(crate) fn cmd_file_annotate(
     // exclude the revisions, but will ignore diffs in those revisions as if
     // ancestor revisions had new content.
     let mut annotator = FileAnnotator::from_commit(&starting_commit, &file_path)?;
-    annotator
-        .compute(repo.as_ref(), &RevsetExpression::all())?;
+    annotator.compute(repo.as_ref(), &RevsetExpression::all())?;
     let annotation = annotator.to_annotation();
 
     render_file_annotation(repo.as_ref(), ui, &template, &annotation)?;

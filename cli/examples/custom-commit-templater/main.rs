@@ -28,7 +28,6 @@ use jj_lib::repo::Repo;
 use jj_lib::revset::FunctionCallNode;
 use jj_lib::revset::LoweringContext;
 use jj_lib::revset::PartialSymbolResolver;
-use pollster::FutureExt as _;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterExtension;
@@ -38,6 +37,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 
 struct HexCounter;
 

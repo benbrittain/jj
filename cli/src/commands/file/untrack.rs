@@ -70,7 +70,8 @@ pub(crate) fn cmd_file_untrack(
         .repo_mut()
         .rewrite_commit(&wc_commit)
         .set_tree(new_tree)
-        .write().block_on()?;
+        .write()
+        .block_on()?;
     // Reset the working copy to the new commit
     locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be
@@ -109,7 +110,7 @@ Make sure they're ignored, then try again.",
         export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree())?;
     }
     let repo = tx.commit("untrack paths").block_on()?;
-    locked_ws.finish(repo.op_id().clone())?;
+    locked_ws.finish(repo.op_id().clone()).block_on()?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&wc_tree])?;
     print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
     Ok(())

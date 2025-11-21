@@ -2938,6 +2938,7 @@ fn test_reset_head_to_root() {
     let git_repo = testutils::git::init(&workspace_root);
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()
             .unwrap();
 
     let mut tx = repo.start_transaction();
@@ -3003,6 +3004,7 @@ fn test_reset_head_detached_out_of_sync() {
     let git_repo = testutils::git::init(&workspace_root);
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()
             .unwrap();
 
     let mut tx = repo.start_transaction();
@@ -3093,6 +3095,7 @@ fn test_reset_head_with_index() {
     let git_repo = testutils::git::init(&workspace_root);
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()
             .unwrap();
 
     let mut tx = repo.start_transaction();
@@ -3137,6 +3140,7 @@ fn test_reset_head_with_index_no_conflict() {
     gix::init(&workspace_root).unwrap();
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()
             .unwrap();
 
     let mut tx = repo.start_transaction();
@@ -3191,6 +3195,7 @@ fn test_reset_head_with_index_merge_conflict() {
     gix::init(&workspace_root).unwrap();
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()
             .unwrap();
 
     let mut tx = repo.start_transaction();
@@ -3300,6 +3305,7 @@ fn test_reset_head_with_index_file_directory_conflict() {
     gix::init(&workspace_root).unwrap();
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()
             .unwrap();
 
     let mut tx = repo.start_transaction();

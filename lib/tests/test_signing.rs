@@ -10,12 +10,12 @@ use jj_lib::signing::SignBehavior;
 use jj_lib::signing::Signer;
 use jj_lib::signing::Verification;
 use jj_lib::test_signing_backend::TestSigningBackend;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
-use pollster::FutureExt as _;
 
 fn user_settings(behavior: SignBehavior) -> UserSettings {
     let mut config = testutils::base_user_config();
@@ -211,7 +211,11 @@ fn drop_behavior(backend: TestRepoBackend) {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&original_commit).write().block_on().unwrap();
+    let rewritten = mut_repo
+        .rewrite_commit(&original_commit)
+        .write()
+        .block_on()
+        .unwrap();
 
     let rewritten_commit = repo.store().get_commit(rewritten.id()).unwrap();
     assert_eq!(rewritten_commit.verification().unwrap(), None);
