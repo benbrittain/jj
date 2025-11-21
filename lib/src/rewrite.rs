@@ -401,7 +401,7 @@ pub async fn rebase_to_dest_parent(
         .map(|source| -> BackendResult<_> {
             Ok(Diff::new(
                 (
-                    source.parent_tree(repo)?,
+                    source.parent_tree_async(repo).block_on()?,
                     format!("{} (original parents)", source.parents_conflict_label()?),
                 ),
                 (
@@ -413,7 +413,7 @@ pub async fn rebase_to_dest_parent(
         .try_collect()?;
     MergedTree::merge(Merge::from_diffs(
         (
-            destination.parent_tree(repo)?,
+            destination.parent_tree_async(repo).await?,
             format!("{} (new parents)", destination.parents_conflict_label()?),
         ),
         diffs,

@@ -249,7 +249,7 @@ impl SplitArgs {
             &fileset_expression,
             [
                 // We check the parent commit to account for deleted files.
-                &target_commit.parent_tree(repo.as_ref())?,
+                &target_commit.parent_tree_async(repo.as_ref()).block_on()?,
                 &target_commit.tree(),
             ],
         )?;
@@ -554,7 +554,7 @@ The changes that are not selected will replace the original commit.
             tx.format_commit_summary(target_commit)
         )
     };
-    let parent_tree = target_commit.parent_tree(tx.repo())?;
+    let parent_tree = target_commit.parent_tree_async(tx.repo()).block_on()?;
     let selected_tree = diff_selector.select(
         Diff::new(&parent_tree, &target_commit.tree()),
         matcher,
