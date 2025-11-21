@@ -86,7 +86,7 @@ pub(crate) fn cmd_absorb(
     let matcher = fileset_expression.to_matcher();
 
     let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit.clone())?;
+    let source = AbsorbSource::from_commit(repo, source_commit.clone()).block_on()?;
     let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).block_on()?;
 
     print_unmatched_explicit_paths(

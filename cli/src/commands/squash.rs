@@ -478,7 +478,7 @@ fn select_diff(
 ) -> Result<Vec<CommitWithSelection>, CommandError> {
     let mut source_commits = vec![];
     for source in sources {
-        let parent_tree = source.parent_tree(tx.repo())?;
+        let parent_tree = source.parent_tree_async(tx.repo()).block_on()?;
         let source_tree = source.tree();
         let format_instructions = || {
             formatdoc! {"
