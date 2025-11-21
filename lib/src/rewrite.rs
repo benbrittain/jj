@@ -25,7 +25,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -353,10 +352,7 @@ pub async fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter
-        .rebase_with_empty_behavior(options.empty)
-        .block_on()?
-    {
+    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty).await? {
         let new_commit = builder.write().await?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
@@ -1272,7 +1268,7 @@ pub async fn squash_commits<'repo>(
                 source.commit.parent_tree.clone(),
                 source.commit.selected_tree.clone(),
             )
-            .block_on()?;
+            .await?;
     }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(

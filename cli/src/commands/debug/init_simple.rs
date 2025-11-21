@@ -16,6 +16,7 @@ use std::io::Write as _;
 
 use jj_lib::file_util;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -57,7 +58,7 @@ pub(crate) fn cmd_debug_init_simple(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    Workspace::init_simple(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;
+    Workspace::init_simple(&command.settings_for_new_workspace(&wc_path)?, &wc_path).block_on()?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
