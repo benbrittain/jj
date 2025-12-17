@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::repo::Repo as _;
@@ -75,7 +76,8 @@ pub(crate) fn cmd_file_search(
     let pattern = StringPattern::glob(&args.pattern).map_err(|err| cli_error(err.to_string()))?;
     let pattern_matcher = pattern.to_matcher();
     // TODO: Read files concurrently (depending on backend)
-    for (path, value) in tree.entries_matching(file_matcher.as_ref()) {
+    let mut stream = tree.entries_matching(file_matcher.as_ref());
+    while let Some((path, value)) = stream.next().block_on() {
         let value = value?;
         let materialized =
             materialize_tree_value(store.as_ref(), &path, value, tree.labels()).block_on()?;

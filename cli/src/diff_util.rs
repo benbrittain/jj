@@ -24,7 +24,6 @@ use bstr::BStr;
 use bstr::BString;
 use clap_complete::ArgValueCandidates;
 use futures::StreamExt as _;
-use futures::TryStreamExt as _;
 use futures::executor::block_on_stream;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
@@ -1248,7 +1247,7 @@ fn split_diff_hunks_by_matching_newline<'a, 'b>(
     })
 }
 
-fn diff_content(
+async fn diff_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
     materialize_options: &ConflictMaterializeOptions,
@@ -1261,6 +1260,7 @@ fn diff_content(
             materialize_merge_result_to_bytes(&contents, &labels, materialize_options)
         },
     )
+    .await
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -1277,7 +1277,7 @@ impl DiffContentAsMerge {
     }
 }
 
-fn diff_content_as_merge(
+async fn diff_content_as_merge(
     path: &RepoPath,
     value: MaterializedTreeValue,
 ) -> BackendResult<FileContent<DiffContentAsMerge>> {
@@ -1293,9 +1293,10 @@ fn diff_content_as_merge(
             conflict_labels: labels,
         },
     )
+    .await
 }
 
-fn diff_content_with<T>(
+async fn diff_content_with<T>(
     path: &RepoPath,
     value: MaterializedTreeValue,
     map_resolved: impl FnOnce(BString) -> T,
@@ -1311,7 +1312,7 @@ fn diff_content_with<T>(
             contents: map_resolved(format!("Access denied: {err}").into()),
         }),
         MaterializedTreeValue::File(mut file) => {
-            file_content_for_diff(path, &mut file, map_resolved)
+            file_content_for_diff(path, &mut file, map_resolved).await
         }
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
@@ -1410,7 +1411,7 @@ pub async fn show_color_words_diff(
                 formatter.labeled("header"),
                 "Added {description} {right_ui_path}:"
             )?;
-            let right_content = diff_content_as_merge(right_path, right_value)?;
+            let right_content = diff_content_as_merge(right_path, right_value).await?;
             if right_content.contents.is_empty() {
                 writeln!(formatter.labeled("empty"), "    (empty)")?;
             } else if right_content.is_binary {
@@ -1471,8 +1472,8 @@ pub async fn show_color_words_diff(
                     )
                 }
             };
-            let left_content = diff_content_as_merge(left_path, left_value)?;
-            let right_content = diff_content_as_merge(right_path, right_value)?;
+            let left_content = diff_content_as_merge(left_path, left_value).await?;
+            let right_content = diff_content_as_merge(right_path, right_value).await?;
             if left_path == right_path {
                 writeln!(
                     formatter.labeled("header"),
@@ -1507,7 +1508,7 @@ pub async fn show_color_words_diff(
                 formatter.labeled("header"),
                 "Removed {description} {right_ui_path}:"
             )?;
-            let left_content = diff_content_as_merge(left_path, left_value)?;
+            let left_content = diff_content_as_merge(left_path, left_value).await?;
             if left_content.contents.is_empty() {
                 writeln!(formatter.labeled("empty"), "    (empty)")?;
             } else if left_content.is_binary {
@@ -1546,13 +1547,13 @@ pub async fn show_file_by_file_diff(
         marker_len: None,
         merge: store.merge_options().clone(),
     };
-    let create_file = |path: &RepoPath,
-                       wc_dir: &Path,
-                       value: MaterializedTreeValue|
-     -> Result<PathBuf, DiffRenderError> {
+    let create_file = async |path: &RepoPath,
+                             wc_dir: &Path,
+                             value: MaterializedTreeValue|
+           -> Result<PathBuf, DiffRenderError> {
         let fs_path = path.to_fs_path(wc_dir)?;
         std::fs::create_dir_all(fs_path.parent().unwrap())?;
-        let content = diff_content(path, value, &materialize_options)?;
+        let content = diff_content(path, value, &materialize_options).await?;
         std::fs::write(&fs_path, content.contents)?;
         Ok(fs_path)
     };
@@ -1590,8 +1591,8 @@ pub async fn show_file_by_file_diff(
             }
             _ => {}
         }
-        let left_path = create_file(left_path, &left_wc_dir, left_value)?;
-        let right_path = create_file(right_path, &right_wc_dir, right_value)?;
+        let left_path = create_file(left_path, &left_wc_dir, left_value).await?;
+        let right_path = create_file(right_path, &right_wc_dir, right_value).await?;
         let patterns = &maplit::hashmap! {
             "left" => left_path
                 .strip_prefix(temp_dir.path())
@@ -1719,8 +1720,8 @@ pub async fn show_git_diff(
         let right_path_string = right_path.as_internal_file_string();
         let values = values?;
 
-        let left_part = git_diff_part(left_path, values.before, &materialize_options)?;
-        let right_part = git_diff_part(right_path, values.after, &materialize_options)?;
+        let left_part = git_diff_part(left_path, values.before, &materialize_options).await?;
+        let right_part = git_diff_part(right_path, values.after, &materialize_options).await?;
 
         {
             let mut formatter = formatter.labeled("file_header");
@@ -1900,27 +1901,29 @@ impl DiffStats {
             merge: store.merge_options().clone(),
         };
         let conflict_labels = ConflictLabels::unlabeled();
-        let entries = materialized_diff_stream(
+        let mut stream = materialized_diff_stream(
             store,
             tree_diff,
             Diff::new(&conflict_labels, &conflict_labels),
-        )
-        .map(|MaterializedTreeDiffEntry { path, values }| {
+        );
+
+        let mut entries = vec![];
+        while let Some(MaterializedTreeDiffEntry { path, values }) = stream.next().await {
             let values = values?;
             let status =
                 diff_status_inner(&path, values.before.is_present(), values.after.is_present());
-            let left_content = diff_content(path.source(), values.before, &materialize_options)?;
-            let right_content = diff_content(path.target(), values.after, &materialize_options)?;
+            let left_content =
+                diff_content(path.source(), values.before, &materialize_options).await?;
+            let right_content =
+                diff_content(path.target(), values.after, &materialize_options).await?;
             let stat = get_diff_stat_entry(
                 path,
                 status,
                 Diff::new(&left_content, &right_content),
                 options,
             );
-            BackendResult::Ok(stat)
-        })
-        .try_collect()
-        .await?;
+            entries.push(stat);
+        }
         Ok(Self { entries })
     }
 

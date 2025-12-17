@@ -25,6 +25,7 @@ use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
@@ -571,7 +572,8 @@ pub fn dump_tree(merged_tree: &MergedTree) -> String {
     writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
     for tree in &trees {
         writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
-        for (path, entry) in tree.entries_matching(&EverythingMatcher) {
+        let mut stream = tree.entries_matching(&EverythingMatcher);
+        while let Some((path, entry)) = stream.next().block_on() {
             match entry {
                 TreeValue::File {
                     id,

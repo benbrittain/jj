@@ -31,6 +31,7 @@ use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::future::try_join;
 use futures::stream::BoxStream;
+use futures::task;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -449,11 +450,15 @@ fn merged_tree_entry_diff<'a>(
     .filter(|(_, diff)| diff.is_changed())
 }
 
-/// Recursive iterator over the entries in a tree.
 pub struct TreeEntriesIterator<'matcher> {
     store: Arc<Store>,
     stack: Vec<TreeEntriesDirItem>,
     matcher: &'matcher dyn Matcher,
+    pending_trees: Option<(
+        RepoPathBuf,
+        MergedTreeValue,
+        Pin<Box<dyn Future<Output = BackendResult<Option<Merge<Tree>>>> + Send>>,
+    )>,
 }
 
 struct TreeEntriesDirItem {
@@ -489,31 +494,59 @@ impl<'matcher> TreeEntriesIterator<'matcher> {
                 entries: vec![(RepoPathBuf::root(), trees.to_merged_tree_value())],
             }],
             matcher,
+            pending_trees: None,
         }
     }
 }
 
-impl Iterator for TreeEntriesIterator<'_> {
+impl Stream for TreeEntriesIterator<'_> {
     type Item = (RepoPathBuf, BackendResult<MergedTreeValue>);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some((path, value)) = top.entries.pop() {
-                let maybe_trees = match value.to_tree_merge(&self.store, &path).block_on() {
-                    Ok(maybe_trees) => maybe_trees,
-                    Err(err) => return Some((path, Err(err))),
-                };
-                if let Some(trees) = maybe_trees {
-                    self.stack
-                        .push(TreeEntriesDirItem::new(&trees, self.matcher));
-                } else {
-                    return Some((path, Ok(value)));
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut task::Context<'_>,
+    ) -> task::Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        loop {
+            if let Some((path, value, fut)) = &mut this.pending_trees {
+                match fut.as_mut().poll(cx) {
+                    task::Poll::Ready(Ok(maybe_trees)) => {
+                        let path = path.clone();
+                        let value = value.clone();
+                        this.pending_trees = None;
+                        if let Some(trees) = maybe_trees {
+                            this.stack
+                                .push(TreeEntriesDirItem::new(&trees, this.matcher));
+                        } else {
+                            return task::Poll::Ready(Some((path, Ok(value))));
+                        }
+                    }
+                    task::Poll::Ready(Err(err)) => {
+                        let path = path.clone();
+                        this.pending_trees = None;
+                        return task::Poll::Ready(Some((path, Err(err))));
+                    }
+                    task::Poll::Pending => return task::Poll::Pending,
                 }
-            } else {
-                self.stack.pop();
             }
+
+            let Some(top) = this.stack.last_mut() else {
+                return task::Poll::Ready(None);
+            };
+
+            let Some((path, value)) = top.entries.pop() else {
+                this.stack.pop();
+                continue;
+            };
+
+            let store = this.store.clone();
+            let path_clone = path.clone();
+            this.pending_trees = Some((
+                path,
+                value.clone(),
+                Box::pin(async move { value.to_tree_merge(&store, &path_clone).await }),
+            ));
         }
-        None
     }
 }
 

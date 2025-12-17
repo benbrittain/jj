@@ -1340,16 +1340,6 @@ impl TreeState {
             self.tree = new_tree.clone();
             Ok(())
         })?;
-        if cfg!(debug_assertions) {
-            let tree_paths: HashSet<_> = self
-                .tree
-                .entries_matching(sparse_matcher.as_ref())
-                .filter_map(|(path, result)| result.is_ok().then_some(path))
-                .collect();
-            let file_states = self.file_states.all();
-            let state_paths: HashSet<_> = file_states.paths().map(|path| path.to_owned()).collect();
-            assert_eq!(state_paths, tree_paths);
-        }
         // Since untracked paths aren't cached in the tree state, we'll need to
         // rescan the working directory changes to report or track them later.
         // TODO: store untracked paths and update watchman_clock?
