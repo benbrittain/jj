@@ -19,10 +19,12 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task;
 
+use futures::Stream;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -171,6 +173,7 @@ impl Tree {
 pub struct TreeEntriesIterator<'matcher> {
     stack: Vec<TreeEntriesDirItem>,
     matcher: &'matcher dyn Matcher,
+    pending_subtree: Option<Pin<Box<dyn Future<Output = Tree> + Send>>>,
 }
 
 struct TreeEntriesDirItem {
@@ -195,35 +198,55 @@ impl<'matcher> TreeEntriesIterator<'matcher> {
         Self {
             stack: vec![TreeEntriesDirItem::from(tree)],
             matcher,
+            pending_subtree: None,
         }
     }
 }
 
-impl Iterator for TreeEntriesIterator<'_> {
+impl Stream for TreeEntriesIterator<'_> {
     type Item = (RepoPathBuf, TreeValue);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some((path, value)) = top.entries.pop() {
-                match value {
-                    TreeValue::Tree(id) => {
-                        // TODO: Handle the other cases (specific files and trees)
-                        if self.matcher.visit(&path).is_nothing() {
-                            continue;
-                        }
-                        let subtree = top.tree.known_sub_tree(path, &id).block_on();
-                        self.stack.push(TreeEntriesDirItem::from(subtree));
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut task::Context<'_>,
+    ) -> task::Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        loop {
+            if let Some(fut) = &mut this.pending_subtree {
+                match fut.as_mut().poll(cx) {
+                    task::Poll::Ready(subtree) => {
+                        this.pending_subtree = None;
+                        this.stack.push(TreeEntriesDirItem::from(subtree));
                     }
-                    value => {
-                        if self.matcher.matches(&path) {
-                            return Some((path, value));
-                        }
+                    task::Poll::Pending => return task::Poll::Pending,
+                }
+            }
+
+            let Some(top) = this.stack.last_mut() else {
+                return task::Poll::Ready(None);
+            };
+
+            let Some((path, value)) = top.entries.pop() else {
+                this.stack.pop();
+                continue;
+            };
+
+            match value {
+                TreeValue::Tree(id) => {
+                    if this.matcher.visit(&path).is_nothing() {
+                        continue;
+                    }
+                    let store = top.tree.store().clone();
+                    this.pending_subtree = Some(Box::pin(async move {
+                        store.get_tree_async(path, &id).await.unwrap()
+                    }));
+                }
+                value => {
+                    if this.matcher.matches(&path) {
+                        return task::Poll::Ready(Some((path, value)));
                     }
                 }
-            } else {
-                self.stack.pop();
             }
         }
-        None
     }
 }

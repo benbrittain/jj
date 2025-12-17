@@ -31,6 +31,7 @@ use bstr::BString;
 use futures::StreamExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
+use pollster::FutureExt;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -1740,7 +1741,8 @@ fn build_index_from_merged_tree(
 
     let mut has_many_sided_conflict = false;
 
-    for (path, entry) in merged_tree.entries() {
+    let mut entries_stream = merged_tree.entries();
+    while let Some((path, entry)) = entries_stream.next().block_on() {
         let entry = entry?;
         if let Some(resolved) = entry.as_resolved() {
             push_index_entry(&path, resolved, gix::index::entry::Stage::Unconflicted);

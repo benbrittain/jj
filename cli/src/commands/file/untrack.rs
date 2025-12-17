@@ -13,11 +13,14 @@
 // limitations under the License.
 
 use std::io::Write as _;
+use std::path::PathBuf;
 
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
+use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -62,7 +65,9 @@ pub(crate) fn cmd_file_untrack(
     // Create a new tree without the unwanted files
     let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree());
     let wc_tree = wc_commit.tree();
-    for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
+
+    let mut stream = wc_tree.entries_matching(matcher.as_ref());
+    while let Some((path, _value)) = stream.next().block_on() {
         tree_builder.set_or_remove(path, Merge::absent());
     }
     let new_tree = tree_builder.write_tree()?;
@@ -78,7 +83,11 @@ pub(crate) fn cmd_file_untrack(
     // untracked because they're not ignored.
     let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
     if new_wc_tree.tree_ids() != new_commit.tree_ids() {
-        let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
+        let added_back = new_wc_tree
+            .entries_matching(matcher.as_ref())
+            .collect::<Vec<(RepoPathBuf, _)>>()
+            .block_on();
+
         if !added_back.is_empty() {
             drop(locked_ws);
             let path = &added_back[0].0;

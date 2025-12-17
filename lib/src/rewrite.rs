@@ -19,8 +19,10 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
+use pollster::FutureExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
@@ -137,7 +139,8 @@ pub async fn restore_tree(
             // TODO: We should be able to not traverse deeper in the diff if the matcher
             // matches an entire subtree.
             let mut builder = MergedTreeBuilder::new(labeled_empty_tree);
-            for (path, value) in tree.entries_matching(matcher) {
+            let mut entries = tree.entries_matching(matcher);
+            while let Some((path, value)) = entries.next().block_on() {
                 // TODO: if https://github.com/jj-vcs/jj/issues/4152 is implemented, we will need
                 // to expand resolved conflicts into `Merge::repeated(value, num_sides)`.
                 builder.set_or_remove(path, value?);

@@ -203,10 +203,11 @@ fn test_path_value_and_entries() {
     );
 
     // Test entries()
-    let actual_entries = merged_tree
+    let actual_entries: Vec<_> = merged_tree
         .entries()
         .map(|(path, result)| (path, result.unwrap()))
-        .collect_vec();
+        .collect()
+        .block_on();
     // missing_path, resolved_dir_path, and file_dir_conflict_sub_path should not
     // appear
     let expected_entries = [
@@ -221,14 +222,15 @@ fn test_path_value_and_entries() {
     .collect_vec();
     assert_eq!(actual_entries, expected_entries);
 
-    let actual_entries = merged_tree
+    let actual_entries: Vec<_> = merged_tree
         .entries_matching(&FilesMatcher::new([
             &resolved_file_path,
             &modify_delete_path,
             &file_dir_conflict_sub_path,
         ]))
         .map(|(path, result)| (path, result.unwrap()))
-        .collect_vec();
+        .collect()
+        .block_on();
     let expected_entries = [resolved_file_path, modify_delete_path]
         .iter()
         .sorted()
