@@ -194,13 +194,13 @@ impl Backend for SecretBackend {
         self.inner.write_commit(contents, sign_with).await
     }
 
-    fn get_copy_records(
+    async fn get_copy_records(
         &self,
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        self.inner.get_copy_records(paths, root, head)
+        self.inner.get_copy_records(paths, root, head).await
     }
 
     fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {

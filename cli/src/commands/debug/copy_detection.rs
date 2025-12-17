@@ -18,6 +18,7 @@ use std::io::Write as _;
 use futures::executor::block_on_stream;
 use jj_lib::backend::CopyRecord;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -43,9 +44,12 @@ pub fn cmd_debug_copy_detection(
 
     let commit = ws.resolve_single_rev(ui, &args.revision)?;
     for parent_id in commit.parent_ids() {
-        for CopyRecord { target, source, .. } in
-            block_on_stream(store.get_copy_records(None, parent_id, commit.id())?)
-                .filter_map(|r| r.ok())
+        for CopyRecord { target, source, .. } in block_on_stream(
+            store
+                .get_copy_records(None, parent_id, commit.id())
+                .block_on()?,
+        )
+        .filter_map(|r| r.ok())
         {
             writeln!(
                 ui.stdout(),
