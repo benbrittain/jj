@@ -72,7 +72,9 @@ fn annotate_within(
     domain: &Arc<ResolvedRevsetExpression>,
     file_path: &RepoPath,
 ) -> String {
-    let mut annotator = FileAnnotator::from_commit(commit, file_path).unwrap();
+    let mut annotator = FileAnnotator::from_commit(commit, file_path)
+        .block_on()
+        .unwrap();
     annotator.compute(repo, domain).block_on().unwrap();
     format_annotation(repo, &annotator.to_annotation())
 }
@@ -215,7 +217,9 @@ fn test_annotate_merge_simple() {
     ");
 
     // Calculate incrementally
-    let mut annotator = FileAnnotator::from_commit(&commit4, file_path).unwrap();
+    let mut annotator = FileAnnotator::from_commit(&commit4, file_path)
+        .block_on()
+        .unwrap();
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
     commit4:1*: 2
