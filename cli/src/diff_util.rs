@@ -688,7 +688,7 @@ pub fn get_copy_records<'a>(
     matcher: &'a dyn Matcher,
 ) -> BackendResult<impl Iterator<Item = BackendResult<CopyRecord>> + use<'a>> {
     // TODO: teach backend about matching path prefixes?
-    let stream = store.get_copy_records(None, root, head)?;
+    let stream = store.get_copy_records(None, root, head).block_on()?;
     // TODO: test record.source as well? should be AND-ed or OR-ed?
     Ok(block_on_stream(stream).filter_ok(|record| matcher.matches(&record.target)))
 }

@@ -22,10 +22,10 @@ use std::sync::Arc;
 use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
-use pollster::FutureExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;

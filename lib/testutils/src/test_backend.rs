@@ -415,7 +415,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    fn get_copy_records(
+    async fn get_copy_records(
         &self,
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,

@@ -336,7 +336,7 @@ impl Backend for SimpleBackend {
         Ok((id, commit))
     }
 
-    fn get_copy_records(
+    async fn get_copy_records(
         &self,
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,

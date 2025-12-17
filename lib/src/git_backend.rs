@@ -40,7 +40,6 @@ use gix::objs::CommitRefIter;
 use gix::objs::WriteTo as _;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell as OnceLock;
-use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -484,21 +483,6 @@ impl GitBackend {
             gix::diff::blob::pipeline::Mode::ToGit,
             attributes,
         ))
-    }
-
-    fn read_tree_for_commit<'repo>(
-        &self,
-        repo: &'repo gix::Repository,
-        id: &CommitId,
-    ) -> BackendResult<gix::Tree<'repo>> {
-        let tree = self.read_commit(id).block_on()?.root_tree;
-        // TODO(kfm): probably want to do something here if it is a merge
-        let tree_id = tree.first().clone();
-        let gix_id = validate_git_object_id(&tree_id)?;
-        repo.find_object(gix_id)
-            .map_err(|err| map_not_found_err(err, &tree_id))?
-            .try_into_tree()
-            .map_err(|err| to_read_object_err(err, &tree_id))
     }
 }
 
@@ -1388,15 +1372,32 @@ impl Backend for GitBackend {
         Ok((id, contents))
     }
 
-    fn get_copy_records(
+    async fn get_copy_records(
         &self,
         paths: Option<&[RepoPathBuf]>,
         root_id: &CommitId,
         head_id: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         let repo = self.git_repo();
-        let root_tree = self.read_tree_for_commit(&repo, root_id)?;
-        let head_tree = self.read_tree_for_commit(&repo, head_id)?;
+        let root_commit = self.read_commit(root_id).await?;
+        let head_commit = self.read_commit(head_id).await?;
+        let root_tree = {
+            let tree_id = root_commit.root_tree.first();
+            let gix_id = validate_git_object_id(tree_id)?;
+            repo.find_object(gix_id)
+                .map_err(|err| map_not_found_err(err, tree_id))?
+                .try_into_tree()
+                .map_err(|err| to_read_object_err(err, tree_id))?
+        };
+
+        let head_tree = {
+            let tree_id = head_commit.root_tree.first();
+            let gix_id = validate_git_object_id(tree_id)?;
+            repo.find_object(gix_id)
+                .map_err(|err| map_not_found_err(err, tree_id))?
+                .try_into_tree()
+                .map_err(|err| to_read_object_err(err, tree_id))?
+        };
 
         let change_to_copy_record =
             |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
