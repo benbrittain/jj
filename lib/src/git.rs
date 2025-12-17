@@ -31,7 +31,6 @@ use bstr::BString;
 use futures::StreamExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
-use pollster::FutureExt;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -1564,7 +1563,7 @@ async fn reset_index(
                 .map_err(GitResetHeadError::from_git)?
         }
     } else {
-        build_index_from_merged_tree(git_repo, &parent_tree)?
+        build_index_from_merged_tree(git_repo, &parent_tree).await?
     };
 
     let wc_tree = wc_commit.tree();
@@ -1592,7 +1591,7 @@ async fn reset_index(
         .map_err(GitResetHeadError::from_git)
 }
 
-fn build_index_from_merged_tree(
+async fn build_index_from_merged_tree(
     git_repo: &gix::Repository,
     merged_tree: &MergedTree,
 ) -> Result<gix::index::File, GitResetHeadError> {
@@ -1646,7 +1645,7 @@ fn build_index_from_merged_tree(
     let mut has_many_sided_conflict = false;
 
     let mut entries_stream = merged_tree.entries();
-    while let Some((path, entry)) = entries_stream.next().block_on() {
+    while let Some((path, entry)) = entries_stream.next().await {
         let entry = entry?;
         if let Some(resolved) = entry.as_resolved() {
             push_index_entry(&path, resolved, gix::index::entry::Stage::Unconflicted);

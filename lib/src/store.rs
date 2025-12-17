@@ -102,13 +102,13 @@ impl Store {
         &self.merge_options
     }
 
-    pub fn get_copy_records(
+    pub async fn get_copy_records(
         &self,
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        self.backend.get_copy_records(paths, root, head)
+        self.backend.get_copy_records(paths, root, head).await
     }
 
     pub fn commit_id_length(&self) -> usize {

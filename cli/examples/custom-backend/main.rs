@@ -45,8 +45,8 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt as _;
 use jj_lib::workspace::WorkspaceInitError;
+use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 
 #[derive(clap::Parser, Clone, Debug)]
@@ -200,13 +200,13 @@ impl Backend for JitBackend {
         self.inner.write_commit(contents, sign_with).await
     }
 
-    fn get_copy_records(
+    async fn get_copy_records(
         &self,
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        self.inner.get_copy_records(paths, root, head)
+        self.inner.get_copy_records(paths, root, head).await
     }
 
     fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
