@@ -16,6 +16,8 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -112,22 +114,20 @@ pub(crate) fn cmd_file_show(
                 path: path.to_owned(),
                 value,
             };
-            write_tree_entries(ui, &workspace_command, &template, &tree, [Ok(entry)])?;
+            write_tree_entries(ui, &workspace_command, &template, &tree, [entry])?;
             return Ok(());
         }
     }
 
     let matcher = fileset_expression.to_matcher();
     ui.request_pager();
-    write_tree_entries(
-        ui,
-        &workspace_command,
-        &template,
-        &tree,
-        tree.entries_matching(matcher.as_ref())
-            .map(|(path, value)| Ok((path, value?)))
-            .map_ok(|(path, value)| TreeEntry { path, value }),
-    )?;
+    let entries: Vec<_> = tree
+        .entries_matching(matcher.as_ref())
+        .map(|(path, value)| value.map(|value| (path, value)))
+        .map_ok(|(path, value)| TreeEntry { path, value })
+        .try_collect()
+        .block_on()?;
+    write_tree_entries(ui, &workspace_command, &template, &tree, entries)?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
     Ok(())
 }
@@ -149,11 +149,10 @@ fn write_tree_entries(
     workspace_command: &WorkspaceCommandHelper,
     template: &TemplateRenderer<TreeEntry>,
     tree: &MergedTree,
-    entries: impl IntoIterator<Item = BackendResult<TreeEntry>>,
+    entries: impl IntoIterator<Item = TreeEntry>,
 ) -> Result<(), CommandError> {
     let repo = workspace_command.repo();
     for entry in entries {
-        let entry = entry?;
         template.format(&entry, ui.stdout_formatter().as_mut())?;
         let materialized =
             materialize_tree_value(repo.store(), &entry.path, entry.value, tree.labels())

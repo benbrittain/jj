@@ -1317,7 +1317,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .entries_matching(&*matcher)
                     .map(|(path, value)| value.map(|value| (path, value)))
                     .map_ok(|(path, value)| TreeEntry { path, value })
-                    .try_collect()?;
+                    .try_collect()
+                    .block_on()?;
                 Ok(entries)
             });
             Ok(out_property.into_dyn_wrapped())

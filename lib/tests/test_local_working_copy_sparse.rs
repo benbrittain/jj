@@ -335,7 +335,7 @@ fn test_sparse_commit_gitignore() {
     // Create a tree from the working copy. Only dir1/file2 should be updated in the
     // tree because dir1/file1 is ignored.
     let modified_tree = test_workspace.snapshot().unwrap();
-    let entries = modified_tree.entries().collect_vec();
+    let entries: Vec<_> = modified_tree.entries().collect().block_on();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].0.as_ref(), dir1_file2_path);
 }
