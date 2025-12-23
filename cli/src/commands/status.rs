@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
@@ -150,7 +151,7 @@ pub(crate) fn cmd_status(
         }
 
         if wc_commit.has_conflict() {
-            let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
+            let conflicts: Vec<_> = wc_commit.tree().conflicts_matching(&matcher).collect().block_on();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"

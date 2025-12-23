@@ -44,6 +44,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use either::Either;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use once_cell::unsync::OnceCell;
@@ -56,6 +57,7 @@ use tempfile::NamedTempFile;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
+use tracing::Instrument;
 use tracing::instrument;
 use tracing::trace_span;
 
@@ -1353,12 +1355,14 @@ impl TreeState {
             self.file_states
                 .merge_in(changed_file_states, &deleted_files);
         });
-        trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
-            let new_tree = tree_builder.write_tree()?;
+        async {
+            let new_tree = tree_builder.write_tree().await?;
             is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
             self.tree = new_tree.clone();
-            Ok(())
-        })?;
+            Ok::<(), BackendError>(())
+        }
+        .instrument(trace_span!("write tree"))
+        .await?;
         // Since untracked paths aren't cached in the tree state, we'll need to
         // rescan the working directory changes to report or track them later.
         // TODO: store untracked paths and update watchman_clock?
@@ -1782,7 +1786,7 @@ impl FileSnapshotter<'_> {
         if clean {
             Ok(None)
         } else {
-            let current_tree_values = self.current_tree.path_value(repo_path)?;
+            let current_tree_values = self.current_tree.path_value_async(repo_path).await?;
             let new_file_type = if !self.tree_state.symlink_support {
                 let mut new_file_type = new_file_state.file_type.clone();
                 if matches!(new_file_type, FileType::Normal { .. })
@@ -2366,7 +2370,8 @@ impl TreeState {
                 new_tree
                     .conflicts_matching(matcher)
                     .map(|(path, value)| value.map(|value| (path, value)))
-                    .try_collect()?
+                    .try_collect()
+                    .await?
             } else {
                 HashMap::new()
             };

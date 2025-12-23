@@ -52,6 +52,7 @@ maplit = { workspace = true }
 once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
+pin-project-lite = "0.2.16"
 pollster = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }

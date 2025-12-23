@@ -299,7 +299,7 @@ pub(crate) fn cmd_log(
 
                 let tree = commit.map(|c| c.tree()).unwrap();
                 // TODO: propagate errors
-                explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
+                explicit_paths.retain(|&path| tree.path_value_async(path).block_on().unwrap().is_absent());
 
                 for elided_target in elided_targets {
                     let elided_key = (elided_target, true);
@@ -343,7 +343,7 @@ pub(crate) fn cmd_log(
 
                 let tree = commit.tree();
                 // TODO: propagate errors
-                explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
+                explicit_paths.retain(|&path| tree.path_value_async(path).block_on().unwrap().is_absent());
             }
         }
 

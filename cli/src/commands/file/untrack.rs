@@ -70,7 +70,7 @@ pub(crate) fn cmd_file_untrack(
     while let Some((path, _value)) = stream.next().block_on() {
         tree_builder.set_or_remove(path, Merge::absent());
     }
-    let new_tree = tree_builder.write_tree()?;
+    let new_tree = tree_builder.write_tree().block_on()?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)

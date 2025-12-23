@@ -40,8 +40,8 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
-use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
+use crate::copies::copies_tree_diff_stream;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Diff;
@@ -193,7 +193,7 @@ impl MergedTree {
     /// conflict, not one for each path in the tree.
     pub fn conflicts(
         &self,
-    ) -> impl Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<> {
+    ) -> impl Stream<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<'_> {
         self.conflicts_matching(&EverythingMatcher)
     }
 
@@ -201,20 +201,13 @@ impl MergedTree {
     pub fn conflicts_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,
-    ) -> impl Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<'matcher> {
-        ConflictIterator::new(self, matcher)
+    ) -> impl Stream<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<'matcher, '_> {
+        conflicts(self, matcher)
     }
 
     /// Whether this tree has conflicts.
     pub fn has_conflict(&self) -> bool {
         !self.tree_ids.is_resolved()
-    }
-
-    /// The value at the given path. The value can be `Resolved` even if
-    /// `self` is a `Conflict`, which happens if the value at the path can be
-    /// trivially merged.
-    pub fn path_value(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
-        self.path_value_async(path).block_on()
     }
 
     /// Async version of `path_value()`.
@@ -264,13 +257,7 @@ impl MergedTree {
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
         let concurrency = self.store().concurrency();
-        if concurrency <= 1 {
-            Box::pin(futures::stream::iter(TreeDiffIterator::new(
-                self, other, matcher,
-            )))
-        } else {
-            Box::pin(TreeDiffStreamImpl::new(self, other, matcher, concurrency))
-        }
+        Box::pin(TreeDiffStreamImpl::new(self, other, matcher, concurrency))
     }
 
     /// Stream of the differences between this tree and another tree.
@@ -311,7 +298,7 @@ impl MergedTree {
         copy_records: &'a CopyRecords,
     ) -> BoxStream<'a, CopiesTreeDiffEntry> {
         let stream = self.diff_stream(other, matcher);
-        Box::pin(CopiesTreeDiffStream::new(
+        Box::pin(copies_tree_diff_stream(
             stream,
             self.clone(),
             other.clone(),
@@ -569,180 +556,56 @@ impl ConflictsDirItem {
     }
 }
 
-struct ConflictIterator<'matcher> {
+struct ConflictIteratorState<'matcher> {
     store: Arc<Store>,
     stack: Vec<ConflictsDirItem>,
     matcher: &'matcher dyn Matcher,
 }
 
-impl<'matcher> ConflictIterator<'matcher> {
-    fn new(tree: &MergedTree, matcher: &'matcher dyn Matcher) -> Self {
-        Self {
-            store: tree.store().clone(),
-            stack: vec![ConflictsDirItem {
-                entries: vec![(RepoPathBuf::root(), tree.to_merged_tree_value())],
-            }],
-            matcher,
-        }
-    }
-}
-
-impl Iterator for ConflictIterator<'_> {
-    type Item = (RepoPathBuf, BackendResult<MergedTreeValue>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some((path, tree_values)) = top.entries.pop() {
-                match tree_values.to_tree_merge(&self.store, &path).block_on() {
-                    Ok(Some(trees)) => {
-                        // If all sides are trees or missing, descend into the merged tree
-                        self.stack.push(ConflictsDirItem::new(&trees, self.matcher));
-                    }
-                    Ok(None) => {
-                        // Otherwise this is a conflict between files, trees, etc. If they could
-                        // be automatically resolved, they should have been when the top-level
-                        // tree conflict was written, so we assume that they can't be.
-                        return Some((path, Ok(tree_values)));
-                    }
-                    Err(err) => {
-                        return Some((path, Err(err)));
-                    }
+async fn next_conflict(
+    mut state: ConflictIteratorState<'_>,
+) -> Option<(
+    (RepoPathBuf, BackendResult<MergedTreeValue>),
+    ConflictIteratorState<'_>,
+)> {
+    while let Some(top) = state.stack.last_mut() {
+        if let Some((path, tree_values)) = top.entries.pop() {
+            match tree_values.to_tree_merge(&state.store, &path).await {
+                Ok(Some(trees)) => {
+                    // If all sides are trees or missing, descend into the merged tree
+                    state
+                        .stack
+                        .push(ConflictsDirItem::new(&trees, state.matcher));
                 }
-            } else {
-                self.stack.pop();
+                Ok(None) => {
+                    // Otherwise this is a conflict between files, trees, etc. If they could
+                    // be automatically resolved, they should have been when the top-level
+                    // tree conflict was written, so we assume that they can't be.
+                    return Some(((path, Ok(tree_values)), state));
+                }
+                Err(err) => {
+                    return Some(((path, Err(err)), state));
+                }
             }
-        }
-        None
-    }
-}
-
-/// Iterator over the differences between two trees.
-pub struct TreeDiffIterator<'matcher> {
-    store: Arc<Store>,
-    stack: Vec<TreeDiffDir>,
-    matcher: &'matcher dyn Matcher,
-}
-
-struct TreeDiffDir {
-    entries: Vec<(RepoPathBuf, Diff<MergedTreeValue>)>,
-}
-
-impl<'matcher> TreeDiffIterator<'matcher> {
-    /// Creates a iterator over the differences between two trees.
-    pub fn new(tree1: &MergedTree, tree2: &MergedTree, matcher: &'matcher dyn Matcher) -> Self {
-        assert!(Arc::ptr_eq(tree1.store(), tree2.store()));
-        let root_dir = RepoPath::root();
-        let mut stack = Vec::new();
-        let root_diff = Diff::new(tree1.to_merged_tree_value(), tree2.to_merged_tree_value());
-        if root_diff.is_changed() && !matcher.visit(root_dir).is_nothing() {
-            stack.push(TreeDiffDir {
-                entries: vec![(root_dir.to_owned(), root_diff)],
-            });
-        }
-        Self {
-            store: tree1.store().clone(),
-            stack,
-            matcher,
-        }
-    }
-
-    /// Gets the given trees if `values` are trees, otherwise an empty tree.
-    async fn trees(
-        store: &Arc<Store>,
-        dir: &RepoPath,
-        values: &MergedTreeValue,
-    ) -> BackendResult<Merge<Tree>> {
-        if let Some(trees) = values.to_tree_merge(store, dir).await? {
-            Ok(trees)
         } else {
-            Ok(Merge::resolved(Tree::empty(store.clone(), dir.to_owned())))
+            state.stack.pop();
         }
     }
+    None
 }
 
-impl TreeDiffDir {
-    fn from_trees(
-        dir: &RepoPath,
-        trees1: &Merge<Tree>,
-        trees2: &Merge<Tree>,
-        matcher: &dyn Matcher,
-    ) -> Self {
-        let mut entries = vec![];
-        for (name, diff) in merged_tree_entry_diff(trees1, trees2) {
-            let path = dir.join(name);
-            let tree_before = diff.before.is_tree();
-            let tree_after = diff.after.is_tree();
-            // Check if trees and files match, but only if either side is a tree or a file
-            // (don't query the matcher unnecessarily).
-            let tree_matches = (tree_before || tree_after) && !matcher.visit(&path).is_nothing();
-            let file_matches = (!tree_before || !tree_after) && matcher.matches(&path);
-
-            // Replace trees or files that don't match by `Merge::absent()`
-            let before = if (tree_before && tree_matches) || (!tree_before && file_matches) {
-                diff.before
-            } else {
-                Merge::absent()
-            };
-            let after = if (tree_after && tree_matches) || (!tree_after && file_matches) {
-                diff.after
-            } else {
-                Merge::absent()
-            };
-            if before.is_absent() && after.is_absent() {
-                continue;
-            }
-            entries.push((path, Diff::new(before.cloned(), after.cloned())));
-        }
-        entries.reverse();
-        Self { entries }
-    }
-}
-
-impl Iterator for TreeDiffIterator<'_> {
-    type Item = TreeDiffEntry;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            let Some((path, diff)) = top.entries.pop() else {
-                self.stack.pop().unwrap();
-                continue;
-            };
-
-            if diff.before.is_tree() || diff.after.is_tree() {
-                let (before_tree, after_tree) = match (
-                    Self::trees(&self.store, &path, &diff.before).block_on(),
-                    Self::trees(&self.store, &path, &diff.after).block_on(),
-                ) {
-                    (Ok(before_tree), Ok(after_tree)) => (before_tree, after_tree),
-                    (Err(before_err), _) => {
-                        return Some(TreeDiffEntry {
-                            path,
-                            values: Err(before_err),
-                        });
-                    }
-                    (_, Err(after_err)) => {
-                        return Some(TreeDiffEntry {
-                            path,
-                            values: Err(after_err),
-                        });
-                    }
-                };
-                let subdir =
-                    TreeDiffDir::from_trees(&path, &before_tree, &after_tree, self.matcher);
-                self.stack.push(subdir);
-            }
-            if diff.before.is_file_like()
-                || diff.after.is_file_like()
-                || self.matcher.matches(&path)
-            {
-                return Some(TreeDiffEntry {
-                    path,
-                    values: Ok(diff),
-                });
-            }
-        }
-        None
-    }
+fn conflicts<'matcher>(
+    tree: &MergedTree,
+    matcher: &'matcher dyn Matcher,
+) -> impl Stream<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + 'matcher {
+    let state = ConflictIteratorState {
+        store: tree.store().clone(),
+        stack: vec![ConflictsDirItem {
+            entries: vec![(RepoPathBuf::root(), tree.to_merged_tree_value())],
+        }],
+        matcher,
+    };
+    futures::stream::unfold(state, next_conflict)
 }
 
 /// Stream of differences between two trees.
