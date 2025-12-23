@@ -24,9 +24,11 @@ use std::io::ErrorKind;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use prost::Message as _;
@@ -83,7 +85,7 @@ impl From<SimpleOpStoreInitError> for BackendInitError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleOpStore {
     path: PathBuf,
     root_data: RootOperationData,
@@ -273,8 +275,8 @@ impl OpStore for SimpleOpStore {
             .map_err(|err| OpStoreError::Other(err.into()))
     }
 
-    #[tracing::instrument(skip(self))]
-    fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
+    async fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
+        let x = self.clone();
         let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
             let name = entry.file_name().into_string().ok()?;
             OperationId::try_from_hex(name)
@@ -301,17 +303,31 @@ impl OpStore for SimpleOpStore {
         // Reachable objects are resolved without considering the keep_newer
         // parameter. We could collect ancestors of the "new" operations here,
         // but more files can be added anyway after that.
-        let read_op = |id: &OperationId| {
-            self.read_operation(id)
-                .block_on()
-                .map(|data| (id.clone(), data))
-        };
+        let mut ops = vec![];
+        for id in head_ids {
+            ops.push(self.read_operation(id).await.map(|data| (id.clone(), data)));
+        }
         let reachable_ops: HashMap<OperationId, Operation> = dag_walk::dfs_ok(
-            head_ids.iter().map(read_op),
+            ops.into_iter(),
             |(id, _)| id.clone(),
-            |(_, data)| data.parents.iter().map(read_op).collect_vec(),
+            move |(_, data): &(_, Operation)| {
+                let parents = data.parents.clone();
+                let x = x.clone();
+                async move {
+                    let mut ops = vec![];
+                    for parent in parents {
+                        ops.push(
+                            x.read_operation(&parent)
+                                .await
+                                .map(|data| (parent.clone(), data)),
+                        );
+                    }
+                    ops
+                }
+            },
         )
-        .try_collect()?;
+        .try_collect()
+        .await?;
         let reachable_views: HashSet<&ViewId> =
             reachable_ops.values().map(|data| &data.view_id).collect();
         tracing::info!(

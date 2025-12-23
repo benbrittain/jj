@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
@@ -35,7 +36,6 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::store::Store;
-use pollster::FutureExt as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
@@ -49,6 +49,7 @@ use jj_lib::working_copy::WorkingCopyStateError;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use pollster::FutureExt as _;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -257,6 +258,9 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         let conflicts = commit
             .tree()
             .conflicts()
+            .collect::<Vec<_>>()
+            .block_on()
+            .iter()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
             .join("");
         std::fs::write(self.wc_path.join(".conflicts"), conflicts).unwrap();

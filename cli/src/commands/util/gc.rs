@@ -17,6 +17,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -60,7 +61,8 @@ pub fn cmd_util_gc(
 
     let repo = workspace_command.repo();
     repo.op_store()
-        .gc(slice::from_ref(repo.op_id()), keep_newer)?;
+        .gc(slice::from_ref(repo.op_id()), keep_newer)
+        .block_on()?;
     repo.store().gc(repo.index(), keep_newer)?;
     Ok(())
 }

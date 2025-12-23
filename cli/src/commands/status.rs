@@ -148,7 +148,11 @@ pub(crate) fn cmd_status(
         }
 
         if wc_commit.has_conflict() {
-            let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
+            let conflicts = wc_commit
+                .tree()
+                .conflicts_matching(&matcher)
+                .collect::<Vec<_>>()
+                .block_on();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
