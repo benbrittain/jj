@@ -138,7 +138,7 @@ pub async fn restore_tree(
             let source_value = values?.before;
             tree_builder.set_or_remove(repo_path, source_value);
         }
-        tree_builder.write_tree()
+        tree_builder.write_tree().await
     }
 }
 

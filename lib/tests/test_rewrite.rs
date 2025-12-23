@@ -1048,16 +1048,16 @@ fn test_rebase_descendants_contents() {
     let tree_d = commit_d.tree();
     let new_tree_c = new_commit_c.tree();
     assert_eq!(
-        new_tree_c.path_value(path3).unwrap(),
-        tree_c.path_value(path3).unwrap()
+        new_tree_c.path_value_async(path3).block_on().unwrap(),
+        tree_c.path_value_async(path3).block_on().unwrap()
     );
     assert_eq!(
-        new_tree_c.path_value(path4).unwrap(),
-        tree_d.path_value(path4).unwrap()
+        new_tree_c.path_value_async(path4).block_on().unwrap(),
+        tree_d.path_value_async(path4).block_on().unwrap()
     );
     assert_ne!(
-        new_tree_c.path_value(path2).unwrap(),
-        tree_b.path_value(path2).unwrap()
+        new_tree_c.path_value_async(path2).block_on().unwrap(),
+        tree_b.path_value_async(path2).block_on().unwrap()
     );
 }
 
