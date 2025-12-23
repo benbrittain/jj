@@ -255,13 +255,11 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     }
 
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
-        let conflicts: Vec<_> = commit
-            .tree()
-            .conflicts()
+        let conflicts: Vec<_> = commit.tree().conflicts().collect().await;
+        let conflicts: String = conflicts
+            .iter()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
-            .collect()
-            .await;
-        let conflicts = conflicts.join("");
+            .collect();
         std::fs::write(self.wc_path.join(".conflicts"), conflicts).unwrap();
         self.inner.check_out(commit).await
     }

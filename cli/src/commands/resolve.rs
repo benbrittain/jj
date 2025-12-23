@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use futures::StreamExt as _;
-use pollster::FutureExt as _;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use pollster::FutureExt as _;
@@ -133,10 +132,7 @@ pub(crate) fn cmd_resolve(
         && new_commit.has_conflict()
     {
         let new_tree = new_commit.tree();
-        let new_conflicts: Vec<_> = new_tree
-            .conflicts()
-            .collect()
-            .block_on();
+        let new_conflicts: Vec<_> = new_tree.conflicts().collect().block_on();
         writeln!(
             formatter.labeled("warning").with_heading("Warning: "),
             "After this operation, some files at this revision still have conflicts:"
