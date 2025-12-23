@@ -142,6 +142,7 @@ use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::get_working_copy_factory;
+use futures::StreamExt as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
@@ -2047,7 +2048,11 @@ to the current parents may contain changes from multiple commits.
             && let Some(mut formatter) = ui.status_formatter()
             && new_commit.has_conflict()
         {
-            let conflicts = new_commit.tree().conflicts().collect_vec();
+            let conflicts: Vec<_> = new_commit
+                .tree()
+                .conflicts()
+                .collect()
+                .block_on();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
@@ -2948,7 +2953,7 @@ pub fn print_unmatched_explicit_paths<'a>(
     let mut explicit_paths = expression.explicit_paths().collect_vec();
     for tree in trees {
         // TODO: propagate errors
-        explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
+        explicit_paths.retain(|&path| tree.path_value_async(path).block_on().unwrap().is_absent());
     }
 
     if !explicit_paths.is_empty() {

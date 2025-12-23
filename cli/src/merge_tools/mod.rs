@@ -333,7 +333,7 @@ impl MergeToolFile {
         tree: &MergedTree,
         repo_path: &RepoPath,
     ) -> Result<Self, ConflictResolveError> {
-        let conflict = match tree.path_value(repo_path)?.into_resolved() {
+        let conflict = match tree.path_value_async(repo_path).block_on()?.into_resolved() {
             Err(conflict) => conflict,
             Ok(Some(_)) => return Err(ConflictResolveError::NotAConflict(repo_path.to_owned())),
             Ok(None) => return Err(ConflictResolveError::PathNotFound(repo_path.to_owned())),
@@ -481,7 +481,7 @@ fn pick_conflict_side(
         }));
         tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
-    tree_builder.write_tree()
+    tree_builder.write_tree().block_on()
 }
 
 #[cfg(test)]

@@ -297,8 +297,8 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
             files.push((*left_kind, *right_kind, path.clone()));
         }
     }
-    let left_tree = left_tree_builder.write_tree().unwrap();
-    let right_tree = right_tree_builder.write_tree().unwrap();
+    let left_tree = left_tree_builder.write_tree().block_on().unwrap();
+    let right_tree = right_tree_builder.write_tree().block_on().unwrap();
     let left_commit = commit_with_tree(&store, left_tree);
     let right_commit = commit_with_tree(&store, right_tree.clone());
 
@@ -920,8 +920,8 @@ fn test_materialize_snapshot_conflicted_files() {
 
     // Even though the tree-level conflict is a 3-sided conflict, each file is
     // materialized as a 2-sided conflict.
-    let file1_value = merged_tree.path_value(file1_path).unwrap();
-    let file2_value = merged_tree.path_value(file2_path).unwrap();
+    let file1_value = merged_tree.path_value_async(file1_path).block_on().unwrap();
+    let file2_value = merged_tree.path_value_async(file2_path).block_on().unwrap();
     assert_eq!(file1_value.num_sides(), 3);
     assert_eq!(file2_value.num_sides(), 3);
     insta::assert_snapshot!(
@@ -964,7 +964,7 @@ fn test_materialize_snapshot_conflicted_files() {
     );
 
     let edited_tree = test_workspace.snapshot().unwrap();
-    let edited_file_value = edited_tree.path_value(file1_path).unwrap();
+    let edited_file_value = edited_tree.path_value_async(file1_path).block_on().unwrap();
     let edited_file_values = edited_file_value.iter().flatten().collect_vec();
     assert_eq!(edited_file_values.len(), 5);
 
@@ -1818,7 +1818,7 @@ fn test_git_submodule(gitignore_content: &str) {
         Merge::normal(TreeValue::GitSubmodule(submodule_id1)),
     );
 
-    let tree_id1 = tree_builder.write_tree().unwrap();
+    let tree_id1 = tree_builder.write_tree().block_on().unwrap();
     let commit1 = commit_with_tree(repo.store(), tree_id1.clone());
 
     let mut tree_builder = MergedTreeBuilder::new(tree_id1.clone());
@@ -1827,7 +1827,7 @@ fn test_git_submodule(gitignore_content: &str) {
         submodule_path.to_owned(),
         Merge::normal(TreeValue::GitSubmodule(submodule_id2)),
     );
-    let tree_id2 = tree_builder.write_tree().unwrap();
+    let tree_id2 = tree_builder.write_tree().block_on().unwrap();
     let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
 
     let ws = &mut test_workspace.workspace;
@@ -2624,7 +2624,8 @@ fn test_snapshot_symlink_use_forward_slash() {
         .snapshot()
         .expect("Snapshot with symlink should succeed.");
     let tree_value = tree
-        .path_value(link)
+        .path_value_async(link)
+        .block_on()
         .expect("Failed to retrieve the MergedTreeValue from the path.")
         .into_resolved()
         .expect("Shouldn't have conflicts.")
