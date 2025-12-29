@@ -34,7 +34,7 @@ use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::merged_tree::TreeDiffStream;
+use jj_lib::merged_tree::TreeDiffStreamImpl;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -52,6 +52,20 @@ use testutils::repo_path_component;
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
     let values = diff.values.unwrap();
     (diff.path, (values.before, values.after))
+}
+
+fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn Matcher) {
+    let max_concurrent_reads = 10;
+    let iter_diff: Vec<_> = TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads)
+        .map(|diff| (diff.path, diff.values.unwrap()))
+        .collect()
+        .block_on();
+    tree1.store().clear_caches();
+    let stream_diff: Vec<_> = TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads)
+        .map(|diff| (diff.path, diff.values.unwrap()))
+        .collect()
+        .block_on();
+    assert_eq!(stream_diff, iter_diff);
 }
 
 /// Test that a tree built with no changes on top of an add/add conflict gets
@@ -1794,8 +1808,6 @@ fn test_diff_with_trees_dir_added_removed() {
     assert_eq!(diff_rev[1].0, dir_path.to_owned());
     assert!(diff_rev[1].1.0.is_tree()); // Before: Tree
     assert!(diff_rev[1].1.1.is_absent()); // After: Absent
-
-
 }
 
 #[test]
@@ -1845,8 +1857,6 @@ fn test_diff_with_trees_recursive_modification() {
     assert_eq!(diff[3].0, path.to_owned());
     assert!(diff[3].1.0.is_present());
     assert!(diff[3].1.1.is_present());
-
-
 }
 
 #[test]
@@ -1882,8 +1892,6 @@ fn test_diff_with_trees_no_modifications() {
         .block_on();
 
     assert_eq!(diff_rev.len(), 0);
-
-
 }
 
 #[test]
@@ -1921,8 +1929,6 @@ fn test_diff_with_trees_files_matcher_for_file() {
     // Verify that the file IDs differ due to the content change
     let (before, after) = &diff[0].1;
     assert_ne!(before, after);
-
-
 }
 
 #[test]
@@ -1976,8 +1982,6 @@ fn test_diff_with_trees_glob_matcher_for_path() {
     assert!(!diff[1].1.0.is_tree());
     assert!(!diff[1].1.1.is_tree());
     assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
-
-
 }
 
 #[test]
@@ -2018,6 +2022,4 @@ fn test_diff_with_trees_files_matcher_for_intermediate_directory() {
     // TODO Verify that the diff contains exactly "m", see above.
     // assert_eq!(diff.len(), 1);
     assert_eq!(diff.len(), 0);
-
-
 }

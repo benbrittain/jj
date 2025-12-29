@@ -17,7 +17,7 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::thread;
 
-use futures::StreamExt;
+use futures::StreamExt as _;
 use jj_lib::dag_walk;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -32,12 +32,15 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     let op_id = repo.op_id().clone();
     let mut num_ops = 0;
 
-    let mut stream = pin!(dag_walk::dfs(
+    let op_ids: Vec<_> = dag_walk::dfs(
         vec![op_id],
         |op_id| op_id.clone(),
         |op_id| op_store.read_operation(op_id).block_on().unwrap().parents,
-    ));
-    while let Some(op_id) = stream.next().block_on() {
+    )
+    .collect()
+    .block_on();
+
+    for op_id in op_ids {
         let op = op_store.read_operation(&op_id).block_on().unwrap();
         if op.parents.len() <= 1 {
             num_ops += 1;

@@ -23,7 +23,6 @@ use std::mem;
 
 use futures::Stream;
 use futures::StreamExt as _;
-use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
@@ -748,20 +747,20 @@ mod tests {
 
     use super::*;
 
-    // #[test]
-    // fn test_dfs_ok() {
-    //     let neighbors = hashmap! {
-    //         'A' => vec![],
-    //         'B' => vec![Ok('A'), Err('X')],
-    //         'C' => vec![Ok('B')],
-    //     };
-    //     let id_fn = async |node: &char| *node;
-    //     let neighbors_fn = |node: &char| neighbors[node].clone();
+    #[test]
+    fn test_dfs_ok() {
+        let neighbors = hashmap! {
+            'A' => vec![],
+            'B' => vec![Ok('A'), Err('X')],
+            'C' => vec![Ok('B')],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| neighbors[node].clone();
 
-    //     // Self and neighbor nodes shouldn't be lost at the error.
-    //     let nodes = dfs_ok([Ok('C')], id_fn, neighbors_fn).collect::<Vec<_>>();
-    //     assert_eq!(nodes, [Ok('C'), Ok('B'), Err('X'), Ok('A')]);
-    // }
+        // Self and neighbor nodes shouldn't be lost at the error.
+        let nodes: Vec<_> = dfs_ok([Ok('C')], id_fn, neighbors_fn).collect().block_on();
+        assert_eq!(nodes, [Ok('C'), Ok('B'), Err('X'), Ok('A')]);
+    }
 
     #[test]
     fn test_topo_order_reverse_linear() {

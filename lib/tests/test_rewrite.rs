@@ -253,11 +253,19 @@ fn test_restore_tree_with_conflicts() {
     // After simplifying, the result should have path 1 from the left side and path
     // 2 from the right side.
     assert_eq!(
-        restored.path_value_async(path1).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path1)
+            .block_on()
+            .unwrap()
+            .simplify(),
         left.path_value_async(path1).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value_async(path2).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path2)
+            .block_on()
+            .unwrap()
+            .simplify(),
         right.path_value_async(path2).block_on().unwrap().simplify()
     );
 
@@ -394,15 +402,27 @@ fn test_restore_tree_with_conflicts() {
     // After simplifying, the result should have paths 1 and 3 from the right side
     // and path 2 from the left side.
     assert_eq!(
-        restored.path_value_async(path1).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path1)
+            .block_on()
+            .unwrap()
+            .simplify(),
         right.path_value_async(path1).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value_async(path2).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path2)
+            .block_on()
+            .unwrap()
+            .simplify(),
         left.path_value_async(path2).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value_async(path3).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path3)
+            .block_on()
+            .unwrap()
+            .simplify(),
         right.path_value_async(path3).block_on().unwrap().simplify()
     );
 
@@ -443,15 +463,27 @@ fn test_restore_tree_with_conflicts() {
     // After simplifying, the result should have paths 1 and 2 from the right side
     // and path 3 from the left side.
     assert_eq!(
-        restored.path_value_async(path1).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path1)
+            .block_on()
+            .unwrap()
+            .simplify(),
         right.path_value_async(path1).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value_async(path2).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path2)
+            .block_on()
+            .unwrap()
+            .simplify(),
         right.path_value_async(path2).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value_async(path3).block_on().unwrap().simplify(),
+        restored
+            .path_value_async(path3)
+            .block_on()
+            .unwrap()
+            .simplify(),
         left.path_value_async(path3).block_on().unwrap().simplify()
     );
 

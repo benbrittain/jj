@@ -746,8 +746,8 @@ fn apply_merge_builtin(
         |path| tree.path_value_async(path).block_on(),
         |path, contents, executable| {
             let id = store.write_file(path, &mut &contents[..]).block_on()?;
-            let copy_id =
-                resolve_file_copy_id(&tree.path_value_async(path).block_on()?).unwrap_or_else(CopyId::placeholder);
+            let copy_id = resolve_file_copy_id(&tree.path_value_async(path).block_on()?)
+                .unwrap_or_else(CopyId::placeholder);
             Ok(Merge::normal(TreeValue::File {
                 id,
                 executable,
@@ -2045,12 +2045,21 @@ mod tests {
             apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
 
         assert_eq!(
-            result_tree.path_value_async(matched_path).block_on().unwrap(),
+            result_tree
+                .path_value_async(matched_path)
+                .block_on()
+                .unwrap(),
             left_tree.path_value_async(matched_path).block_on().unwrap()
         );
         assert_eq!(
-            result_tree.path_value_async(unmatched_path).block_on().unwrap(),
-            right_tree.path_value_async(unmatched_path).block_on().unwrap()
+            result_tree
+                .path_value_async(unmatched_path)
+                .block_on()
+                .unwrap(),
+            right_tree
+                .path_value_async(unmatched_path)
+                .block_on()
+                .unwrap()
         );
     }
 

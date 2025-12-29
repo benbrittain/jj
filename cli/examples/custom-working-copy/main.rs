@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::StreamExt as _;
-use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
