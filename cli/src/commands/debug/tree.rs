@@ -18,11 +18,9 @@ use std::pin::Pin;
 
 use futures::Stream;
 use futures::StreamExt as _;
-use jj_lib::backend::BackendResult;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::merge::Merge;
-use jj_lib::merge::MergedTreeValue;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt;

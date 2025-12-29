@@ -24,13 +24,11 @@ use std::io::ErrorKind;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use tempfile::NamedTempFile;
@@ -957,6 +955,7 @@ mod tests {
     use maplit::btreemap;
     use maplit::hashmap;
     use maplit::hashset;
+    use pollster::FutureExt as _;
 
     use super::*;
     use crate::hex_util;

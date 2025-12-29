@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use itertools::Itertools as _;
+use futures::StreamExt as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
@@ -254,12 +254,14 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     }
 
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
-        let conflicts = commit
+        let conflicts: Vec<String> = commit
             .tree()
             .conflicts()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
-            .join("");
-        std::fs::write(self.wc_path.join(".conflicts"), conflicts).unwrap();
+            .collect()
+            .await;
+        let conflicts_text = conflicts.join("");
+        std::fs::write(self.wc_path.join(".conflicts"), conflicts_text).unwrap();
         self.inner.check_out(commit).await
     }
 

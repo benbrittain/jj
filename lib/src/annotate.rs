@@ -27,7 +27,6 @@ use std::sync::Arc;
 use bstr::BStr;
 use bstr::BString;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;

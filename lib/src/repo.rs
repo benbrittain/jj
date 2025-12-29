@@ -267,7 +267,10 @@ impl ReadonlyRepo {
         };
 
         let root_operation = loader.root_operation().block_on();
-        let root_view = root_operation.view().expect("failed to read root view");
+        let root_view = root_operation
+            .view()
+            .block_on()
+            .expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
             .index_store
@@ -765,13 +768,13 @@ impl RepoLoader {
             async |op_heads| self.resolve_op_heads(op_heads).await,
         )
         .await?;
-        let view = op.view()?;
+        let view = op.view().await?;
         self.finish_load(op, view).await
     }
 
     #[instrument(skip(self))]
     pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let view = op.view()?;
+        let view = op.view().await?;
         self.finish_load(op.clone(), view).await
     }
 

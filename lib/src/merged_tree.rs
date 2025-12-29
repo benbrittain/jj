@@ -34,7 +34,6 @@ use futures::stream::BoxStream;
 use futures::task;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
 use crate::backend::TreeId;

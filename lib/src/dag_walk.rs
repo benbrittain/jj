@@ -23,7 +23,6 @@ use std::mem;
 
 use futures::Stream;
 use futures::StreamExt as _;
-use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
@@ -736,6 +735,7 @@ fn to_infallibe_iter<T>(
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
     use std::pin::pin;
 
     use assert_matches::assert_matches;
@@ -755,10 +755,12 @@ mod tests {
             'C' => vec![Ok('B')],
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| neighbors[node].clone();
+        let neighbors_fn = async |node: &char| neighbors[node].clone();
 
         // Self and neighbor nodes shouldn't be lost at the error.
-        let nodes = dfs_ok([Ok('C')], id_fn, neighbors_fn).collect_vec();
+        let nodes: Vec<_> = dfs_ok([Ok('C')], id_fn, neighbors_fn)
+            .collect()
+            .block_on();
         assert_eq!(nodes, [Ok('C'), Ok('B'), Err('X'), Ok('A')]);
     }
 

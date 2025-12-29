@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use futures::StreamExt as _;
-use pollster::FutureExt as _;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -86,7 +86,7 @@ pub(crate) fn cmd_resolve(
     let matcher = fileset_expression.to_matcher();
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let tree = commit.tree();
-    let conflicts = tree.conflicts_matching(&matcher).collect_vec();
+    let conflicts: Vec<_> = tree.conflicts_matching(&matcher).collect().block_on();
 
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
@@ -117,7 +117,8 @@ pub(crate) fn cmd_resolve(
         .repo_mut()
         .rewrite_commit(&commit)
         .set_tree(new_tree)
-        .write().block_on()?;
+        .write()
+        .block_on()?;
     tx.finish(
         ui,
         format!("Resolve conflicts in commit {}", commit.id().hex()),
@@ -131,10 +132,7 @@ pub(crate) fn cmd_resolve(
         && new_commit.has_conflict()
     {
         let new_tree = new_commit.tree();
-        let new_conflicts: Vec<_> = new_tree
-            .conflicts()
-            .collect()
-            .block_on();
+        let new_conflicts: Vec<_> = new_tree.conflicts().collect().block_on();
         writeln!(
             formatter.labeled("warning").with_heading("Warning: "),
             "After this operation, some files at this revision still have conflicts:"
