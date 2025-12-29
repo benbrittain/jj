@@ -47,6 +47,7 @@ fn run_custom_command(
             let new_commit = tx
                 .repo_mut()
                 .rewrite_commit(&commit)
+                .block_on()
                 .set_description("Frobnicated!")
                 .write()
                 .block_on()?;

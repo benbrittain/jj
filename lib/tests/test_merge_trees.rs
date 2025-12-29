@@ -93,6 +93,7 @@ fn test_simplify_conflict_after_resolving_parent() {
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b2)
+        .block_on()
         .set_tree(tree_b3)
         .write()
         .block_on()

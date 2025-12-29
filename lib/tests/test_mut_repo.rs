@@ -718,6 +718,7 @@ fn test_reparent_descendants() {
     let mut_repo = tx.repo_mut();
     mut_repo
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_tree(create_random_tree(&repo))
         .write()
         .block_on()

@@ -97,7 +97,7 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
             to_sign.iter().ids().cloned().collect_vec(),
             async |rewriter| {
                 let old_commit = rewriter.old_commit().clone();
-                let mut commit_builder = rewriter.reparent();
+                let mut commit_builder = rewriter.reparent().await;
 
                 if to_sign.contains(&old_commit) {
                     if let Some(key) = &args.key {

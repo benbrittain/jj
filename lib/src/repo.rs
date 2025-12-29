@@ -201,15 +201,15 @@ impl ReadonlyRepo {
     }
 
     #[expect(clippy::too_many_arguments)]
-    pub fn init(
+    pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
-        backend_initializer: &BackendInitializer,
+        backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
-        op_store_initializer: &OpStoreInitializer,
-        op_heads_store_initializer: &OpHeadsStoreInitializer,
-        index_store_initializer: &IndexStoreInitializer,
-        submodule_store_initializer: &SubmoduleStoreInitializer,
+        op_store_initializer: &OpStoreInitializer<'_>,
+        op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
+        index_store_initializer: &IndexStoreInitializer<'_>,
+        submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
     ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
@@ -239,7 +239,7 @@ impl ReadonlyRepo {
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store
             .update_op_heads(&[], op_store.root_operation_id())
-            .block_on()?;
+            .await?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
@@ -266,15 +266,16 @@ impl ReadonlyRepo {
             submodule_store,
         };
 
-        let root_operation = loader.root_operation().block_on();
+        let root_operation = loader.root_operation().await;
         let root_view = root_operation
             .view()
-            .block_on()
+            .await
             .expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
             .index_store
             .get_index_at_op(&root_operation, &loader.store)
+            .await
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
@@ -853,7 +854,10 @@ impl RepoLoader {
         operation: Operation,
         view: View,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let index = self.index_store.get_index_at_op(&operation, &self.store)?;
+        let index = self
+            .index_store
+            .get_index_at_op(&operation, &self.store)
+            .block_on()?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
@@ -962,10 +966,10 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
-    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
+    pub async fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor)
-            .block_on()
+            .await
             .attach(self)
         // CommitBuilder::write will record the rewrite in
         // `self.rewritten_commits`
@@ -1475,7 +1479,7 @@ impl MutableRepo {
         let mut num_reparented = 0;
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
-                let builder = rewriter.reparent();
+                let builder = rewriter.reparent().await;
                 builder.write().await?;
                 num_reparented += 1;
             }

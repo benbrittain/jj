@@ -65,6 +65,7 @@ pub type IndexResult<T> = Result<T, IndexError>;
 
 /// Defines the interface for types that provide persistent storage for an
 /// index.
+#[async_trait(?Send)]
 pub trait IndexStore: Any + Send + Sync + Debug {
     /// Returns a name representing the type of index that the `IndexStore` is
     /// compatible with. For example, the `IndexStore` for the default index
@@ -72,7 +73,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     /// Returns the index at the specified operation.
-    fn get_index_at_op(
+    async fn get_index_at_op(
         &self,
         op: &Operation,
         store: &Arc<Store>,
@@ -80,7 +81,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
 
     /// Writes `index` to the index store and returns a read-only version of the
     /// index.
-    fn write_index(
+    async fn write_index(
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,

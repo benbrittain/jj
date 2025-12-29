@@ -943,6 +943,7 @@ fn test_rebase_descendants_repeated() {
     let commit_b2 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_description("b2")
         .write()
         .block_on()
@@ -968,6 +969,7 @@ fn test_rebase_descendants_repeated() {
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b2)
+        .block_on()
         .set_description("b3")
         .write()
         .block_on()
@@ -1080,7 +1082,7 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).block_on().write().block_on().unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1117,6 +1119,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     let commit_b2 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_description("different")
         .write()
         .block_on()
@@ -1124,6 +1127,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     let commit_c2 = tx
         .repo_mut()
         .rewrite_commit(&commit_c)
+        .block_on()
         .set_description("more different")
         .write()
         .block_on()
@@ -1170,7 +1174,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).block_on().write().block_on().unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1283,11 +1287,12 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).block_on().write().block_on().unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_description("different")
         .write()
         .block_on()
@@ -1296,6 +1301,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     let commit_b4 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_description("more different")
         .write()
         .block_on()
@@ -1308,10 +1314,11 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
             commit_b4.id().clone(),
         ],
     );
-    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).write().block_on().unwrap();
+    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).block_on().write().block_on().unwrap();
     let commit_b42 = tx
         .repo_mut()
         .rewrite_commit(&commit_b4)
+        .block_on()
         .set_description("different")
         .write()
         .block_on()
@@ -1378,20 +1385,22 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write().block_on().unwrap();
+    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).block_on().write().block_on().unwrap();
     // Different description so they're not the same commit
     let commit_a3 = tx
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("different")
         .write()
         .block_on()
         .unwrap();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).block_on().write().block_on().unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_description("different")
         .write()
         .block_on()
@@ -1462,6 +1471,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
     let commit_b2 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_parents(vec![commit_c.id().clone()])
         .write()
         .block_on()
@@ -1656,6 +1666,7 @@ fn test_rebase_descendants_update_checkout() {
     let commit_c = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
+        .block_on()
         .set_description("C")
         .write()
         .block_on()

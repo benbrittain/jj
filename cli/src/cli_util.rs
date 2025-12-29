@@ -1957,6 +1957,7 @@ to the current parents may contain changes from multiple commits.
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
                 .rewrite_commit(&wc_commit)
+                .block_on()
                 .set_tree(new_tree)
                 .write()
                 .block_on()
