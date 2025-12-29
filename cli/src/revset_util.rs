@@ -112,6 +112,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         );
         self.expression
             .resolve_user_expression(self.repo, &symbol_resolver)
+            .block_on()
     }
 
     /// Evaluates the expression.
@@ -256,7 +257,7 @@ pub(super) fn warn_unresolvable_trunk(
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
     let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    if let Err(err) = expression.resolve_user_expression(repo, &symbol_resolver) {
+    if let Err(err) = expression.resolve_user_expression(repo, &symbol_resolver).block_on() {
         writeln!(
             ui.warning_default(),
             "Failed to resolve `revset-aliases.trunk()`: {err}"
