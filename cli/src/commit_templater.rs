@@ -1401,6 +1401,7 @@ fn evaluate_revset_expression<'repo>(
     );
     let revset = expression
         .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
         .map_err(|err| make_error().with_source(err))?
         .evaluate(repo)
         .block_on()
@@ -2139,7 +2140,7 @@ where
                 })
                 .transpose()?;
             let repo = language.repo;
-            let index = match language.id_prefix_context.populate(repo) {
+            let index = match language.id_prefix_context.populate(repo).block_on() {
                 Ok(index) => index,
                 Err(err) => {
                     // Not an error because we can still produce somewhat

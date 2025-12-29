@@ -14,6 +14,7 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
@@ -87,8 +88,9 @@ struct TheDigitestResolver {
     cache: MostDigitsInId,
 }
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for TheDigitestResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -99,7 +101,7 @@ impl PartialSymbolResolver for TheDigitestResolver {
 
         Ok(RevsetExpression::all()
             .evaluate(repo)
-            .block_on()
+            .await
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
             .iter()
             .map(Result::unwrap)

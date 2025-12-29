@@ -1596,7 +1596,7 @@ impl MutableRepo {
                 .get_commit_async(&wc_commit_id)
                 .await
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
-            if wc_commit.is_discardable(self).block_on()?
+            if wc_commit.is_discardable(self).await?
                 && self
                     .view
                     .with_ref(|v| !is_commit_referenced(v, wc_commit.id()))

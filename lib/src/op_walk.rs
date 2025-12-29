@@ -158,7 +158,7 @@ async fn resolve_single_op(
     };
     let mut operation = match op_symbol {
         "@" => get_current_op().await,
-        s => resolve_single_op_from_store(op_store, s),
+        s => resolve_single_op_from_store(op_store, s).await,
     }?;
     for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
@@ -188,7 +188,7 @@ async fn resolve_single_op(
     Ok(operation)
 }
 
-fn resolve_single_op_from_store(
+async fn resolve_single_op_from_store(
     op_store: &Arc<dyn OpStore>,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
@@ -197,7 +197,7 @@ fn resolve_single_op_from_store(
     }
     let prefix = HexPrefix::try_from_hex(op_str)
         .ok_or_else(|| OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()))?;
-    match op_store.resolve_operation_id_prefix(&prefix).block_on()? {
+    match op_store.resolve_operation_id_prefix(&prefix).await? {
         PrefixResolution::NoMatch => {
             Err(OpsetResolutionError::NoSuchOperation(op_str.to_owned()).into())
         }

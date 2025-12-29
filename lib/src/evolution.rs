@@ -24,7 +24,6 @@ use std::slice;
 use futures::Stream;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -91,7 +90,7 @@ pub enum WalkPredecessorsError {
 pub fn walk_predecessors<'repo>(
     repo: &'repo ReadonlyRepo,
     start_commits: &[CommitId],
-) -> impl Iterator<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
+) -> WalkPredecessors<'repo, std::pin::Pin<Box<dyn Stream<Item = OpStoreResult<Operation>> + 'repo>>> {
     let op_ancestors = Box::pin(op_walk::walk_ancestors(slice::from_ref(repo.operation())));
     WalkPredecessors {
         repo,
@@ -101,7 +100,8 @@ pub fn walk_predecessors<'repo>(
     }
 }
 
-struct WalkPredecessors<'repo, I> {
+#[expect(missing_docs)]
+pub struct WalkPredecessors<'repo, I> {
     repo: &'repo ReadonlyRepo,
     op_ancestors: I,
     to_visit: Vec<CommitId>,
@@ -263,14 +263,19 @@ where
     }
 }
 
-impl<I> Iterator for WalkPredecessors<'_, I>
+impl<I> Stream for WalkPredecessors<'_, I>
 where
-    I: Stream<Item = OpStoreResult<Operation>> + Unpin,
+    I: Stream<Item = OpStoreResult<Operation>> + std::marker::Unpin,
 {
     type Item = Result<CommitEvolutionEntry, WalkPredecessorsError>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.try_next().block_on().transpose()
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let fut = self.try_next();
+        let mut fut = pin!(fut);
+        fut.as_mut().poll(cx).map(|result| result.transpose())
     }
 }
 
