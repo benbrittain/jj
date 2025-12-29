@@ -148,10 +148,10 @@ pub(crate) fn cmd_status(
         }
 
         if wc_commit.has_conflict() {
-            let conflicts = wc_commit
+            let conflicts: Vec<_> = wc_commit
                 .tree()
                 .conflicts_matching(&matcher)
-                .collect::<Vec<_>>()
+                .collect()
                 .block_on();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),

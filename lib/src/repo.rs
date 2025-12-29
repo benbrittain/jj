@@ -267,7 +267,10 @@ impl ReadonlyRepo {
         };
 
         let root_operation = loader.root_operation().block_on();
-        let root_view = root_operation.view().expect("failed to read root view");
+        let root_view = root_operation
+            .view()
+            .block_on()
+            .expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
             .index_store
@@ -336,7 +339,7 @@ impl ReadonlyRepo {
 
     #[instrument]
     pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation)
+        self.loader().load_at(operation).block_on()
     }
 }
 
@@ -762,13 +765,13 @@ impl RepoLoader {
             async |op_heads| self.resolve_op_heads(op_heads).await,
         )
         .await?;
-        let view = op.view()?;
+        let view = op.view().await?;
         self.finish_load(op, view)
     }
 
     #[instrument(skip(self))]
-    pub fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let view = op.view()?;
+    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        let view = op.view().await?;
         self.finish_load(op.clone(), view)
     }
 
@@ -817,7 +820,7 @@ impl RepoLoader {
             return Ok(self.root_operation().await);
         };
         let final_op = if num_operations > 1 {
-            let base_repo = self.load_at(&base_op)?;
+            let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
                 tx.merge_operation(other_op).await?;

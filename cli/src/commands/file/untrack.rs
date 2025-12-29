@@ -13,11 +13,9 @@
 // limitations under the License.
 
 use std::io::Write as _;
-use std::path::PathBuf;
 
 use clap_complete::ArgValueCompleter;
 use futures::StreamExt as _;
-use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathBuf;
