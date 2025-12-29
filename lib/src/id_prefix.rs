@@ -19,9 +19,9 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
 use thiserror::Error;
+use tokio::sync::OnceCell;
 
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -60,33 +60,36 @@ struct Indexes {
 }
 
 impl DisambiguationData {
-    fn indexes(
+    async fn indexes(
         &self,
         repo: &dyn Repo,
         extensions: &[Box<dyn SymbolResolverExtension>],
     ) -> Result<&Indexes, IdPrefixIndexLoadError> {
-        self.indexes.get_or_try_init(|| {
-            let symbol_resolver = SymbolResolver::new(repo, extensions);
-            let revset = self
-                .expression
-                .resolve_user_expression(repo, &symbol_resolver)?
-                .evaluate(repo)
-                .block_on()?;
+        self.indexes
+            .get_or_try_init(|| async {
+                let symbol_resolver = SymbolResolver::new(repo, extensions);
+                let revset: Arc<crate::revset::ResolvedRevsetExpression> = self
+                    .expression
+                    .resolve_user_expression(repo, &symbol_resolver)
+                    .await?;
 
-            let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect()?;
-            let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
-            let mut change_index = IdIndex::with_capacity(commit_change_ids.len());
-            for (i, (commit_id, change_id)) in commit_change_ids.iter().enumerate() {
-                let i: u32 = i.try_into().unwrap();
-                commit_index.insert(commit_id, i);
-                change_index.insert(change_id, i);
-            }
-            Ok(Indexes {
-                commit_change_ids,
-                commit_index: commit_index.build(),
-                change_index: change_index.build(),
+                let revset = revset.evaluate(repo).await?;
+
+                let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect()?;
+                let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
+                let mut change_index = IdIndex::with_capacity(commit_change_ids.len());
+                for (i, (commit_id, change_id)) in commit_change_ids.iter().enumerate() {
+                    let i: u32 = i.try_into().unwrap();
+                    commit_index.insert(commit_id, i);
+                    change_index.insert(change_id, i);
+                }
+                Ok(Indexes {
+                    commit_change_ids,
+                    commit_index: commit_index.build(),
+                    change_index: change_index.build(),
+                })
             })
-        })
+            .await
     }
 }
 
@@ -137,9 +140,16 @@ impl IdPrefixContext {
 
     /// Loads disambiguation index once, returns a borrowed index to
     /// disambiguate commit/change IDs.
-    pub fn populate(&self, repo: &dyn Repo) -> Result<IdPrefixIndex<'_>, IdPrefixIndexLoadError> {
+    pub async fn populate(
+        &self,
+        repo: &dyn Repo,
+    ) -> Result<IdPrefixIndex<'_>, IdPrefixIndexLoadError> {
         let indexes = if let Some(disambiguation) = &self.disambiguation {
-            Some(disambiguation.indexes(repo, self.extensions.symbol_resolvers())?)
+            Some(
+                disambiguation
+                    .indexes(repo, self.extensions.symbol_resolvers())
+                    .await?,
+            )
         } else {
             None
         };

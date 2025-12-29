@@ -24,6 +24,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -638,12 +639,12 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 impl UserRevsetExpression {
     /// Resolve a user-provided expression. Symbols will be resolved using the
     /// provided [`SymbolResolver`].
-    pub fn resolve_user_expression(
+    pub async fn resolve_user_expression(
         &self,
         repo: &dyn Repo,
-        symbol_resolver: &SymbolResolver,
+        symbol_resolver: &SymbolResolver<'_>,
     ) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
-        resolve_symbols(repo, self, symbol_resolver)
+        resolve_symbols(repo, self, symbol_resolver).await
     }
 }
 
@@ -1693,26 +1694,27 @@ fn try_transform_expression<St: ExpressionState, E>(
 ///
 /// This is similar to [`try_transform_expression()`], but is supposed to
 /// transform the resolution state from `InSt` to `OutSt`.
+#[async_trait(?Send)]
 trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     type Error;
 
     /// Transforms the `expression`. By default, inner items are transformed
     /// recursively.
-    fn fold_expression(
+    async fn fold_expression(
         &mut self,
         expression: &RevsetExpression<InSt>,
     ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error> {
-        fold_child_expression_state(self, expression)
+        fold_child_expression_state(self, expression).await
     }
 
     /// Transforms commit ref such as symbol.
-    fn fold_commit_ref(
+    async fn fold_commit_ref(
         &mut self,
         commit_ref: &InSt::CommitRef,
     ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 
     /// Transforms `at_operation(operation, candidates)` expression.
-    fn fold_at_operation(
+    async fn fold_at_operation(
         &mut self,
         operation: &InSt::Operation,
         candidates: &RevsetExpression<InSt>,
@@ -1720,7 +1722,7 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
 }
 
 /// Transforms inner items of the `expression` by using the `folder`.
-fn fold_child_expression_state<InSt, OutSt, F>(
+async fn fold_child_expression_state<InSt, OutSt, F>(
     folder: &mut F,
     expression: &RevsetExpression<InSt>,
 ) -> Result<Arc<RevsetExpression<OutSt>>, F::Error>
@@ -1738,13 +1740,13 @@ where
         }
         RevsetExpression::Root => RevsetExpression::Root.into(),
         RevsetExpression::Commits(ids) => RevsetExpression::Commits(ids.clone()).into(),
-        RevsetExpression::CommitRef(commit_ref) => folder.fold_commit_ref(commit_ref)?,
+        RevsetExpression::CommitRef(commit_ref) => folder.fold_commit_ref(commit_ref).await?,
         RevsetExpression::Ancestors {
             heads,
             generation,
             parents_range,
         } => {
-            let heads = folder.fold_expression(heads)?;
+            let heads = folder.fold_expression(heads).await?;
             let generation = generation.clone();
             let parents_range = parents_range.clone();
             RevsetExpression::Ancestors {
@@ -1755,7 +1757,7 @@ where
             .into()
         }
         RevsetExpression::Descendants { roots, generation } => {
-            let roots = folder.fold_expression(roots)?;
+            let roots = folder.fold_expression(roots).await?;
             let generation = generation.clone();
             RevsetExpression::Descendants { roots, generation }.into()
         }
@@ -1765,8 +1767,8 @@ where
             generation,
             parents_range,
         } => {
-            let roots = folder.fold_expression(roots)?;
-            let heads = folder.fold_expression(heads)?;
+            let roots = folder.fold_expression(roots).await?;
+            let heads = folder.fold_expression(heads).await?;
             let generation = generation.clone();
             let parents_range = parents_range.clone();
             RevsetExpression::Range {
@@ -1778,17 +1780,17 @@ where
             .into()
         }
         RevsetExpression::DagRange { roots, heads } => {
-            let roots = folder.fold_expression(roots)?;
-            let heads = folder.fold_expression(heads)?;
+            let roots = folder.fold_expression(roots).await?;
+            let heads = folder.fold_expression(heads).await?;
             RevsetExpression::DagRange { roots, heads }.into()
         }
         RevsetExpression::Reachable { sources, domain } => {
-            let sources = folder.fold_expression(sources)?;
-            let domain = folder.fold_expression(domain)?;
+            let sources = folder.fold_expression(sources).await?;
+            let domain = folder.fold_expression(domain).await?;
             RevsetExpression::Reachable { sources, domain }.into()
         }
         RevsetExpression::Heads(heads) => {
-            let heads = folder.fold_expression(heads)?;
+            let heads = folder.fold_expression(heads).await?;
             RevsetExpression::Heads(heads).into()
         }
         RevsetExpression::HeadsRange {
@@ -1797,10 +1799,10 @@ where
             parents_range,
             filter,
         } => {
-            let roots = folder.fold_expression(roots)?;
-            let heads = folder.fold_expression(heads)?;
+            let roots = folder.fold_expression(roots).await?;
+            let heads = folder.fold_expression(heads).await?;
             let parents_range = parents_range.clone();
-            let filter = folder.fold_expression(filter)?;
+            let filter = folder.fold_expression(filter).await?;
             RevsetExpression::HeadsRange {
                 roots,
                 heads,
@@ -1810,19 +1812,19 @@ where
             .into()
         }
         RevsetExpression::Roots(roots) => {
-            let roots = folder.fold_expression(roots)?;
+            let roots = folder.fold_expression(roots).await?;
             RevsetExpression::Roots(roots).into()
         }
         RevsetExpression::ForkPoint(expression) => {
-            let expression = folder.fold_expression(expression)?;
+            let expression = folder.fold_expression(expression).await?;
             RevsetExpression::ForkPoint(expression).into()
         }
         RevsetExpression::Bisect(expression) => {
-            let expression = folder.fold_expression(expression)?;
+            let expression = folder.fold_expression(expression).await?;
             RevsetExpression::Bisect(expression).into()
         }
         RevsetExpression::HasSize { candidates, count } => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = folder.fold_expression(candidates).await?;
             RevsetExpression::HasSize {
                 candidates,
                 count: *count,
@@ -1830,24 +1832,24 @@ where
             .into()
         }
         RevsetExpression::Latest { candidates, count } => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = folder.fold_expression(candidates).await?;
             let count = *count;
             RevsetExpression::Latest { candidates, count }.into()
         }
         RevsetExpression::Filter(predicate) => RevsetExpression::Filter(predicate.clone()).into(),
         RevsetExpression::AsFilter(candidates) => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = folder.fold_expression(candidates).await?;
             RevsetExpression::AsFilter(candidates).into()
         }
         RevsetExpression::AtOperation {
             operation,
             candidates,
-        } => folder.fold_at_operation(operation, candidates)?,
+        } => folder.fold_at_operation(operation, candidates).await?,
         RevsetExpression::WithinReference {
             candidates,
             commits,
         } => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = folder.fold_expression(candidates).await?;
             let commits = commits.clone();
             RevsetExpression::WithinReference {
                 candidates,
@@ -1859,7 +1861,7 @@ where
             candidates,
             visible_heads,
         } => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = folder.fold_expression(candidates).await?;
             let visible_heads = visible_heads.clone();
             RevsetExpression::WithinVisibility {
                 candidates,
@@ -1868,31 +1870,31 @@ where
             .into()
         }
         RevsetExpression::Coalesce(expression1, expression2) => {
-            let expression1 = folder.fold_expression(expression1)?;
-            let expression2 = folder.fold_expression(expression2)?;
+            let expression1 = folder.fold_expression(expression1).await?;
+            let expression2 = folder.fold_expression(expression2).await?;
             RevsetExpression::Coalesce(expression1, expression2).into()
         }
         RevsetExpression::Present(candidates) => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = folder.fold_expression(candidates).await?;
             RevsetExpression::Present(candidates).into()
         }
         RevsetExpression::NotIn(complement) => {
-            let complement = folder.fold_expression(complement)?;
+            let complement = folder.fold_expression(complement).await?;
             RevsetExpression::NotIn(complement).into()
         }
         RevsetExpression::Union(expression1, expression2) => {
-            let expression1 = folder.fold_expression(expression1)?;
-            let expression2 = folder.fold_expression(expression2)?;
+            let expression1 = folder.fold_expression(expression1).await?;
+            let expression2 = folder.fold_expression(expression2).await?;
             RevsetExpression::Union(expression1, expression2).into()
         }
         RevsetExpression::Intersection(expression1, expression2) => {
-            let expression1 = folder.fold_expression(expression1)?;
-            let expression2 = folder.fold_expression(expression2)?;
+            let expression1 = folder.fold_expression(expression1).await?;
+            let expression2 = folder.fold_expression(expression2).await?;
             RevsetExpression::Intersection(expression1, expression2).into()
         }
         RevsetExpression::Difference(expression1, expression2) => {
-            let expression1 = folder.fold_expression(expression1)?;
-            let expression2 = folder.fold_expression(expression2)?;
+            let expression1 = folder.fold_expression(expression1).await?;
+            let expression2 = folder.fold_expression(expression2).await?;
             RevsetExpression::Difference(expression1, expression2).into()
         }
     };
@@ -2571,7 +2573,7 @@ pub async fn walk_revs<'index>(
         .await
 }
 
-fn reload_repo_at_operation(
+async fn reload_repo_at_operation(
     repo: &dyn Repo,
     op_str: &str,
 ) -> Result<Arc<ReadonlyRepo>, RevsetResolutionError> {
@@ -2580,11 +2582,11 @@ fn reload_repo_at_operation(
     // to the outer repo.
     let base_repo = repo.base_repo();
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
-        .block_on()
+        .await
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
     base_repo
         .reload_at(&operation)
-        .block_on()
+        .await
         .map_err(|err| match err {
             RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
             RepoLoaderError::Index(_)
@@ -2654,8 +2656,9 @@ fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionE
 /// A symbol resolver for a specific namespace of labels.
 ///
 /// Returns None if it cannot handle the symbol.
+#[async_trait(?Send)]
 pub trait PartialSymbolResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2664,8 +2667,9 @@ pub trait PartialSymbolResolver {
 
 struct TagResolver;
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for TagResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2677,8 +2681,9 @@ impl PartialSymbolResolver for TagResolver {
 
 struct BookmarkResolver;
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for BookmarkResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2690,8 +2695,9 @@ impl PartialSymbolResolver for BookmarkResolver {
 
 struct GitRefResolver;
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for GitRefResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2716,17 +2722,18 @@ struct CommitPrefixResolver<'a> {
 }
 
 impl CommitPrefixResolver<'_> {
-    fn try_resolve(
+    async fn try_resolve(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
-        let index = self
-            .context
-            .map(|ctx| ctx.populate(self.context_repo))
-            .transpose()
-            .map_err(|err| RevsetResolutionError::Other(err.into()))?
-            .unwrap_or(IdPrefixIndex::empty());
+        let index = if let Some(ctx) = self.context {
+            ctx.populate(self.context_repo)
+                .await
+                .map_err(|e| RevsetResolutionError::Other(Box::new(e)))?
+        } else {
+            IdPrefixIndex::empty()
+        };
         match index
             .resolve_commit_prefix(repo, prefix)
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
@@ -2740,14 +2747,15 @@ impl CommitPrefixResolver<'_> {
     }
 }
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for CommitPrefixResolver<'_> {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
         if let Some(prefix) = HexPrefix::try_from_hex(symbol) {
-            self.try_resolve(repo, &prefix)
+            Ok(self.try_resolve(repo, &prefix).await?)
         } else {
             Ok(None)
         }
@@ -2760,17 +2768,18 @@ struct ChangePrefixResolver<'a> {
 }
 
 impl ChangePrefixResolver<'_> {
-    fn try_resolve(
+    async fn try_resolve(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
     ) -> Result<Option<ResolvedChangeTargets>, RevsetResolutionError> {
-        let index = self
-            .context
-            .map(|ctx| ctx.populate(self.context_repo))
-            .transpose()
-            .map_err(|err| RevsetResolutionError::Other(err.into()))?
-            .unwrap_or(IdPrefixIndex::empty());
+        let index = if let Some(ctx) = self.context {
+            ctx.populate(self.context_repo)
+                .await
+                .map_err(|e| RevsetResolutionError::Other(Box::new(e)))?
+        } else {
+            IdPrefixIndex::empty()
+        };
         match index
             .resolve_change_prefix(repo, prefix)
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
@@ -2784,8 +2793,9 @@ impl ChangePrefixResolver<'_> {
     }
 }
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for ChangePrefixResolver<'_> {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2804,7 +2814,7 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
         let Some(prefix) = HexPrefix::try_from_reverse_hex(change_id) else {
             return Ok(None);
         };
-        let Some(targets) = self.try_resolve(repo, &prefix)? else {
+        let Some(targets) = self.try_resolve(repo, &prefix).await? else {
             return Ok(None);
         };
         if let Some(offset) = offset {
@@ -2887,7 +2897,7 @@ impl<'a> SymbolResolver<'a> {
     }
 
     /// Looks up `symbol` in the given `repo`.
-    pub fn resolve_symbol(
+    pub async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2897,7 +2907,7 @@ impl<'a> SymbolResolver<'a> {
         }
 
         for partial_resolver in self.partial_resolvers() {
-            if let Some(id) = partial_resolver.resolve_symbol(repo, symbol)? {
+            if let Some(id) = partial_resolver.resolve_symbol(repo, symbol).await? {
                 return Ok(id);
             }
         }
@@ -2906,14 +2916,14 @@ impl<'a> SymbolResolver<'a> {
     }
 }
 
-fn resolve_commit_ref(
+async fn resolve_commit_ref(
     repo: &dyn Repo,
     commit_ref: &RevsetCommitRef,
-    symbol_resolver: &SymbolResolver,
+    symbol_resolver: &SymbolResolver<'_>,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     match commit_ref {
         RevsetCommitRef::Symbol(symbol) => {
-            let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
+            let commit_id = symbol_resolver.resolve_symbol(repo, symbol).await?;
             Ok(vec![commit_id])
         }
         RevsetCommitRef::RemoteSymbol(symbol) => {
@@ -2934,13 +2944,18 @@ fn resolve_commit_ref(
         RevsetCommitRef::ChangeId(prefix) => {
             let resolver = &symbol_resolver.change_id_resolver;
             Ok(resolver
-                .try_resolve(repo, prefix)?
+                .try_resolve(repo, prefix)
+                .await?
                 .and_then(ResolvedChangeTargets::into_visible)
                 .unwrap_or_else(Vec::new))
         }
         RevsetCommitRef::CommitId(prefix) => {
             let resolver = &symbol_resolver.commit_id_resolver;
-            Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
+            Ok(resolver
+                .try_resolve(repo, prefix)
+                .await?
+                .into_iter()
+                .collect())
         }
         RevsetCommitRef::Bookmarks(expression) => {
             let commit_ids = repo
@@ -3012,19 +3027,22 @@ impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
     }
 }
 
+#[async_trait(?Send)]
 impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     for ExpressionSymbolResolver<'_, '_>
 {
     type Error = RevsetResolutionError;
 
-    fn fold_expression(
+    async fn fold_expression(
         &mut self,
         expression: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         match expression {
             // 'present(x)' opens new symbol resolution scope to map error to 'none()'
-            RevsetExpression::Present(candidates) => {
-                self.fold_expression(candidates).or_else(|err| match err {
+            RevsetExpression::Present(candidates) => self
+                .fold_expression(candidates)
+                .await
+                .or_else(|err| match err {
                     RevsetResolutionError::NoSuchRevision { .. }
                     | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. } => {
                         Ok(RevsetExpression::none())
@@ -3036,28 +3054,27 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
                     | RevsetResolutionError::ConflictedRef { .. }
                     | RevsetResolutionError::Backend(_)
                     | RevsetResolutionError::Other(_) => Err(err),
-                })
-            }
-            _ => fold_child_expression_state(self, expression),
+                }),
+            _ => fold_child_expression_state(self, expression).await,
         }
     }
 
-    fn fold_commit_ref(
+    async fn fold_commit_ref(
         &mut self,
         commit_ref: &RevsetCommitRef,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)?;
+        let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver).await?;
         Ok(RevsetExpression::commits(commit_ids))
     }
 
-    fn fold_at_operation(
+    async fn fold_at_operation(
         &mut self,
         operation: &String,
         candidates: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        let repo = reload_repo_at_operation(self.repo(), operation)?;
+        let repo = reload_repo_at_operation(self.repo(), operation).await?;
         self.repo_stack.push(repo);
-        let candidates = self.fold_expression(candidates)?;
+        let candidates = self.fold_expression(candidates).await?;
         let visible_heads = self.repo().view().heads().iter().cloned().collect();
         self.repo_stack.pop();
         Ok(Arc::new(RevsetExpression::WithinVisibility {
@@ -3067,13 +3084,13 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     }
 }
 
-fn resolve_symbols(
+async fn resolve_symbols(
     repo: &dyn Repo,
     expression: &UserRevsetExpression,
-    symbol_resolver: &SymbolResolver,
+    symbol_resolver: &SymbolResolver<'_>,
 ) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
     let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
-    resolver.fold_expression(expression)
+    resolver.fold_expression(expression).await
 }
 
 /// Inserts implicit `all()` and `visible_heads()` nodes to the `expression`.
