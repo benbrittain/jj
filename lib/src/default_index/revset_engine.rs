@@ -216,6 +216,16 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         let positions = PositionsAccumulator::new(self.index.clone(), self.inner.positions());
         Box::new(move |commit_id| positions.contains(commit_id))
     }
+
+    fn stream<'a>(
+        &self,
+    ) -> Box<dyn futures::Stream<Item = Result<CommitId, RevsetEvaluationError>> + Unpin + 'a>
+    where
+        Self: 'a,
+    {
+        // TODO make this not just a iter wrapper
+        Box::new(futures::stream::iter(self.iter()))
+    }
 }
 
 /// Incrementally consumes `RevWalk` of the revset collecting positions.

@@ -20,6 +20,8 @@ use std::slice;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
+use futures::TryFutureExt;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
 use indexmap::IndexMap;
@@ -49,7 +51,7 @@ use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetIteratorExt as _;
+use crate::revset::RevsetStreamExt as _;
 use crate::store::Store;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
@@ -549,15 +551,18 @@ pub async fn compute_move_commits(
 
             target_commit_ids = commit_ids.iter().cloned().collect();
 
-            connected_target_commits = RevsetExpression::commits(commit_ids.clone())
+            let expr = RevsetExpression::commits(commit_ids.clone())
                 .connected()
                 .evaluate(repo)
                 .await
-                .map_err(|err| err.into_backend_error())?
-                .iter()
-                .commits(repo.store())
-                .try_collect()
                 .map_err(|err| err.into_backend_error())?;
+            connected_target_commits = expr
+                .stream()
+                .commits(repo.store().clone())
+                .try_collect::<Vec<_>>()
+                .await
+                .map_err(|err| err.into_backend_error())?;
+
             connected_target_commits_internal_parents =
                 compute_internal_parents_within(&target_commit_ids, &connected_target_commits);
 
@@ -646,9 +651,10 @@ pub async fn compute_move_commits(
                 .evaluate(repo)
                 .await
                 .map_err(|err| err.into_backend_error())?
-                .iter()
-                .commits(repo.store())
-                .try_collect()
+                .stream()
+                .commits(repo.store().clone())
+                .try_collect::<Vec<_>>()
+                .await
                 .map_err(|err| err.into_backend_error())?;
 
         // For all commits in the target set, compute its transitive descendant commits
@@ -934,17 +940,18 @@ pub async fn duplicate_commits(
     let mut num_rebased = 0;
 
     let target_commit_ids: IndexSet<_> = target_commit_ids.iter().cloned().collect();
+    let expr = RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
+        .connected()
+        .evaluate(mut_repo)
+        .await
+        .map_err(|err| err.into_backend_error())?;
 
-    let connected_target_commits: Vec<_> =
-        RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
-            .connected()
-            .evaluate(mut_repo)
-            .await
-            .map_err(|err| err.into_backend_error())?
-            .iter()
-            .commits(mut_repo.store())
-            .try_collect()
-            .map_err(|err| err.into_backend_error())?;
+    let connected_target_commits: Vec<_> = expr
+        .stream()
+        .commits(mut_repo.store().clone())
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|err| err.into_backend_error())?;
 
     // Commits in the target set should only have other commits in the set as
     // parents, except the roots of the set, which persist their original
@@ -1363,9 +1370,10 @@ pub async fn find_duplicate_divergent_commits(
             .evaluate(repo)
             .await
             .map_err(|err| err.into_backend_error())?
-            .iter()
-            .commits(repo.store())
+            .stream()
+            .commits(repo.store().clone())
             .try_collect()
+            .await
             .map_err(|err| err.into_backend_error())?,
     };
     let target_commit_ids: HashSet<&CommitId> = target_commits.iter().map(Commit::id).collect();

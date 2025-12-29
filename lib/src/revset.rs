@@ -25,6 +25,8 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use async_trait::async_trait;
+use futures::Stream;
+use futures::StreamExt;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -3374,6 +3376,12 @@ pub trait Revset: fmt::Debug {
     where
         Self: 'a;
 
+    fn stream<'a>(
+        &self,
+    ) -> Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + Unpin + 'a>
+    where
+        Self: 'a;
+
     /// Iterates commit/change id pairs in topological order.
     fn commit_change_ids<'a>(
         &self,
@@ -3408,6 +3416,27 @@ pub trait Revset: fmt::Debug {
 
 /// Function that checks if a commit is contained within the revset.
 pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError> + 'a;
+
+pub trait RevsetStreamExt: Stream<Item = Result<CommitId, RevsetEvaluationError>> {
+    fn commits(self, store: Arc<Store>) -> impl Stream<Item = Result<Commit, RevsetEvaluationError>>
+    where
+        Self: Sized + 'static,
+    {
+        let store = store.clone();
+        self.then(move |commit_id_result| {
+            let store = store.clone();
+            async move {
+                let commit_id = commit_id_result?;
+                store
+                    .get_commit_async(&commit_id)
+                    .await
+                    .map_err(RevsetEvaluationError::Backend)
+            }
+        })
+    }
+}
+
+impl<T> RevsetStreamExt for T where T: Stream<Item = Result<CommitId, RevsetEvaluationError>> {}
 
 pub trait RevsetIteratorExt<I> {
     fn commits(self, store: &Arc<Store>) -> RevsetCommitIterator<I>;
