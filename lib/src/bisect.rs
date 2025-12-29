@@ -15,8 +15,11 @@
 //! Bisect a range of commits.
 
 use std::collections::HashSet;
+use std::pin::pin;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -27,6 +30,7 @@ use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
+use crate::revset::RevsetStreamExt as _;
 
 /// An error that occurred while bisecting
 #[derive(Error, Debug)]
@@ -102,8 +106,9 @@ impl<'repo> Bisector<'repo> {
             .heads()
             .evaluate(repo)
             .await?
-            .iter()
-            .try_collect()?;
+            .stream()
+            .try_collect()
+            .await?;
         Ok(Self {
             repo,
             input_range,
@@ -178,12 +183,10 @@ impl<'repo> Bisector<'repo> {
             .bisect()
             .latest(1);
         let to_evaluate_set = to_evaluate_expr.evaluate(self.repo).await?;
-        if let Some(commit) = to_evaluate_set
-            .iter()
-            .commits(self.repo.store())
-            .next()
-            .transpose()?
-        {
+
+        let mut commits = pin!(to_evaluate_set.stream().commits(self.repo.store().clone()));
+        if let Some(commit) = commits.next().await {
+            let commit = commit?;
             Ok(NextStep::Evaluate(commit))
         } else {
             let bad_roots = bad_expr.roots().evaluate(self.repo).await?;
