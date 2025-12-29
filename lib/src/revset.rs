@@ -26,7 +26,6 @@ use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;

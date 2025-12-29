@@ -19,7 +19,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tokio::sync::OnceCell;
 

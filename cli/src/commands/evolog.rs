@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
@@ -143,15 +144,20 @@ pub(crate) fn cmd_evolog(
     let formatter = formatter.as_mut();
 
     let repo = workspace_command.repo();
-    let evolution_entries = walk_predecessors(repo, &start_commit_ids);
+    let evolution_entries_stream = walk_predecessors(repo, &start_commit_ids);
+    let evolution_entries_vec: Vec<_> = evolution_entries_stream.try_collect().block_on()?;
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let evolution_nodes = evolution_entries.map_ok(|entry| {
+        let evolution_nodes = evolution_entries_vec.into_iter().map(|entry| {
             let ids = entry.predecessor_ids();
-            let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
-            (entry, edges)
+            let edges = ids
+                .iter()
+                .cloned()
+                .map(GraphEdge::direct)
+                .collect::<Vec<_>>();
+            Ok::<_, CommandError>((entry, edges))
         });
         // TopoGroupedGraphIterator also helps emit squashed commits in reverse
         // chronological order. Predecessors don't need to follow any defined
@@ -206,12 +212,14 @@ pub(crate) fn cmd_evolog(
             )?;
         }
     } else {
-        let evolution_entries = evolution_entries.take(args.limit.unwrap_or(usize::MAX));
+        let evolution_entries = evolution_entries_vec
+            .into_iter()
+            .take(args.limit.unwrap_or(usize::MAX));
         let evolution_entries: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let entries: Vec<_> = evolution_entries.try_collect()?;
-            Box::new(entries.into_iter().rev().map(Ok))
+            let entries: Vec<_> = evolution_entries.collect();
+            Box::new(entries.into_iter().rev().map(Ok::<_, CommandError>))
         } else {
-            Box::new(evolution_entries)
+            Box::new(evolution_entries.map(Ok))
         };
 
         for entry in evolution_entries {

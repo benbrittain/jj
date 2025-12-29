@@ -101,7 +101,7 @@ impl PartialSymbolResolver for TheDigitestResolver {
 
         Ok(RevsetExpression::all()
             .evaluate(repo)
-            .block_on()
+            .await
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
             .iter()
             .map(Result::unwrap)
