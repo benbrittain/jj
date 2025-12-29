@@ -254,13 +254,12 @@ pub(crate) async fn is_backend_commit_empty(
     commit: &backend::Commit,
 ) -> BackendResult<bool> {
     if let [parent_id] = &*commit.parents {
-        return Ok(commit.root_tree == *store.get_commit(parent_id)?.tree_ids());
+        return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_ids());
     }
-    let parents: Vec<_> = commit
-        .parents
-        .iter()
-        .map(|id| store.get_commit(id))
-        .try_collect()?;
+    let mut parents = vec![];
+    for id in &commit.parents {
+        parents.push(store.get_commit_async(&id).await?);
+    }
     let parent_tree = merge_commit_trees(repo, &parents).await?;
     Ok(commit.root_tree == *parent_tree.tree_ids())
 }

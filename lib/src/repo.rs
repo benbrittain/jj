@@ -26,6 +26,7 @@ use std::slice;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
@@ -95,6 +96,7 @@ use crate::revset;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
+use crate::revset::RevsetStreamExt;
 use crate::rewrite::CommitRewriter;
 use crate::rewrite::RebaseOptions;
 use crate::rewrite::RebasedCommit;
@@ -1280,9 +1282,10 @@ impl MutableRepo {
             .await
             .map_err(|err| err.into_backend_error())?;
         let to_visit = to_visit_revset
-            .iter()
-            .commits(self.store())
+            .stream()
+            .commits(self.store().clone())
             .try_collect()
+            .await
             .map_err(|err| err.into_backend_error())?;
         Ok(to_visit)
     }
