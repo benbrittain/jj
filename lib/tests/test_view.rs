@@ -562,6 +562,7 @@ fn test_merge_views_divergent() {
     let commit_a2 = tx1
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("A2")
         .write()
         .block_on()
@@ -572,6 +573,7 @@ fn test_merge_views_divergent() {
     let commit_a3 = tx2
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("A3")
         .write()
         .block_on()
@@ -605,6 +607,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) {
     let commit_a2 = tx2
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("A2")
         .write()
         .block_on()
@@ -654,6 +657,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
     let commit_a4 = tx2
         .repo_mut()
         .rewrite_commit(&commit_a2)
+        .block_on()
         .set_description("A4")
         .write()
         .block_on()

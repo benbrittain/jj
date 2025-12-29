@@ -386,6 +386,7 @@ fn test_rewritten() {
     let commit2b = tx
         .repo_mut()
         .rewrite_commit(&commits[2])
+        .block_on()
         .set_description("2b")
         .write()
         .block_on()

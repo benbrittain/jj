@@ -143,6 +143,7 @@ don't make any changes, then the operation will be aborted.",
     } else {
         tx.repo_mut()
             .rewrite_commit(&target_commit)
+            .block_on()
             .set_tree(edited_tree)
             .write()
             .block_on()?;

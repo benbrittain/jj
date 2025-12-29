@@ -116,6 +116,7 @@ pub(crate) fn cmd_resolve(
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&commit)
+        .block_on()
         .set_tree(new_tree)
         .write()
         .block_on()?;

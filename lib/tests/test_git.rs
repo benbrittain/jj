@@ -1752,6 +1752,7 @@ impl GitRepoData {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
         )
+        .block_on()
         .unwrap();
         Self {
             _temp_dir: temp_dir,
@@ -3377,6 +3378,7 @@ fn test_init() {
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
     )
+    .block_on()
     .unwrap();
     // The refs were *not* imported -- it's the caller's responsibility to import
     // any refs they care about.
@@ -4472,6 +4474,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
     )
+    .block_on()
     .unwrap();
     get_git_backend(&jj_repo)
         .import_head_commits(&[jj_id(initial_git_commit)])

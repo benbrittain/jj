@@ -120,6 +120,7 @@ pub(crate) fn cmd_file_chmod(
     let new_tree = tree_builder.write_tree().block_on()?;
     tx.repo_mut()
         .rewrite_commit(&commit)
+        .block_on()
         .set_tree(new_tree)
         .write()
         .block_on()?;

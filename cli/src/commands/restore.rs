@@ -179,6 +179,7 @@ pub(crate) fn cmd_restore(
         let mut tx = workspace_command.start_transaction();
         tx.repo_mut()
             .rewrite_commit(&to_commit)
+            .block_on()
             .set_tree(new_tree)
             .write()
             .block_on()?;
