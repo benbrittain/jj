@@ -469,6 +469,7 @@ fn test_resolve_symbol_hidden_change_id() {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("updated commit")
         .write()
         .block_on()
@@ -544,6 +545,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .write()
         .block_on()
         .unwrap();
@@ -3922,6 +3924,7 @@ fn test_evaluate_expression_at_operation() {
     let commit1_op2 = tx
         .repo_mut()
         .rewrite_commit(&commit1_op1)
+        .block_on()
         .set_description("commit1@op2")
         .write()
         .block_on()

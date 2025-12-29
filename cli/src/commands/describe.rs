@@ -203,7 +203,7 @@ pub(crate) fn cmd_describe(
     let mut commit_builders = commits
         .iter()
         .map(|commit| {
-            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
+            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).block_on().detach();
             if let Some(description) = &shared_description {
                 commit_builder.set_description(description);
             }
@@ -320,7 +320,7 @@ pub(crate) fn cmd_describe(
             commit_builders.keys().map(|&id| id.clone()).collect(),
             async |rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let commit_builder = rewriter.reparent();
+                let commit_builder = rewriter.reparent().await;
                 if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
                     commit_builder
                         .set_description(temp_builder.description())

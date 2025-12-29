@@ -72,6 +72,7 @@ pub(crate) fn cmd_file_untrack(
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
+        .block_on()
         .set_tree(new_tree)
         .write()
         .block_on()?;
