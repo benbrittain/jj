@@ -22,6 +22,7 @@ use criterion::measurement::Measurement;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use pollster::FutureExt as _;
 
 use super::CriterionArgs;
 use super::new_criterion;
@@ -94,6 +95,7 @@ fn bench_revset<M: Measurement>(
             SymbolResolver::new(repo, &([] as [Box<dyn SymbolResolverExtension>; 0]));
         let resolved = expression
             .resolve_user_expression(repo, &symbol_resolver)
+            .block_on()
             .unwrap();
         let revset = resolved.evaluate(repo).block_on().unwrap();
         revset.iter().count()

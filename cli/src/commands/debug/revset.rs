@@ -71,7 +71,9 @@ pub fn cmd_debug_revset(
         command.revset_extensions().symbol_resolvers(),
         workspace_command.id_prefix_context(),
     );
-    let mut expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let mut expression = expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()?;
     writeln!(ui.stdout(), "-- Resolved:")?;
     writeln!(ui.stdout(), "{expression:#?}")?;
     writeln!(ui.stdout())?;

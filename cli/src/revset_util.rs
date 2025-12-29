@@ -112,6 +112,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         );
         self.expression
             .resolve_user_expression(self.repo, &symbol_resolver)
+            .block_on()
     }
 
     /// Evaluates the expression.
@@ -256,7 +257,9 @@ pub(super) fn try_resolve_trunk_alias(
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
     let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let resolved = expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()?;
     Ok(Some(resolved))
 }
 
