@@ -715,15 +715,15 @@ where
 }
 
 pub(super) async fn evaluate<I: AsCompositeIndex + Clone>(
-    expression: &ResolvedExpression,
-    store: &Arc<Store>,
+    expression: ResolvedExpression,
+    store: Arc<Store>,
     index: I,
 ) -> Result<RevsetImpl<I>, RevsetEvaluationError> {
     let context = EvaluationContext {
         store: store.clone(),
         index: index.as_composite(),
     };
-    let internal_revset = context.evaluate(expression).await?;
+    let internal_revset = context.evaluate(&expression).await?;
     Ok(RevsetImpl::new(internal_revset, index))
 }
 

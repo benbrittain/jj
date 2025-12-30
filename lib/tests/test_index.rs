@@ -283,7 +283,7 @@ fn test_index_commits_criss_cross() {
             parents_range: PARENTS_RANGE_FULL,
         };
         let revset = index
-            .evaluate_revset(&expression, repo.store())
+            .evaluate_revset(expression, repo.store().clone())
             .block_on()
             .unwrap();
         // Don't switch to more efficient .count() implementation. Here we're
