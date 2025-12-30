@@ -152,9 +152,9 @@ pub trait Index: Send + Sync {
     /// `store`.
     async fn evaluate_revset(
         &self,
-        expression: &ResolvedExpression,
-        store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError>;
+        expression: ResolvedExpression,
+        store: Arc<Store>,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError>;
 }
 
 #[expect(missing_docs)]

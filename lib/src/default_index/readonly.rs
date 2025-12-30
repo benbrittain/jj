@@ -698,8 +698,8 @@ impl DefaultReadonlyIndex {
     #[doc(hidden)] // for tests
     pub async fn evaluate_revset_impl(
         &self,
-        expression: &ResolvedExpression,
-        store: &Arc<Store>,
+        expression: ResolvedExpression,
+        store: Arc<Store>,
     ) -> Result<DefaultReadonlyIndexRevset, RevsetEvaluationError> {
         let inner = revset_engine::evaluate(expression, store, self.clone()).await?;
         Ok(DefaultReadonlyIndexRevset { inner })
@@ -758,9 +758,9 @@ impl Index for DefaultReadonlyIndex {
 
     async fn evaluate_revset(
         &self,
-        expression: &ResolvedExpression,
-        store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
+        expression: ResolvedExpression,
+        store: Arc<Store>,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         self.0.evaluate_revset(expression, store).await
     }
 }
