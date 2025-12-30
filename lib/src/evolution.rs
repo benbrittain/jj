@@ -150,8 +150,8 @@ where
         }
 
         let store = self.repo.store();
-        let mut emit = |id: &CommitId| -> BackendResult<()> {
-            let commit = store.get_commit(id)?;
+        let mut emit = async |id: &CommitId| -> BackendResult<()> {
+            let commit = store.get_commit_async(id).await?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: Some(op.clone()),
@@ -161,7 +161,7 @@ where
         };
         match &*to_emit {
             [] => {}
-            [id] if !has_dup => emit(id)?,
+            [id] if !has_dup => emit(id).await?,
             _ => {
                 let sorted_ids = dag_walk::topo_order_reverse_ok(
                     to_emit.iter().map(Ok),
@@ -173,7 +173,7 @@ where
                 .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
                 for &id in &sorted_ids {
                     if op.predecessors_for_commit(id).is_some() {
-                        emit(id)?;
+                        emit(id).await?;
                     }
                 }
             }
