@@ -32,7 +32,7 @@ fn revset_for_commits(repo: &ReadonlyRepo, commits: &[&Commit]) -> DefaultReadon
     let expression =
         ResolvedExpression::Commits(commits.iter().map(|commit| commit.id().clone()).collect());
     index
-        .evaluate_revset_impl(&expression, repo.store())
+        .evaluate_revset_impl(expression, repo.store().clone())
         .block_on()
         .unwrap()
 }

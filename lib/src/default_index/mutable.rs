@@ -592,9 +592,9 @@ impl Index for DefaultMutableIndex {
 
     async fn evaluate_revset(
         &self,
-        expression: &ResolvedExpression,
-        store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
+        expression: ResolvedExpression,
+        store: Arc<Store>,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         self.0.evaluate_revset(expression, store).await
     }
 }

@@ -667,9 +667,11 @@ impl ResolvedRevsetExpression {
     pub async fn evaluate<'index>(
         self: Arc<Self>,
         repo: &'index dyn Repo,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         let expr = optimize(self).to_backend_expression(repo);
-        repo.index().evaluate_revset(&expr, repo.store()).await
+        repo.index()
+            .evaluate_revset(expr, repo.store().clone())
+            .await
     }
 
     /// Evaluates this expression without optimizing it.
@@ -679,14 +681,16 @@ impl ResolvedRevsetExpression {
     pub async fn evaluate_unoptimized<'index>(
         self: &Arc<Self>,
         repo: &'index dyn Repo,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         // Since referenced commits change the evaluation result, they must be
         // collected no matter if optimization is disabled.
         let expr = resolve_referenced_commits(self)
             .as_ref()
             .unwrap_or(self)
             .to_backend_expression(repo);
-        repo.index().evaluate_revset(&expr, repo.store()).await
+        repo.index()
+            .evaluate_revset(expr, repo.store().clone())
+            .await
     }
 
     /// Transforms this expression to the form which the `Index` backend will
