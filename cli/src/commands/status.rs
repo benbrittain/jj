@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
@@ -162,7 +163,7 @@ pub(crate) fn cmd_status(
             let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
 
             // Ancestors with conflicts, excluding the current working copy commit.
-            let ancestors_conflicts: Vec<_> = workspace_command
+            let stream = workspace_command
                 .attach_revset_evaluator(
                     wc_revset
                         .parents()
@@ -170,8 +171,12 @@ pub(crate) fn cmd_status(
                         .filtered(RevsetFilterPredicate::HasConflict)
                         .minus(&workspace_command.env().immutable_expression()),
                 )
-                .evaluate_to_commit_ids()?
-                .try_collect()?;
+                .evaluate_to_commit_ids()?;
+            let mut stream = std::pin::Pin::from(stream);
+            let mut ancestors_conflicts = Vec::new();
+            while let Some(commit_id) = stream.as_mut().next().block_on() {
+                ancestors_conflicts.push(commit_id?);
+            }
 
             workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
         } else {

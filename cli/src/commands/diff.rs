@@ -14,6 +14,8 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
@@ -144,7 +146,7 @@ pub(crate) fn cmd_diff(
             .unwrap_or(std::slice::from_ref(&RevisionArg::AT));
         let revisions_evaluator = workspace_command.parse_union_revsets(ui, revision_args)?;
         let target_expression = revisions_evaluator.expression();
-        let mut gaps_revset = workspace_command
+        let gaps_revset = workspace_command
             .attach_revset_evaluator(
                 target_expression
                     .roots()
@@ -152,7 +154,8 @@ pub(crate) fn cmd_diff(
                     .minus(target_expression),
             )
             .evaluate_to_commit_ids()?;
-        if let Some(commit_id) = gaps_revset.next() {
+        let mut gaps_revset = std::pin::Pin::from(gaps_revset);
+        if let Some(commit_id) = gaps_revset.as_mut().next().block_on() {
             return Err(user_error_with_hint(
                 "Cannot diff revsets with gaps in.",
                 format!(
@@ -161,14 +164,14 @@ pub(crate) fn cmd_diff(
                 ),
             ));
         }
-        let heads: Vec<_> = workspace_command
+        let heads_stream = workspace_command
             .attach_revset_evaluator(target_expression.heads())
-            .evaluate_to_commits()?
-            .try_collect()?;
-        let roots: Vec<_> = workspace_command
+            .evaluate_to_commits()?;
+        let heads: Vec<_> = heads_stream.try_collect().block_on()?;
+        let roots_stream = workspace_command
             .attach_revset_evaluator(target_expression.roots())
-            .evaluate_to_commits()?
-            .try_collect()?;
+            .evaluate_to_commits()?;
+        let roots: Vec<_> = roots_stream.try_collect().block_on()?;
 
         // Collect parents outside of revset to preserve parent order
         let parents: IndexSet<_> = roots.iter().flat_map(|c| c.parents()).try_collect()?;

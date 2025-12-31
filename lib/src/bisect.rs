@@ -29,7 +29,6 @@ use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetIteratorExt as _;
 use crate::revset::RevsetStreamExt as _;
 
 /// An error that occurred while bisecting
@@ -190,7 +189,11 @@ impl<'repo> Bisector<'repo> {
             Ok(NextStep::Evaluate(commit))
         } else {
             let bad_roots = bad_expr.roots().evaluate(self.repo).await?;
-            let bad_commits: Vec<_> = bad_roots.iter().commits(self.repo.store()).try_collect()?;
+            let bad_commits: Vec<_> = bad_roots
+                .stream()
+                .commits(self.repo.store().clone())
+                .try_collect()
+                .await?;
             if bad_commits.is_empty() {
                 Ok(NextStep::Done(BisectionResult::Indeterminate))
             } else {

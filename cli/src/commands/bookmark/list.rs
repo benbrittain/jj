@@ -16,10 +16,13 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
+use pollster::FutureExt as _;
 
 use super::warn_unmatched_local_or_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -143,7 +146,13 @@ pub fn cmd_bookmark_list(
         // Intersects with the set of local bookmark targets to minimize the lookup
         // space.
         expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
-        expression.evaluate_to_commit_ids()?.try_collect()?
+        let stream = expression.evaluate_to_commit_ids()?;
+        let mut stream = std::pin::Pin::from(stream);
+        let mut result = HashSet::new();
+        while let Some(commit_id) = stream.as_mut().next().block_on() {
+            result.insert(commit_id?);
+        }
+        result
     } else {
         HashSet::new()
     };

@@ -15,6 +15,7 @@
 use std::io::Write as _;
 use std::sync::Arc;
 
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -22,7 +23,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
@@ -187,9 +188,10 @@ fn get_target_commit(
     let targets: Vec<Commit> = target_revset
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
-        .iter()
-        .commits(workspace_command.repo().store())
-        .try_collect()?;
+        .stream()
+        .commits(workspace_command.repo().store().clone())
+        .try_collect()
+        .block_on()?;
 
     let target = match targets.as_slice() {
         [target] => target,
@@ -198,9 +200,10 @@ fn get_target_commit(
             let start_commits: Vec<Commit> = start_revset
                 .evaluate(workspace_command.repo().as_ref())
                 .block_on()?
-                .iter()
-                .commits(workspace_command.repo().store())
-                .try_collect()?;
+                .stream()
+                .commits(workspace_command.repo().store().clone())
+                .try_collect()
+                .block_on()?;
             return Err(direction.target_not_found_error(workspace_command, args, &start_commits));
         }
         commits => choose_commit(ui, workspace_command, direction, commits)?,

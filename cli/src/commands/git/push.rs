@@ -50,6 +50,8 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
@@ -569,11 +571,13 @@ fn validate_commits_ready_to_push(
 
     let mut commits_to_sign = vec![];
 
-    for commit in workspace_helper
+    let commits: Vec<Commit> = workspace_helper
         .attach_revset_evaluator(commits_to_push)
         .evaluate_to_commits()?
-    {
-        let commit = commit?;
+        .try_collect()
+        .block_on()?;
+
+    for commit in commits {
         let mut reasons = vec![];
         if commit.description().is_empty() && !args.allow_empty_description {
             reasons.push("it has no description");
@@ -1014,11 +1018,15 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         )
         .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
         .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
-        let mut commit_ids = workspace_command
+        let stream = workspace_command
             .attach_revset_evaluator(expression)
-            .evaluate_to_commit_ids()?
-            .peekable();
-        if commit_ids.peek().is_none() {
+            .evaluate_to_commit_ids()?;
+        let mut stream = std::pin::Pin::from(stream);
+        let mut commit_ids = Vec::new();
+        while let Some(commit_id) = stream.as_mut().next().block_on() {
+            commit_ids.push(commit_id?);
+        }
+        if commit_ids.is_empty() {
             writeln!(
                 ui.warning_default(),
                 "No bookmarks found in the default push revset: \
@@ -1027,21 +1035,26 @@ fn find_bookmarks_targeted_by_revisions<'a>(
             )?;
         }
         for commit_id in commit_ids {
-            revision_commit_ids.insert(commit_id?);
+            revision_commit_ids.insert(commit_id);
         }
     }
     for rev_arg in revisions {
         let mut expression = workspace_command.parse_revset(ui, rev_arg)?;
         expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
-        let mut commit_ids = expression.evaluate_to_commit_ids()?.peekable();
-        if commit_ids.peek().is_none() {
+        let stream = expression.evaluate_to_commit_ids()?;
+        let mut stream = std::pin::Pin::from(stream);
+        let mut commit_ids = Vec::new();
+        while let Some(commit_id) = stream.as_mut().next().block_on() {
+            commit_ids.push(commit_id?);
+        }
+        if commit_ids.is_empty() {
             writeln!(
                 ui.warning_default(),
                 "No bookmarks point to the specified revisions: {rev_arg}"
             )?;
         }
         for commit_id in commit_ids {
-            revision_commit_ids.insert(commit_id?);
+            revision_commit_ids.insert(commit_id);
         }
     }
     let bookmarks_targeted = workspace_command

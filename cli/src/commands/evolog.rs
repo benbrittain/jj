@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
@@ -107,10 +108,14 @@ pub(crate) fn cmd_evolog(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
 
-    let start_commit_ids: Vec<_> = workspace_command
+    let stream = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commit_ids()?
-        .try_collect()?;
+        .evaluate_to_commit_ids()?;
+    let mut stream = std::pin::Pin::from(stream);
+    let mut start_commit_ids = Vec::new();
+    while let Some(commit_id) = stream.as_mut().next().block_on() {
+        start_commit_ids.push(commit_id?);
+    }
 
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
     let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
