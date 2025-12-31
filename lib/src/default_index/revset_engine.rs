@@ -224,7 +224,8 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         Self: 'a,
     {
         // TODO make this not just a iter wrapper
-        Box::new(futures::stream::iter(self.iter()))
+        let local: Vec<_> = self.iter().collect();
+        Box::new(futures::stream::iter(local.into_iter()))
     }
 }
 

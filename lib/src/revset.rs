@@ -3463,39 +3463,6 @@ pub trait RevsetStreamExt: Stream<Item = Result<CommitId, RevsetEvaluationError>
 
 impl<T> RevsetStreamExt for T where T: Stream<Item = Result<CommitId, RevsetEvaluationError>> {}
 
-pub trait RevsetIteratorExt<I> {
-    fn commits(self, store: &Arc<Store>) -> RevsetCommitIterator<I>;
-}
-
-impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt<I> for I {
-    fn commits(self, store: &Arc<Store>) -> RevsetCommitIterator<I> {
-        RevsetCommitIterator {
-            iter: self,
-            store: store.clone(),
-        }
-    }
-}
-
-pub struct RevsetCommitIterator<I> {
-    store: Arc<Store>,
-    iter: I,
-}
-
-impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> Iterator
-    for RevsetCommitIterator<I>
-{
-    type Item = Result<Commit, RevsetEvaluationError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|commit_id| {
-            let commit_id = commit_id?;
-            self.store
-                .get_commit(&commit_id)
-                .map_err(RevsetEvaluationError::Backend)
-        })
-    }
-}
-
 /// A set of extensions for revset evaluation.
 pub struct RevsetExtensions {
     symbol_resolvers: Vec<Box<dyn SymbolResolverExtension>>,

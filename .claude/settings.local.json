@@ -5,7 +5,8 @@
       "Bash(cargo nextest r:*)",
       "Bash(find:*)",
       "Bash(jj status:*)",
-      "Bash(jj resolve:*)"
+      "Bash(jj resolve:*)",
+      "Bash(cargo build:*)"
     ],
     "deny": [],
     "ask": []

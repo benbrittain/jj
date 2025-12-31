@@ -46,6 +46,7 @@ use clap::error::ContextValue;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::indoc;
@@ -111,8 +112,8 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetFunction;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
@@ -1670,7 +1671,9 @@ to the current parents may contain changes from multiple commits.
         let mut all_commits = IndexSet::new();
         for revision_arg in revision_args {
             let expression = self.parse_revset(ui, revision_arg)?;
-            for commit_id in expression.evaluate_to_commit_ids()? {
+            let stream = expression.evaluate_to_commit_ids()?;
+            let mut stream = std::pin::Pin::from(stream);
+            while let Some(commit_id) = stream.as_mut().next().block_on() {
                 all_commits.insert(commit_id?);
             }
         }
@@ -2264,9 +2267,10 @@ to the current parents may contain changes from multiple commits.
                 let commits = expr
                     .evaluate(new_repo)
                     .block_on()?
-                    .iter()
-                    .commits(new_repo.store())
-                    .try_collect()?;
+                    .stream()
+                    .commits(new_repo.store().clone())
+                    .try_collect()
+                    .block_on()?;
                 Ok(commits)
             };
         let removed_conflict_commits = get_commits(removed_conflicts_expr)?;
@@ -2363,9 +2367,10 @@ to the current parents may contain changes from multiple commits.
             .block_on()?;
 
         let root_conflict_commits: Vec<_> = root_conflicts_revset
-            .iter()
-            .commits(repo.store())
-            .try_collect()?;
+            .stream()
+            .commits(repo.store().clone())
+            .try_collect()
+            .block_on()?;
 
         // The common part of these strings is not extracted, to avoid i18n issues.
         let instruction = if only_one_conflicted_commit {

@@ -17,6 +17,8 @@ use std::collections::HashSet;
 use bstr::ByteVec as _;
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -104,7 +106,8 @@ pub(crate) fn cmd_revert(
     let to_revert: Vec<_> = workspace_command
         .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         .evaluate_to_commits()?
-        .try_collect()?; // in reverse topological order
+        .try_collect()
+        .block_on()?; // in reverse topological order
     if to_revert.is_empty() {
         writeln!(ui.status(), "No revisions to revert.")?;
         return Ok(());

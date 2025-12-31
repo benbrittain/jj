@@ -17,6 +17,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use futures::Stream;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -37,10 +39,10 @@ use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
@@ -124,26 +126,29 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
             .map_err(UserRevsetEvaluationError::Evaluation)
     }
 
-    /// Evaluates the expression to an iterator over commit ids. Entries are
+    /// Evaluates the expression to a stream over commit ids. Entries are
     /// sorted in reverse topological order.
     pub fn evaluate_to_commit_ids(
         &self,
     ) -> Result<
-        Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'repo>,
+        Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + Unpin + 'repo>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.iter())
+        Ok(self.evaluate()?.stream())
     }
 
-    /// Evaluates the expression to an iterator over commit objects. Entries are
+    /// Evaluates the expression to a stream over commit objects. Entries are
     /// sorted in reverse topological order.
     pub fn evaluate_to_commits(
         &self,
     ) -> Result<
-        impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'repo>,
+        impl Stream<Item = Result<Commit, RevsetEvaluationError>> + use<>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.iter().commits(self.repo.store()))
+        let store = self.repo.store().clone();
+        let commit_ids: Vec<Result<CommitId, RevsetEvaluationError>> =
+            self.evaluate()?.stream().collect().block_on();
+        Ok(futures::stream::iter(commit_ids).commits(store))
     }
 }
 
@@ -268,16 +273,29 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
     expression: &RevsetExpressionEvaluator<'_>,
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
 ) -> Result<Commit, CommandError> {
-    let mut iter = expression.evaluate_to_commits()?.fuse();
-    match (iter.next(), iter.next()) {
+    let stream = expression.evaluate_to_commits()?.fuse();
+    let mut stream = std::pin::pin!(stream);
+    let first = stream.as_mut().next().block_on();
+    let second = stream.as_mut().next().block_on();
+    match (first, second) {
         (Some(commit), None) => Ok(commit?),
         (None, _) => Err(user_error(format!(
             "Revset `{revision_str}` didn't resolve to any revisions"
         ))),
         (Some(commit0), Some(commit1)) => {
-            let mut iter = [commit0, commit1].into_iter().chain(iter);
-            let commits: Vec<_> = iter.by_ref().take(5).try_collect()?;
-            let elided = iter.next().is_some();
+            // Collect remaining items from stream
+            let mut remaining = vec![commit1];
+            while let Some(item) = stream.as_mut().next().block_on() {
+                remaining.push(item);
+                if remaining.len() >= 4 {
+                    break;
+                }
+            }
+            let elided = stream.as_mut().next().block_on().is_some();
+
+            // Now chain commit0 with the remaining items
+            let mut all_items = std::iter::once(commit0).chain(remaining.into_iter());
+            let commits: Vec<_> = all_items.by_ref().take(5).try_collect()?;
             Err(format_multiple_revisions_error(
                 revision_str,
                 &commits,

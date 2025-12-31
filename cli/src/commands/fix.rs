@@ -18,6 +18,7 @@ use std::path::Path;
 use std::process::Stdio;
 
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
@@ -31,7 +32,7 @@ use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathUiConverter;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
@@ -196,9 +197,10 @@ pub(crate) fn cmd_fix(
         .descendants()
         .evaluate(repo.as_ref())
         .block_on()?
-        .iter()
-        .commits(repo.store())
-        .try_collect()?;
+        .stream()
+        .commits(repo.store().clone())
+        .try_collect()
+        .block_on()?;
 
     let commit_ids = commits
         .iter()

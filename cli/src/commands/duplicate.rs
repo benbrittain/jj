@@ -16,6 +16,8 @@ use std::io::Write as _;
 
 use bstr::ByteVec as _;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
@@ -106,15 +108,21 @@ pub(crate) fn cmd_duplicate(
     args: &DuplicateArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let to_duplicate: Vec<CommitId> =
-        if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+    let to_duplicate = {
+        let stream = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
             workspace_command
                 .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         } else {
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         }
-        .evaluate_to_commit_ids()?
-        .try_collect()?; // in reverse topological order
+        .evaluate_to_commit_ids()?;
+        let mut stream = std::pin::Pin::from(stream);
+        let mut to_duplicate = Vec::new();
+        while let Some(commit_id) = stream.as_mut().next().block_on() {
+            to_duplicate.push(commit_id?);
+        } // in reverse topological order
+        to_duplicate
+    };
     if to_duplicate.is_empty() {
         writeln!(ui.status(), "No revisions to duplicate.")?;
         return Ok(());

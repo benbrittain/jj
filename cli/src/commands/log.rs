@@ -13,9 +13,14 @@
 // limitations under the License.
 
 use std::cmp::min;
+use std::pin::Pin;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::Stream;
+use futures::StreamExt;
+use futures::TryStreamExt as _;
+use futures::stream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -27,7 +32,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -127,7 +132,6 @@ pub(crate) struct LogArgs {
     diff_format: DiffFormatArgs,
 }
 
-#[instrument(skip_all)]
 pub(crate) fn cmd_log(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -220,7 +224,9 @@ pub(crate) fn cmd_log(
 
                 let has_commit = revset.containing_fn();
 
-                for prio in prio_revset.evaluate_to_commit_ids()? {
+                let stream = prio_revset.evaluate_to_commit_ids()?;
+                let mut stream = std::pin::Pin::from(stream);
+                while let Some(prio) = stream.as_mut().next().block_on() {
                     let prio = prio?;
                     if has_commit(&prio)? {
                         forward_iter.prioritize_branch(prio);
@@ -322,16 +328,22 @@ pub(crate) fn cmd_log(
                 }
             }
         } else {
-            let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
-                let forward_iter = revset.iter().take(args.limit.unwrap_or(usize::MAX));
+            let store = store.clone();
+            let mut stream: Pin<Box<dyn Stream<Item = Result<Commit, RevsetEvaluationError>>>> = {
+                let forward_stream = revset.stream().take(args.limit.unwrap_or(usize::MAX));
+                let entries: Vec<Result<CommitId, _>> = forward_stream.collect().block_on();
                 if args.reversed {
-                    let entries: Vec<_> = forward_iter.try_collect()?;
-                    Box::new(entries.into_iter().rev().map(Ok))
+                    let entries: Vec<CommitId> =
+                        entries.into_iter().collect::<Result<Vec<_>, _>>()?;
+                    Box::pin(
+                        stream::iter(entries.into_iter().rev().map(Ok))
+                            .commits(store.clone()),
+                    )
                 } else {
-                    Box::new(forward_iter)
+                    Box::pin(stream::iter(entries).commits(store.clone()))
                 }
             };
-            for commit_or_error in iter.commits(store) {
+            while let Some(commit_or_error) = stream.next().block_on() {
                 let commit = commit_or_error?;
                 with_content_format
                     .write(formatter, |formatter| template.format(&commit, formatter))?;

@@ -15,6 +15,8 @@
 use std::collections::HashMap;
 
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -79,7 +81,8 @@ pub(crate) fn cmd_parallelize(
     let target_commits: Vec<Commit> = workspace_command
         .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         .evaluate_to_commits()?
-        .try_collect()?;
+        .try_collect()
+        .block_on()?;
 
     // New parents for commits in the target set. Since commits in the set are now
     // supposed to be independent, they inherit the parent's non-target parents,

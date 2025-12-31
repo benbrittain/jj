@@ -14,7 +14,10 @@
 
 //! This file contains the internal implementation of `run`.
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -58,7 +61,8 @@ pub fn cmd_run(ui: &mut Ui, command: &CommandHelper, args: &RunArgs) -> Result<(
     let _resolved_commits: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
         .evaluate_to_commits()?
-        .try_collect()?;
+        .try_collect()
+        .block_on()?;
     // Jobs are resolved in this order:
     // 1. Commandline argument iff > 0.
     // 2. the amount of cores available.
