@@ -570,7 +570,7 @@ pub async fn compute_move_commits(
                 .map_err(|err| err.into_backend_error())?;
             connected_target_commits = expr
                 .stream()
-                .commits(repo.store().clone())
+                .commits(repo.store())
                 .try_collect::<Vec<_>>()
                 .await
                 .map_err(|err| err.into_backend_error())?;
@@ -664,7 +664,7 @@ pub async fn compute_move_commits(
                 .await
                 .map_err(|err| err.into_backend_error())?
                 .stream()
-                .commits(repo.store().clone())
+                .commits(repo.store())
                 .try_collect::<Vec<_>>()
                 .await
                 .map_err(|err| err.into_backend_error())?;
@@ -960,7 +960,7 @@ pub async fn duplicate_commits(
 
     let connected_target_commits: Vec<_> = expr
         .stream()
-        .commits(mut_repo.store().clone())
+        .commits(mut_repo.store())
         .try_collect::<Vec<_>>()
         .await
         .map_err(|err| err.into_backend_error())?;
@@ -1381,7 +1381,7 @@ pub async fn find_duplicate_divergent_commits(
             .await
             .map_err(|err| err.into_backend_error())?
             .stream()
-            .commits(repo.store().clone())
+            .commits(repo.store())
             .try_collect()
             .await
             .map_err(|err| err.into_backend_error())?,

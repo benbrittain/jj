@@ -495,6 +495,7 @@ fn test_acl() {
         &test_workspace.env.default_store_factories(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .unwrap();
     // Reload commits from the store associated with the workspace
     let repo = ws

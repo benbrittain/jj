@@ -210,6 +210,7 @@ fn test_init_load_non_utf8_path() {
         &test_env.default_store_factories(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .unwrap();
 
     // Just test that we can write a commit to the store

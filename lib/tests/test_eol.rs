@@ -157,6 +157,7 @@ fn test_eol_conversion_snapshot(
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .expect("Failed to reload the workspace");
     // We have to query the Commit again. The Workspace is backed by a different
     // Store from the original Commit.
@@ -271,6 +272,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .expect("Failed to reload the workspace");
     let tree = test_workspace.snapshot().unwrap();
     let new_tree = test_workspace.snapshot().unwrap();
@@ -286,6 +288,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .expect("Failed to reload the workspace");
     // Checkout the empty commit to clear the directory, so that the test file will
     // be recreated.
@@ -570,6 +573,7 @@ fn test_eol_conversion_checkout(
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .expect("Failed to reload the workspace");
     // We have to query the Commit again. The Workspace is backed by a different
     // Store from the original Commit.

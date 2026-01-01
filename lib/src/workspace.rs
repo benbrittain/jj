@@ -21,6 +21,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -386,14 +387,16 @@ impl Workspace {
         Ok((workspace, repo))
     }
 
-    pub fn load(
+    pub async fn load(
         user_settings: &UserSettings,
         workspace_path: &Path,
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Self, WorkspaceLoadError> {
         let loader = DefaultWorkspaceLoader::new(workspace_path)?;
-        let workspace = loader.load(user_settings, store_factories, working_copy_factories)?;
+        let workspace = loader
+            .load(user_settings, store_factories, working_copy_factories)
+            .await?;
         Ok(workspace)
     }
 
@@ -502,6 +505,7 @@ pub fn get_working_copy_factory<'a>(
 
 // Loader assigned to a specific workspace root that knows how to load a
 // Workspace object for that path.
+#[async_trait(?Send)]
 pub trait WorkspaceLoader {
     // The root of the Workspace to be loaded.
     fn workspace_root(&self) -> &Path;
@@ -510,7 +514,7 @@ pub trait WorkspaceLoader {
     fn repo_path(&self) -> &Path;
 
     // Loads the specified Workspace with the provided factories.
-    fn load(
+    async fn load(
         &self,
         user_settings: &UserSettings,
         store_factories: &StoreFactories,
@@ -572,6 +576,7 @@ impl DefaultWorkspaceLoader {
     }
 }
 
+#[async_trait(?Send)]
 impl WorkspaceLoader for DefaultWorkspaceLoader {
     fn workspace_root(&self) -> &Path {
         &self.workspace_root
@@ -581,14 +586,15 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
         &self.repo_path
     }
 
-    fn load(
+    async fn load(
         &self,
         user_settings: &UserSettings,
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Workspace, WorkspaceLoadError> {
         let repo_loader =
-            RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
+            RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)
+                .await?;
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
         let working_copy = working_copy_factory.load_working_copy(
             repo_loader.store().clone(),

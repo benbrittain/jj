@@ -59,6 +59,7 @@ pub struct Store {
     commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
     tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
     merge_options: MergeOptions,
+    root_commit_data: Arc<backend::Commit>,
 }
 
 impl Debug for Store {
@@ -70,18 +71,20 @@ impl Debug for Store {
 }
 
 impl Store {
-    pub fn new(
+    pub async fn new(
         backend: Box<dyn Backend>,
         signer: Signer,
         merge_options: MergeOptions,
-    ) -> Arc<Self> {
-        Arc::new(Self {
+    ) -> BackendResult<Arc<Self>> {
+        let root_commit_data = Arc::new(backend.read_commit(backend.root_commit_id()).await?);
+        Ok(Arc::new(Self {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
             tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
             merge_options,
-        })
+            root_commit_data,
+        }))
     }
 
     pub fn backend(&self) -> &dyn Backend {
@@ -145,9 +148,11 @@ impl Store {
     }
 
     pub fn root_commit(self: &Arc<Self>) -> Commit {
-        self.get_commit_async(self.backend.root_commit_id())
-            .block_on()
-            .unwrap()
+        Commit::new(
+            self.clone(),
+            self.backend.root_commit_id().clone(),
+            self.root_commit_data.clone(),
+        )
     }
 
     pub fn get_commit(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {

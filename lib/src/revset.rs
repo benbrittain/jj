@@ -3415,9 +3415,12 @@ pub trait Revset: fmt::Debug {
 pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError> + 'a;
 
 pub trait RevsetStreamExt: Stream<Item = Result<CommitId, RevsetEvaluationError>> {
-    fn commits(self, store: Arc<Store>) -> impl Stream<Item = Result<Commit, RevsetEvaluationError>>
+    fn commits<'a>(
+        self,
+        store: &'a Arc<Store>,
+    ) -> impl Stream<Item = Result<Commit, RevsetEvaluationError>>
     where
-        Self: Sized + 'static,
+        Self: Sized + 'a,
     {
         let store = store.clone();
         self.then(move |commit_id_result| {

@@ -124,6 +124,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .unwrap();
     let machine1_repo = machine1_workspace
         .repo_loader()
@@ -143,6 +144,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .unwrap();
     let machine2_repo = machine2_workspace
         .repo_loader()
@@ -163,6 +165,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         &StoreFactories::default(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .unwrap();
     let merged_repo = merged_workspace
         .repo_loader()
