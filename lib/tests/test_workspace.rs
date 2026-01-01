@@ -36,7 +36,8 @@ fn test_load_bad_path() {
         &workspace_root,
         &test_env.default_store_factories(),
         &default_working_copy_factories(),
-    );
+    )
+    .block_on();
     assert_matches!(
         result.err(),
         Some(WorkspaceLoadError::NoWorkspaceHere(root)) if root == workspace_root
@@ -89,7 +90,8 @@ fn test_init_additional_workspace() {
         &ws2_root,
         &test_workspace.env.default_store_factories(),
         &default_working_copy_factories(),
-    );
+    )
+    .block_on();
     assert!(same_workspace.is_ok());
     let same_workspace = same_workspace.unwrap();
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
@@ -190,8 +192,9 @@ fn test_init_additional_workspace_non_utf8_path() {
         &ws2_root,
         &test_env.default_store_factories(),
         &default_working_copy_factories(),
-    );
-    let same_workspace = same_workspace.unwrap();
+    )
+    .block_on()
+    .unwrap();
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(
         *same_workspace.repo_path(),

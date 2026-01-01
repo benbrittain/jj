@@ -199,7 +199,7 @@ pub async fn fix_files(
         .evaluate(repo_mut)
         .await?
         .stream()
-        .commits(repo_mut.store().clone())
+        .commits(repo_mut.store())
         .try_collect()
         .await?;
     tracing::debug!(

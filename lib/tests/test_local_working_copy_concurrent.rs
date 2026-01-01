@@ -62,6 +62,7 @@ fn test_concurrent_checkout() {
             &test_workspace1.env.default_store_factories(),
             &default_working_copy_factories(),
         )
+        .block_on()
         .unwrap();
         // Reload commit from the store associated with the workspace
         let repo = ws2
@@ -89,6 +90,7 @@ fn test_concurrent_checkout() {
         &test_workspace1.env.default_store_factories(),
         &default_working_copy_factories(),
     )
+    .block_on()
     .unwrap();
     assert_tree_eq!(*ws3.working_copy().tree().unwrap(), tree2);
 }
@@ -135,6 +137,7 @@ fn test_checkout_parallel() {
                     &test_env.default_store_factories(),
                     &default_working_copy_factories(),
                 )
+                .block_on()
                 .unwrap();
                 // Reload commit from the store associated with the workspace
                 let repo = workspace
@@ -156,16 +159,13 @@ fn test_checkout_parallel() {
                 // write_tree() should take the same lock as check_out(), write_tree()
                 // should never produce a different tree.
                 let mut locked_ws = workspace.start_working_copy_mutation().unwrap();
-                let (new_tree, _stats) = locked_ws
+                let new_tree = locked_ws
                     .locked_wc()
                     .snapshot(&empty_snapshot_options())
                     .block_on()
-                    .unwrap();
-                assert!(
-                    trees
-                        .iter()
-                        .any(|tree| tree.tree_ids() == new_tree.tree_ids())
-                );
+                    .unwrap()
+                    .0;
+                assert!(trees.iter().any(|tree| tree.tree_ids() == new_tree.tree_ids()));
             });
         }
     });

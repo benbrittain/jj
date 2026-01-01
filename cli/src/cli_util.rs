@@ -530,6 +530,7 @@ impl CommandHelper {
                 &self.data.store_factories,
                 &self.data.working_copy_factories,
             )
+            .block_on()
             .map_err(|err| {
                 map_workspace_load_error(err, self.data.global_args.repository.as_deref())
             })
@@ -549,6 +550,7 @@ impl CommandHelper {
                 &self.data.store_factories,
                 &self.data.working_copy_factories,
             )
+            .block_on()
             .map_err(|err| map_workspace_load_error(err, None))
     }
 

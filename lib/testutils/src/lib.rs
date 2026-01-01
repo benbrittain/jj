@@ -215,6 +215,7 @@ impl TestEnvironment {
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
+            .block_on()
             .unwrap()
             .load_at_head()
             .block_on()

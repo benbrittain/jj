@@ -221,7 +221,9 @@ impl ReadonlyRepo {
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
         let merge_options =
             MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
-        let store = Store::new(backend, signer, merge_options);
+        let store = Store::new(backend, signer, merge_options)
+            .await
+            .map_err(|err| BackendInitError(err.into()))?;
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -699,7 +701,7 @@ impl RepoLoader {
     /// Creates a `RepoLoader` for the repo at `repo_path` by reading the
     /// various `.jj/repo/<backend>/type` files and loading the right
     /// backends from `store_factories`.
-    pub fn init_from_file_system(
+    pub async fn init_from_file_system(
         settings: &UserSettings,
         repo_path: &Path,
         store_factories: &StoreFactories,
@@ -710,7 +712,9 @@ impl RepoLoader {
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
             merge_options,
-        );
+        )
+        .await
+        .unwrap();
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
         };
@@ -1282,7 +1286,7 @@ impl MutableRepo {
             .map_err(|err| err.into_backend_error())?;
         let to_visit = to_visit_revset
             .stream()
-            .commits(self.store().clone())
+            .commits(self.store())
             .try_collect()
             .await
             .map_err(|err| err.into_backend_error())?;

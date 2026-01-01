@@ -82,7 +82,7 @@ impl dyn WorkingCopy {
 }
 
 /// The factory which creates and loads a specific type of working copy.
-pub trait WorkingCopyFactory {
+pub trait WorkingCopyFactory: Send + Sync {
     /// Create a new working copy from scratch.
     fn init_working_copy(
         &self,

@@ -209,7 +209,7 @@ impl<'repo> Bisector<'repo> {
             .latest(1);
         let to_evaluate_set = to_evaluate_expr.evaluate(self.repo).await?;
 
-        let mut commits = pin!(to_evaluate_set.stream().commits(self.repo.store().clone()));
+        let mut commits = pin!(to_evaluate_set.stream().commits(self.repo.store()));
         if let Some(commit) = commits.next().await {
             let commit = commit?;
             Ok(NextStep::Evaluate(commit))
@@ -217,7 +217,7 @@ impl<'repo> Bisector<'repo> {
             let bad_roots = bad_expr.roots().evaluate(self.repo).await?;
             let bad_commits: Vec<_> = bad_roots
                 .stream()
-                .commits(self.repo.store().clone())
+                .commits(self.repo.store())
                 .try_collect()
                 .await?;
             if bad_commits.is_empty() {
