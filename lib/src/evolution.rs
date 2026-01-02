@@ -309,13 +309,13 @@ pub async fn accumulate_predecessors(
     // Follow reverse edges from the common ancestor to old_ops. Here we use
     // BTreeMap to stabilize order of the reversed edges.
     let mut accumulated = BTreeMap::new();
-    let reverse_ops = op_walk::walk_ancestors_range(old_ops, new_ops);
+    let reverse_ops = op_walk::walk_ancestors_range(old_ops, new_ops).await;
     if !try_collect_predecessors_into(&mut accumulated, reverse_ops).await? {
         return Ok(BTreeMap::new());
     }
     let mut accumulated = reverse_edges(accumulated);
     // Follow forward edges from new_ops to the common ancestor.
-    let forward_ops = op_walk::walk_ancestors_range(new_ops, old_ops);
+    let forward_ops = op_walk::walk_ancestors_range(new_ops, old_ops).await;
     if !try_collect_predecessors_into(&mut accumulated, forward_ops).await? {
         return Ok(BTreeMap::new());
     }

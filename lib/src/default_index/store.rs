@@ -281,6 +281,7 @@ impl DefaultIndexStore {
             // There may be concurrent ops, so revisit from the head. The parent
             // op is usually shallow if existed.
             op_walk::walk_ancestors_range(slice::from_ref(operation), slice::from_ref(op))
+                .await
                 .try_collect()
                 .block_on()?
         } else {

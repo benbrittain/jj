@@ -24,6 +24,7 @@ use std::sync::Arc;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -202,7 +203,7 @@ async fn resolve_single_op_from_store(
             Err(OpsetResolutionError::NoSuchOperation(op_str.to_owned()).into())
         }
         PrefixResolution::SingleMatch(op_id) => {
-            let data = op_store.read_operation(&op_id).block_on()?;
+            let data = op_store.read_operation(&op_id).await?;
             Ok(Operation::new(op_store.clone(), op_id, data))
         }
         PrefixResolution::AmbiguousMatch => {
@@ -217,15 +218,15 @@ pub async fn get_current_head_ops(
     op_store: &Arc<dyn OpStore>,
     op_heads_store: &dyn OpHeadsStore,
 ) -> Result<Vec<Operation>, OpsetEvaluationError> {
-    let mut head_ops: Vec<_> = op_heads_store
+    let head_ops_futs = op_heads_store
         .get_op_heads()
         .await?
         .into_iter()
-        .map(|id| -> OpStoreResult<Operation> {
-            let data = op_store.read_operation(&id).block_on()?;
-            Ok(Operation::new(op_store.clone(), id, data))
-        })
-        .try_collect()?;
+        .map(|id| async {
+            let data = op_store.read_operation(&id).await?;
+            Ok::<_, OpStoreError>(Operation::new(op_store.clone(), id, data))
+        });
+    let mut head_ops = try_join_all(head_ops_futs).await?;
     // To stabilize output, sort in the same order as resolve_op_heads()
     head_ops.sort_by_key(|op| op.metadata().time.end.timestamp);
     Ok(head_ops)
@@ -290,7 +291,7 @@ pub fn walk_ancestors(head_ops: &[Operation]) -> impl Stream<Item = OpStoreResul
 
 /// Walks ancestors from `head_ops` in reverse topological order, excluding
 /// ancestors of `root_ops`.
-pub fn walk_ancestors_range(
+pub async fn walk_ancestors_range(
     head_ops: &[Operation],
     root_ops: &[Operation],
 ) -> impl Stream<Item = OpStoreResult<Operation>> {
@@ -304,7 +305,7 @@ pub fn walk_ancestors_range(
         vec![]
     } else {
         let unwanted_ids = root_ops.iter().map(|op| op.id().clone()).collect();
-        collect_ancestors_until_roots(&mut start_ops, unwanted_ids)
+        collect_ancestors_until_roots(&mut start_ops, unwanted_ids).await
     };
 
     // Lazily load operations based on timestamp-based heuristic. This works so long
@@ -324,7 +325,7 @@ pub fn walk_ancestors_range(
     stream::iter(leading_items).chain(trailing_stream)
 }
 
-fn collect_ancestors_until_roots(
+async fn collect_ancestors_until_roots(
     start_ops: &mut Vec<OperationByEndTime>,
     mut unwanted_ids: HashSet<OperationId>,
 ) -> Vec<OpStoreResult<Operation>> {
@@ -339,7 +340,7 @@ fn collect_ancestors_until_roots(
         },
         |_| panic!("graph has cycle"),
     )
-    .block_on()
+    .await
     {
         Ok(sorted_ops) => sorted_ops,
         Err(err) => return vec![Err(err)],
@@ -385,9 +386,11 @@ pub async fn reparent_range(
     dest_op: &Operation,
 ) -> OpStoreResult<ReparentStats> {
     let ops_to_reparent: Vec<_> = walk_ancestors_range(head_ops, root_ops)
+        .await
         .try_collect()
         .await?;
     let unreachable_count = walk_ancestors_range(root_ops, slice::from_ref(dest_op))
+        .await
         .try_fold(0usize, |acc, _| async move { Ok(acc + 1) })
         .await?;
 
@@ -407,7 +410,7 @@ pub async fn reparent_range(
             .filter_map(|id| rewritten_ids.get(id).or_else(|| dest_once.take()))
             .cloned()
             .collect();
-        let new_id = op_store.write_operation(&data).block_on()?;
+        let new_id = op_store.write_operation(&data).await?;
         rewritten_ids.insert(old_op.id().clone(), new_id);
     }
 
