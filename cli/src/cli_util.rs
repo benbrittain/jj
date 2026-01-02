@@ -2270,7 +2270,7 @@ to the current parents may contain changes from multiple commits.
                     .evaluate(new_repo)
                     .block_on()?
                     .stream()
-                    .commits(new_repo.store().clone())
+                    .commits(new_repo.store())
                     .try_collect()
                     .block_on()?;
                 Ok(commits)
@@ -2370,7 +2370,7 @@ to the current parents may contain changes from multiple commits.
 
         let root_conflict_commits: Vec<_> = root_conflicts_revset
             .stream()
-            .commits(repo.store().clone())
+            .commits(repo.store())
             .try_collect()
             .block_on()?;
 

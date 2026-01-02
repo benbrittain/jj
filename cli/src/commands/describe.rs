@@ -170,7 +170,7 @@ pub(crate) fn cmd_describe(
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .stream()
-        .commits(workspace_command.repo().store().clone()) // in reverse topological order
+        .commits(workspace_command.repo().store()) // in reverse topological order
         .try_collect()
         .block_on()?;
     if commits.is_empty() {

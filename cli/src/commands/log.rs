@@ -337,10 +337,10 @@ pub(crate) fn cmd_log(
                         entries.into_iter().collect::<Result<Vec<_>, _>>()?;
                     Box::pin(
                         stream::iter(entries.into_iter().rev().map(Ok))
-                            .commits(store.clone()),
+                            .commits(&store),
                     )
                 } else {
-                    Box::pin(stream::iter(entries).commits(store.clone()))
+                    Box::pin(stream::iter(entries).commits(&store))
                 }
             };
             while let Some(commit_or_error) = stream.next().block_on() {

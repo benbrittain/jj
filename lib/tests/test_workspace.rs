@@ -134,7 +134,8 @@ fn test_init_additional_workspace_absolute_path_compat() {
         &ws2_root,
         &test_workspace.env.default_store_factories(),
         &default_working_copy_factories(),
-    );
+    )
+    .block_on();
     assert!(same_workspace.is_ok());
     let same_workspace = same_workspace.unwrap();
     assert_eq!(same_workspace.workspace_name(), &ws2_name);

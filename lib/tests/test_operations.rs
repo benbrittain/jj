@@ -920,6 +920,7 @@ fn test_walk_ancestors() {
 
     fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
         op_walk::walk_ancestors_range(head_ops, root_ops)
+            .block_on()
             .try_collect()
             .block_on()
             .unwrap()

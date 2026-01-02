@@ -148,7 +148,16 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         let store = self.repo.store().clone();
         let commit_ids: Vec<Result<CommitId, RevsetEvaluationError>> =
             self.evaluate()?.stream().collect().block_on();
-        Ok(futures::stream::iter(commit_ids).commits(store))
+        Ok(futures::stream::iter(commit_ids).then(move |commit_id_result| {
+            let store = store.clone();
+            async move {
+                let commit_id = commit_id_result?;
+                store
+                    .get_commit_async(&commit_id)
+                    .await
+                    .map_err(|err| RevsetEvaluationError::Backend(err.into()))
+            }
+        }))
     }
 }
 

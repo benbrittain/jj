@@ -198,7 +198,7 @@ pub(crate) fn cmd_fix(
         .evaluate(repo.as_ref())
         .block_on()?
         .stream()
-        .commits(repo.store().clone())
+        .commits(repo.store())
         .try_collect()
         .block_on()?;
 
