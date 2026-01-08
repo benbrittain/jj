@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::CommitId;

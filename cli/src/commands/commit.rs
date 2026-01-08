@@ -130,7 +130,7 @@ pub(crate) fn cmd_commit(
     let commit_id = workspace_command
         .get_wc_commit_id()
         .ok_or_else(|| user_error("This command requires a working copy"))?;
-    let commit = workspace_command.repo().store().get_commit(commit_id)?;
+    let commit = workspace_command.repo().store().get_commit_async(commit_id).block_on()?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
@@ -155,7 +155,7 @@ new working-copy commit.
     };
     let tree = diff_selector.select(
         Diff::new(&base_tree, &commit.tree()),
-        Diff::new(commit.parents_conflict_label()?, commit.conflict_label()),
+        Diff::new(commit.parents_conflict_label().block_on()?, commit.conflict_label()),
         matcher.as_ref(),
         format_instructions,
     )?;

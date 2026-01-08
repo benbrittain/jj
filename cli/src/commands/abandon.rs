@@ -143,7 +143,7 @@ pub(crate) fn cmd_abandon(
         writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
         let abandoned_commits: Vec<_> = to_abandon
             .iter()
-            .map(|id| tx.base_repo().store().get_commit(id))
+            .map(|id| tx.base_repo().store().get_commit_async(id).block_on())
             .try_collect()?;
         print_updated_commits(
             formatter.as_mut(),

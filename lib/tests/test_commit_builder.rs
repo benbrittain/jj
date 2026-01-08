@@ -119,7 +119,7 @@ fn test_initial(backend: TestRepoBackend) {
     let commit = builder.write().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
-    let parents: Vec<_> = commit.parents().try_collect().unwrap();
+    let parents: Vec<_> = commit.parents_async().block_on().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
     assert!(commit.store_commit().predecessors.is_empty());
     assert_eq!(commit.description(), "description");
@@ -189,7 +189,7 @@ fn test_rewrite(backend: TestRepoBackend) {
     // new store instance.
     let (tree_ids, labels) = rewritten_tree.into_tree_ids_and_labels();
     let rewritten_tree = MergedTree::new(store.clone(), tree_ids, labels);
-    let initial_commit = store.get_commit(initial_commit.id()).unwrap();
+    let initial_commit = store.get_commit_async(initial_commit.id()).block_on().unwrap();
     let mut tx = repo.start_transaction();
     let rewritten_commit = tx
         .repo_mut()
@@ -201,7 +201,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
-    let parents: Vec<_> = rewritten_commit.parents().try_collect().unwrap();
+    let parents: Vec<_> = rewritten_commit.parents_async().block_on().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
     assert_eq!(
         rewritten_commit.store_commit().predecessors,
@@ -274,7 +274,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     );
     let settings = UserSettings::from_config(config).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
+    let initial_commit = repo.store().get_commit_async(initial_commit.id()).block_on().unwrap();
     let mut tx = repo.start_transaction();
     let rewritten_commit = tx
         .repo_mut()
@@ -329,7 +329,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_1)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
+    let initial_commit = repo.store().get_commit_async(initial_commit.id()).block_on().unwrap();
     let mut tx = repo.start_transaction();
     let rewritten_commit_1 = tx
         .repo_mut()
@@ -355,7 +355,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_2)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let rewritten_commit_1 = repo.store().get_commit(rewritten_commit_1.id()).unwrap();
+    let rewritten_commit_1 = repo.store().get_commit_async(rewritten_commit_1.id()).block_on().unwrap();
     let mut tx = repo.start_transaction();
     let rewritten_commit_2 = tx
         .repo_mut()

@@ -754,7 +754,11 @@ fn assert_in_rebased_map(
             expected_old_commit.id().hex()
         )
     });
-    repo.store().get_commit(new_commit_id).unwrap().clone()
+    repo.store()
+        .get_commit_async(new_commit_id)
+        .block_on()
+        .unwrap()
+        .clone()
 }
 
 pub fn assert_rebased_onto(

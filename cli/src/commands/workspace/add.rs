@@ -189,9 +189,10 @@ pub fn cmd_workspace_add(
         {
             tx.repo()
                 .store()
-                .get_commit(old_wc_commit_id)?
-                .parents()
-                .try_collect()?
+                .get_commit_async(old_wc_commit_id)
+                .block_on()?
+                .parents_async()
+                .block_on()?
         } else {
             vec![tx.repo().store().root_commit()]
         }
@@ -199,7 +200,7 @@ pub fn cmd_workspace_add(
         old_workspace_command
             .resolve_some_revsets(ui, &args.revision)?
             .iter()
-            .map(|id| tx.repo().store().get_commit(id))
+            .map(|id| tx.repo().store().get_commit_async(id).block_on())
             .try_collect()?
     };
 

@@ -76,7 +76,7 @@ pub(crate) fn cmd_status(
     let repo = workspace_command.repo();
     let maybe_wc_commit = workspace_command
         .get_wc_commit_id()
-        .map(|id| repo.store().get_commit(id))
+        .map(|id| repo.store().get_commit_async(id).block_on())
         .transpose()?;
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
@@ -143,8 +143,7 @@ pub(crate) fn cmd_status(
         write!(formatter, "Working copy  (@) : ")?;
         template.format(wc_commit, formatter)?;
         writeln!(formatter)?;
-        for parent in wc_commit.parents() {
-            let parent = parent?;
+        for parent in wc_commit.parents_async().block_on()? {
             //                "Working copy  (@) : "
             write!(formatter, "Parent commit (@-): ")?;
             template.format(&parent, formatter)?;
@@ -183,8 +182,7 @@ pub(crate) fn cmd_status(
 
             workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
         } else {
-            for parent in wc_commit.parents() {
-                let parent = parent?;
+            for parent in wc_commit.parents_async().block_on()? {
                 if parent.has_conflict() {
                     writeln!(
                         formatter.labeled("hint").with_heading("Hint: "),

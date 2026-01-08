@@ -580,7 +580,7 @@ impl CommandHelper {
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
-                let stale_wc_commit = repo.store().get_commit(wc_commit_id)?;
+                let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).block_on()?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
@@ -1241,7 +1241,7 @@ impl WorkspaceCommandHelper {
         let new_git_head = tx.repo().view().git_head().clone();
         if let Some(new_git_head_id) = new_git_head.as_normal() {
             let workspace_name = self.workspace_name().to_owned();
-            let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
+            let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).block_on()?;
             let wc_commit = tx
                 .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)
@@ -1340,7 +1340,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         self.check_working_copy_writable()?;
         let wc_commit = if let Some(wc_commit_id) = self.get_wc_commit_id() {
-            self.repo().store().get_commit(wc_commit_id)?
+            self.repo().store().get_commit_async(wc_commit_id).block_on()?
         } else {
             return Err(user_error("Nothing checked out in this workspace"));
         };
@@ -1876,7 +1876,7 @@ to the current parents may contain changes from multiple commits.
             user_error(format!("The root commit {commit_id:.12} is immutable"))
         } else {
             let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
-            let commit = repo.store().get_commit(&commit_id)?;
+            let commit = repo.store().get_commit_async(&commit_id).block_on()?;
             error.add_formatted_hint_with(|formatter| {
                 write!(formatter, "Could not modify commit: ")?;
                 self.write_commit_summary(formatter, &commit)?;
@@ -2063,8 +2063,8 @@ to the current parents may contain changes from multiple commits.
             write!(formatter, "Working copy  (@) now at: ")?;
             template.format(new_commit, formatter.as_mut())?;
             writeln!(formatter)?;
-            for parent in new_commit.parents() {
-                let parent = parent?;
+            for parent in new_commit.parents_async().block_on()? {
+                let parent = parent;
                 //                "Working copy  (@) now at: "
                 write!(formatter, "Parent commit (@-)      : ")?;
                 template.format(&parent, formatter.as_mut())?;
@@ -2126,7 +2126,7 @@ to the current parents may contain changes from multiple commits.
                 }
             };
             if is_immutable {
-                let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
+                let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).block_on()?;
                 tx.repo_mut()
                     .check_out(name.clone(), &wc_commit)
                     .block_on()?;
@@ -2159,13 +2159,13 @@ to the current parents may contain changes from multiple commits.
         let maybe_old_wc_commit = old_repo
             .view()
             .get_wc_commit_id(self.workspace_name())
-            .map(|commit_id| tx.base_repo().store().get_commit(commit_id))
+            .map(|commit_id| tx.base_repo().store().get_commit_async(commit_id).block_on())
             .transpose()?;
         let maybe_new_wc_commit = tx
             .repo()
             .view()
             .get_wc_commit_id(self.workspace_name())
-            .map(|commit_id| tx.repo().store().get_commit(commit_id))
+            .map(|commit_id| tx.repo().store().get_commit_async(commit_id).block_on())
             .transpose()?;
 
         #[cfg(feature = "git")]
@@ -2696,7 +2696,7 @@ fn handle_stale_working_copy(
     let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
         repo.view()
             .get_wc_commit_id(workspace_name)
-            .map(|id| repo.store().get_commit(id))
+            .map(|id| repo.store().get_commit_async(id).block_on())
             .transpose()
             .map_err(snapshot_command_error)
     };
@@ -3320,7 +3320,7 @@ pub fn compute_commit_location(
             (None, None, Some(before_commit_ids)) => {
                 let before_commits: Vec<_> = before_commit_ids
                     .iter()
-                    .map(|id| workspace_command.repo().store().get_commit(id))
+                    .map(|id| workspace_command.repo().store().get_commit_async(id).block_on())
                     .try_collect()?;
                 // Not using `RevsetExpression::parents` here to persist the order of parents
                 // specified in `before_commits`.

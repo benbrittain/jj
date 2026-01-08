@@ -107,7 +107,7 @@ pub fn cmd_debug_object(
         DebugObjectArgs::Commit(args) => {
             let id = CommitId::try_from_hex(&args.id)
                 .ok_or_else(|| user_error(format!(r#"Invalid hex commit id: "{}""#, args.id)))?;
-            let commit = repo_loader.store().get_commit(&id)?;
+            let commit = repo_loader.store().get_commit_async(&id).block_on()?;
             writeln!(ui.stdout(), "{:#?}", commit.store_commit())?;
         }
         DebugObjectArgs::File(args) => {

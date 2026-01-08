@@ -480,21 +480,21 @@ fn write_ref_target_summary(
         for commit_id in ref_target.added_ids() {
             write_prefix(formatter, added, prefix)?;
             write!(formatter, "(added) ")?;
-            let commit = repo.store().get_commit(commit_id)?;
+            let commit = repo.store().get_commit_async(commit_id).block_on()?;
             commit_summary_template.format(&commit, formatter)?;
             writeln!(formatter)?;
         }
         for commit_id in ref_target.removed_ids() {
             write_prefix(formatter, added, prefix)?;
             write!(formatter, "(removed) ")?;
-            let commit = repo.store().get_commit(commit_id)?;
+            let commit = repo.store().get_commit_async(commit_id).block_on()?;
             commit_summary_template.format(&commit, formatter)?;
             writeln!(formatter)?;
         }
     } else {
         write_prefix(formatter, added, prefix)?;
         let commit_id = ref_target.as_normal().unwrap();
-        let commit = repo.store().get_commit(commit_id)?;
+        let commit = repo.store().get_commit_async(commit_id).block_on()?;
         commit_summary_template.format(&commit, formatter)?;
         writeln!(formatter)?;
     }
@@ -580,10 +580,10 @@ fn compute_operation_commits_diff(
             abandoned_commits.remove(id);
         }
         let change = ModifiedChange::Existing {
-            commit: store.get_commit(&commit_id)?,
+            commit: store.get_commit_async(&commit_id).block_on()?,
             predecessors: predecessor_ids
                 .iter()
-                .map(|id| store.get_commit(id))
+                .map(|id| store.get_commit_async(id).block_on())
                 .try_collect()?,
         };
         changes.insert(commit_id, change);
@@ -592,7 +592,7 @@ fn compute_operation_commits_diff(
     // Record remainders as abandoned.
     for commit_id in abandoned_commits {
         let change = ModifiedChange::Abandoned {
-            commit: store.get_commit(&commit_id)?,
+            commit: store.get_commit_async(&commit_id).block_on()?,
         };
         changes.insert(commit_id, change);
     }

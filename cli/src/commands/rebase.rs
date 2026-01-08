@@ -492,7 +492,7 @@ fn plan_rebase_source(
     )?;
     if rebase_destination.onto.is_some() {
         for id in &source_commit_ids {
-            let commit = workspace_command.repo().store().get_commit(id)?;
+            let commit = workspace_command.repo().store().get_commit_async(id).block_on()?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
         }
     }
@@ -544,7 +544,7 @@ fn plan_rebase_branch(
         .try_collect()?;
     if rebase_destination.onto.is_some() {
         for id in &root_commit_ids {
-            let commit = workspace_command.repo().store().get_commit(id)?;
+            let commit = workspace_command.repo().store().get_commit_async(id).block_on()?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
         }
     }

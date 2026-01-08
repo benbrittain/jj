@@ -299,7 +299,11 @@ pub(crate) fn cmd_split(
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).block_on().detach();
+        let mut commit_builder = tx
+            .repo_mut()
+            .rewrite_commit(&target.commit)
+            .block_on()
+            .detach();
         commit_builder.set_tree(target.selected_tree.clone());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
@@ -344,11 +348,13 @@ pub(crate) fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            let selected_diff = target.diff_with_labels(
-                "parents of split revision",
-                "selected changes for split",
-                "split revision",
-            )?;
+            let selected_diff = target
+                .diff_with_labels(
+                    "parents of split revision",
+                    "selected changes for split",
+                    "split revision",
+                )
+                .block_on()?;
             MergedTree::merge(Merge::from_diffs(
                 (
                     target_tree,
@@ -365,7 +371,11 @@ pub(crate) fn cmd_split(
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).block_on().detach();
+        let mut commit_builder = tx
+            .repo_mut()
+            .rewrite_commit(&target.commit)
+            .block_on()
+            .detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
         let mut show_editor = args.editor;
         if !use_move_flags {
@@ -564,7 +574,7 @@ The changes that are not selected will replace the original commit.
     let selected_tree = diff_selector.select(
         Diff::new(&parent_tree, &target_commit.tree()),
         Diff::new(
-            target_commit.parents_conflict_label()?,
+            target_commit.parents_conflict_label().block_on()?,
             target_commit.conflict_label(),
         ),
         matcher,

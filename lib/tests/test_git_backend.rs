@@ -502,7 +502,7 @@ fn test_conflict_headers_roundtrip() {
     repo.store().clear_caches();
     // Conflict trees and labels should be preserved on read.
     assert_tree_eq!(
-        repo.store().get_commit(commit.id()).unwrap().tree(),
+        repo.store().get_commit_async(commit.id()).block_on().unwrap().tree(),
         merged_tree
     );
 }

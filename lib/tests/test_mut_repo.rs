@@ -785,7 +785,7 @@ fn test_reparent_descendants() {
             // All commits except "b", and "child_b" have been reparented while keeping
             // their content.
             assert_ne!(commit.id(), &rewritten_id);
-            let rewritten_commit = repo.store().get_commit(&rewritten_id).unwrap();
+            let rewritten_commit = repo.store().get_commit_async(&rewritten_id).block_on().unwrap();
             assert_eq!(commit.tree_ids(), rewritten_commit.tree_ids());
             let (parent_ids, rewritten_parent_ids) =
                 (commit.parent_ids(), rewritten_commit.parent_ids());

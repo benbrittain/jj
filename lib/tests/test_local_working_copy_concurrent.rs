@@ -70,7 +70,7 @@ fn test_concurrent_checkout() {
             .load_at(repo.operation())
             .block_on()
             .unwrap();
-        let commit2 = repo.store().get_commit(commit2.id()).unwrap();
+        let commit2 = repo.store().get_commit_async(commit2.id()).block_on().unwrap();
         ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
             .block_on()
             .unwrap();
@@ -145,7 +145,7 @@ fn test_checkout_parallel() {
                     .load_at(repo.operation())
                     .block_on()
                     .unwrap();
-                let commit = repo.store().get_commit(commit.id()).unwrap();
+                let commit = repo.store().get_commit_async(commit.id()).block_on().unwrap();
                 // The operation ID is not correct, but that doesn't matter for this test
                 let stats = workspace
                     .check_out(op_id, None, &commit)

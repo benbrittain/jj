@@ -104,7 +104,7 @@ fn format_annotation(repo: &dyn Repo, annotation: &FileAnnotation) -> String {
     for (origin, line) in annotation.line_origins() {
         let line_origin = origin.unwrap_or_else(|line_origin| line_origin);
         let line_number = line_origin.line_number + 1;
-        let commit = repo.store().get_commit(&line_origin.commit_id).unwrap();
+        let commit = repo.store().get_commit_async(&line_origin.commit_id).block_on().unwrap();
         let desc = commit.description().trim_end();
         let sigil = if origin.is_err() { '*' } else { ' ' };
         write!(output, "{desc}:{line_number}{sigil}: {line}").unwrap();

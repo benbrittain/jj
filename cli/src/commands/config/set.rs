@@ -15,6 +15,7 @@
 use std::io;
 
 use clap_complete::ArgValueCandidates;
+use pollster::FutureExt as _;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
@@ -88,7 +89,7 @@ pub fn cmd_config_set(
 fn maybe_wc_commit(helper: &WorkspaceCommandHelper) -> Option<Commit> {
     let repo = helper.repo();
     let id = helper.get_wc_commit_id()?;
-    repo.store().get_commit(id).ok()
+    repo.store().get_commit_async(id).block_on().ok()
 }
 
 /// Check if the working copy author name matches the user's config value

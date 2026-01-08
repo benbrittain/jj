@@ -186,7 +186,7 @@ pub(crate) fn cmd_duplicate(
         to_duplicate
             .iter()
             .map(|commit_id| -> BackendResult<_> {
-                let commit = tx.repo().store().get_commit(commit_id)?;
+                let commit = tx.repo().store().get_commit_async(commit_id).block_on()?;
                 let output = parsed.format_plain_text(&commit);
                 let output = text_util::complete_newline(output.into_string_lossy());
                 Ok((commit_id.clone(), output))

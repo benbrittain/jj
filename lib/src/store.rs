@@ -23,7 +23,6 @@ use std::time::SystemTime;
 
 use clru::CLruCache;
 use futures::stream::BoxStream;
-use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 
 use crate::backend;
@@ -153,10 +152,6 @@ impl Store {
             self.backend.root_commit_id().clone(),
             self.root_commit_data.clone(),
         )
-    }
-
-    pub fn get_commit(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
-        self.get_commit_async(id).block_on()
     }
 
     pub async fn get_commit_async(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {

@@ -422,6 +422,7 @@ fn merged_tree_entry_diff<'a>(
     .filter(|(_, diff)| diff.is_changed())
 }
 
+/// tree entry iter
 pub struct TreeEntriesIterator<'matcher> {
     store: Arc<Store>,
     stack: Vec<TreeEntriesDirItem>,

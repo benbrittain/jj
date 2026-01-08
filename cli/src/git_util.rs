@@ -14,6 +14,7 @@
 
 //! Git utilities shared by various commands.
 
+use pollster::FutureExt as _;
 use std::error;
 use std::io;
 use std::io::Write as _;
@@ -260,7 +261,7 @@ fn print_imported_changes(
         let abandoned_commits: Vec<Commit> = stats
             .abandoned_commits
             .iter()
-            .map(|id| tx.repo().store().get_commit(id))
+            .map(|id| tx.repo().store().get_commit_async(id).block_on())
             .try_collect()?;
         let template = tx.commit_summary_template();
         print_updated_commits(formatter, &template, &abandoned_commits)?;
