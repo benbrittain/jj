@@ -155,10 +155,6 @@ impl Store {
         )
     }
 
-    pub fn get_commit(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
-        self.get_commit_async(id).block_on()
-    }
-
     pub async fn get_commit_async(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
         let data = self.get_backend_commit(id).await?;
         Ok(Commit::new(self.clone(), id.clone(), data))
