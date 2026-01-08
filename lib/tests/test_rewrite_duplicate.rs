@@ -151,7 +151,7 @@ fn test_duplicate_linear_contents() {
     let [head_id] = tx.repo().view().heads().iter().collect_array().unwrap();
     assert_ne!(head_id, commit_e.id());
     assert_tree_eq!(
-        tx.repo().store().get_commit(head_id).unwrap().tree(),
+        tx.repo().store().get_commit_async(head_id).block_on().unwrap().tree(),
         tree_1_2
     );
 }

@@ -1036,7 +1036,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|commit| {
-                let commits: Vec<_> = commit.parents().try_collect()?;
+                let commits: Vec<_> = commit.parents_async().block_on()?;
                 Ok(commits)
             });
             Ok(out_property.into_dyn_wrapped())
@@ -1825,7 +1825,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
                 let maybe_id = commit_ref.target.as_normal();
-                Ok(maybe_id.map(|id| repo.store().get_commit(id)).transpose()?)
+                Ok(maybe_id.map(|id| repo.store().get_commit_async(id).block_on()).transpose()?)
             });
             Ok(out_property.into_dyn_wrapped())
         },
@@ -1837,7 +1837,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
                 let ids = commit_ref.target.removed_ids();
-                let commits: Vec<_> = ids.map(|id| repo.store().get_commit(id)).try_collect()?;
+                let commits: Vec<_> = ids.map(|id| repo.store().get_commit_async(id).block_on()).try_collect()?;
                 Ok(commits)
             });
             Ok(out_property.into_dyn_wrapped())
@@ -1850,7 +1850,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
                 let ids = commit_ref.target.added_ids();
-                let commits: Vec<_> = ids.map(|id| repo.store().get_commit(id)).try_collect()?;
+                let commits: Vec<_> = ids.map(|id| repo.store().get_commit_async(id).block_on()).try_collect()?;
                 Ok(commits)
             });
             Ok(out_property.into_dyn_wrapped())

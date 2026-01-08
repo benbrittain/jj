@@ -927,7 +927,7 @@ fn create_change_bookmarks(
         .base_workspace_helper()
         .resolve_some_revsets(ui, changes)?
         .iter()
-        .map(|id| tx.repo().store().get_commit(id))
+        .map(|id| tx.repo().store().get_commit_async(id).block_on())
         .try_collect()?;
     let bookmark_names: Vec<_> = {
         let template_text = tx.settings().get_string("templates.git_push_bookmark")?;

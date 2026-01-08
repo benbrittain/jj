@@ -198,7 +198,7 @@ fn cmd_git_colocation_enable(
     maybe_add_gitignore(&workspace_command)?;
 
     // Finally, update git HEAD to point to the working-copy commit's parent
-    let wc_commit = workspace_command.repo().store().get_commit(&wc_commit_id)?;
+    let wc_commit = workspace_command.repo().store().get_commit_async(&wc_commit_id).block_on()?;
     set_git_head_to_wc_parent(ui, &mut workspace_command, &wc_commit)?;
 
     writeln!(
@@ -334,7 +334,7 @@ fn reload_workspace_helper(
         .repo_loader()
         .load_operation(workspace_command.repo().op_id())
         .block_on()?;
-    let repo = workspace.repo_loader().load_at(&op)?;
+    let repo = workspace.repo_loader().load_at(&op).block_on()?;
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     Ok(workspace_command)
 }

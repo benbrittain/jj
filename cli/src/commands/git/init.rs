@@ -208,7 +208,7 @@ fn do_init(
                 let mut tx = workspace_command.start_transaction();
                 jj_lib::git::import_head(tx.repo_mut()).block_on()?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
-                    let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
+                    let git_head_commit = tx.repo().store().get_commit_async(&git_head_id).block_on()?;
                     tx.check_out(&git_head_commit)?;
                 }
                 if tx.repo().has_changes() {

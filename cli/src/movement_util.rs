@@ -189,7 +189,7 @@ fn get_target_commit(
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .stream()
-        .commits(workspace_command.repo().store().clone())
+        .commits(&workspace_command.repo().store())
         .try_collect()
         .block_on()?;
 
@@ -201,7 +201,7 @@ fn get_target_commit(
                 .evaluate(workspace_command.repo().as_ref())
                 .block_on()?
                 .stream()
-                .commits(workspace_command.repo().store().clone())
+                .commits(&workspace_command.repo().store())
                 .try_collect()
                 .block_on()?;
             return Err(direction.target_not_found_error(workspace_command, args, &start_commits));

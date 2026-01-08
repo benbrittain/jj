@@ -20,7 +20,6 @@ use std::slice;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
-use futures::TryFutureExt;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
@@ -400,7 +399,10 @@ pub async fn rebase_to_dest_parent(
         Ok::<_, BackendError>(Diff::new(
             (
                 source.parent_tree_async(repo).await?,
-                format!("{} (original parents)", source.parents_conflict_label()?),
+                format!(
+                    "{} (original parents)",
+                    source.parents_conflict_label().await?
+                ),
             ),
             (
                 source.tree(),
@@ -411,7 +413,10 @@ pub async fn rebase_to_dest_parent(
     MergedTree::merge(Merge::from_diffs(
         (
             destination.parent_tree_async(repo).await?,
-            format!("{} (new parents)", destination.parents_conflict_label()?),
+            format!(
+                "{} (new parents)",
+                destination.parents_conflict_label().await?
+            ),
         ),
         try_join_all(diffs).await?,
     ))
@@ -1212,7 +1217,7 @@ impl CommitWithSelection {
     /// Returns a diff of labeled trees which represents the selected changes.
     /// This can be used with `MergedTree::merge` and `Merge::from_diffs` to
     /// apply the selected changes to a tree.
-    pub fn diff_with_labels(
+    pub async fn diff_with_labels(
         &self,
         parent_tree_label: &str,
         selected_tree_label: &str,
@@ -1220,7 +1225,7 @@ impl CommitWithSelection {
     ) -> BackendResult<Diff<(MergedTree, String)>> {
         let parent_tree_label = format!(
             "{} ({parent_tree_label})",
-            self.commit.parents_conflict_label()?
+            self.commit.parents_conflict_label().await?
         );
 
         let commit_label = self.commit.conflict_label();
@@ -1274,11 +1279,13 @@ pub async fn squash_commits<'repo>(
         // squash -r`)? The source tree will be unchanged in that case.
         source_commits.push(SourceCommit {
             commit: source,
-            diff: source.diff_with_labels(
-                "parents of squashed revision",
-                "selected changes for squash",
-                "squashed revision",
-            )?,
+            diff: source
+                .diff_with_labels(
+                    "parents of squashed revision",
+                    "selected changes for squash",
+                    "squashed revision",
+                )
+                .await?,
             abandon,
         });
     }

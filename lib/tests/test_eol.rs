@@ -164,7 +164,8 @@ fn test_eol_conversion_snapshot(
     let file_added_commit = workspace
         .repo_loader()
         .store()
-        .get_commit(file_added_commit.id())
+        .get_commit_async(file_added_commit.id())
+        .block_on()
         .expect("Failed to find the commit with the test file");
     workspace
         .check_out(
@@ -307,7 +308,8 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .workspace
         .repo_loader()
         .store()
-        .get_commit(merge_commit.id())
+        .get_commit_async(merge_commit.id())
+        .block_on()
         .expect("Failed to find the commit with the test file");
     test_workspace
         .workspace
@@ -581,7 +583,8 @@ fn test_eol_conversion_checkout(
         .workspace
         .repo_loader()
         .store()
-        .get_commit(commit.id())
+        .get_commit_async(commit.id())
+        .block_on()
         .expect("Failed to find the commit with the test file");
     // Check out the commit with the test file. TreeState::update should update the
     // EOL accordingly.

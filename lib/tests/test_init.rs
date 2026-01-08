@@ -137,7 +137,7 @@ fn test_init_with_default_config(backend: TestRepoBackend) {
         .view()
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit_async(wc_commit_id).block_on().unwrap();
     assert_eq!(wc_commit.author().name, "".to_string());
     assert_eq!(wc_commit.author().email, "".to_string());
     assert_eq!(wc_commit.committer().name, "".to_string());
@@ -155,7 +155,7 @@ fn test_init_checkout(backend: TestRepoBackend) {
         .view()
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit_async(wc_commit_id).block_on().unwrap();
     assert_tree_eq!(wc_commit.tree(), repo.store().empty_merged_tree());
     assert_eq!(
         wc_commit.store_commit().parents,

@@ -106,11 +106,6 @@ impl Commit {
         &self.data.parents
     }
 
-    // Not called internally to jj-lib
-    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Self>> {
-        self.data.parents.iter().map(|id| self.store.get_commit(id))
-    }
-
     pub async fn parents_async(&self) -> BackendResult<Vec<Self>> {
         try_join_all(
             self.data
@@ -231,8 +226,8 @@ impl Commit {
     }
 
     /// A string describing the commit's parents to be used in conflict markers.
-    pub fn parents_conflict_label(&self) -> BackendResult<String> {
-        let parents: Vec<_> = self.parents().try_collect()?;
+    pub async fn parents_conflict_label(&self) -> BackendResult<String> {
+        let parents: Vec<_> = self.parents_async().await?;
         Ok(conflict_label_for_commits(&parents))
     }
 }

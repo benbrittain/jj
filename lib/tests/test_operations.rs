@@ -498,7 +498,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         repo.view()
             .heads()
             .iter()
-            .map(|id| repo.store().get_commit(id).unwrap())
+            .map(|id| repo.store().get_commit_async(id).block_on().unwrap())
             .collect_vec()
     };
 
@@ -920,7 +920,8 @@ fn test_walk_ancestors() {
 
     fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
         op_walk::walk_ancestors_range(head_ops, root_ops)
-            .try_collect()
+            .block_on()
+            .try_collect::<Vec<_>>()
             .block_on()
             .unwrap()
     }

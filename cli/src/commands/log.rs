@@ -275,7 +275,7 @@ pub(crate) fn cmd_log(
                 }
                 let mut buffer = vec![];
                 let key = (commit_id, false);
-                let commit = store.get_commit(&key.0)?;
+                let commit = store.get_commit_async(&key.0).block_on()?;
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
                 within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
@@ -333,9 +333,9 @@ pub(crate) fn cmd_log(
                 let forward_stream = revset.stream().take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
                     let entries: Vec<_> = forward_stream.try_collect().block_on()?;
-                    Box::pin(stream::iter(entries.into_iter().rev().map(Ok)).commits(store.clone()))
+                    Box::pin(stream::iter(entries.into_iter().rev().map(Ok)).commits(&store))
                 } else {
-                    Box::pin(forward_stream.commits(store.clone()))
+                    Box::pin(forward_stream.commits(&store))
                 }
             };
             while let Some(commit_or_error) = stream.next().block_on() {

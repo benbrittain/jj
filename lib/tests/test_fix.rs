@@ -133,7 +133,8 @@ fn test_fix_one_file() {
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_a).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
 }
@@ -288,7 +289,8 @@ fn test_unchanged_file_is_fixed() {
 
     let new_commit_b = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_b).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_b).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_b.tree(), expected_tree_b);
 }
@@ -329,12 +331,14 @@ fn test_already_fixed_descendant() {
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_a).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_a.tree(), tree2);
     let new_commit_b = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_a).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_b.tree(), tree2);
 }
@@ -371,7 +375,8 @@ fn test_parallel_fixer_basic() {
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_a).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
 }
@@ -416,7 +421,8 @@ fn test_parallel_fixer_fixes_files() {
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_a).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
 }
@@ -535,7 +541,8 @@ fn test_fix_multiple_revisions() {
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .get_commit_async(summary.rewrites.get(&commit_a).unwrap())
+        .block_on()
         .unwrap();
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
 }

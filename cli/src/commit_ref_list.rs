@@ -20,6 +20,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use clap::ValueEnum;
+use pollster::FutureExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::BackendResult;
@@ -114,7 +115,8 @@ pub fn sort(
             .filter_map(|item| item.primary.target().added_ids().next())
             .map(|commit_id| {
                 store
-                    .get_commit(commit_id)
+                    .get_commit_async(commit_id)
+                    .block_on()
                     .map(|commit| (commit_id.clone(), commit.store_commit().clone()))
             })
             .try_collect()?;

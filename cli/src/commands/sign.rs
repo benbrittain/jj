@@ -85,7 +85,7 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .stream()
-        .commits(workspace_command.repo().store().clone())
+        .commits(&workspace_command.repo().store())
         .try_collect()
         .block_on()?;
 

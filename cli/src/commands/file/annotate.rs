@@ -131,7 +131,7 @@ fn render_file_annotation(
     };
     for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
         let line_origin = line_origin.unwrap_or(&default_line_origin);
-        let commit = repo.store().get_commit(&line_origin.commit_id)?;
+        let commit = repo.store().get_commit_async(&line_origin.commit_id).block_on()?;
         let first_line_in_hunk = last_id != Some(&line_origin.commit_id);
         let annotation_line = AnnotationLine {
             commit,

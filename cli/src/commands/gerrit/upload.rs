@@ -348,7 +348,7 @@ pub fn cmd_gerrit_upload(
             // the transaction (which we don't), the new commit is labeled as
             // "hidden".
             tx.base_workspace_helper()
-                .write_commit_summary(formatter.as_mut(), &store.get_commit(head).unwrap())?;
+                .write_commit_summary(formatter.as_mut(), &store.get_commit_async(head).block_on().unwrap())?;
             writeln!(formatter)?;
         }
 

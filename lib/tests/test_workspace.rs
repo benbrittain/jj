@@ -65,7 +65,7 @@ fn test_init_additional_workspace() {
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
     assert_ne!(wc_commit_id, None);
     let wc_commit_id = wc_commit_id.unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit_async(wc_commit_id).block_on().unwrap();
     assert_eq!(
         wc_commit.parent_ids(),
         vec![repo.store().root_commit_id().clone()]

@@ -140,6 +140,7 @@ impl CopiesTreeDiffEntryPath {
     }
 }
 
+/// Copy diffstream
 pub fn copies_tree_diff_stream<'a>(
     inner: TreeDiffStream<'a>,
     source_tree: MergedTree,

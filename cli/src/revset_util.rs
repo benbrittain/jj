@@ -145,7 +145,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         impl Stream<Item = Result<Commit, RevsetEvaluationError>> + use<'repo>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.stream().commits(self.repo.store().clone()))
+        Ok(self.evaluate()?.stream().commits(&self.repo.store()))
     }
 }
 

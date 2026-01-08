@@ -1059,7 +1059,8 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
     let jj_commit_remote_b = tx
         .repo()
         .store()
-        .get_commit(&jj_id(commit_remote_b))
+        .get_commit_async(&jj_id(commit_remote_b))
+        .block_on()
         .unwrap();
     tx.repo_mut().record_abandoned_commit(&jj_commit_remote_b);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -4156,11 +4157,13 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         .unwrap();
     let main_commit = jj_repo
         .store()
-        .get_commit(&jj_id(initial_git_commit))
+        .get_commit_async(&jj_id(initial_git_commit))
+        .block_on()
         .unwrap();
     let parent_of_main_commit = jj_repo
         .store()
-        .get_commit(&jj_id(parent_of_initial_git_commit))
+        .get_commit_async(&jj_id(parent_of_initial_git_commit))
+        .block_on()
         .unwrap();
     let mut tx = jj_repo.start_transaction();
     let sideways_commit = write_random_commit(tx.repo_mut());
@@ -4906,7 +4909,7 @@ fn test_rewrite_imported_commit() {
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
-    let imported_commit = repo.store().get_commit(&jj_id(git_commit)).unwrap();
+    let imported_commit = repo.store().get_commit_async(&jj_id(git_commit)).block_on().unwrap();
 
     // Try to create identical commit with different change id.
     let mut tx = repo.start_transaction();
@@ -4995,7 +4998,7 @@ fn test_concurrent_write_commit() {
     // All unique commits should be preserved.
     let repo = repo.reload_at_head().block_on().unwrap();
     for (commit_id, change_ids) in &commit_change_ids {
-        let commit = repo.store().get_commit(commit_id).unwrap();
+        let commit = repo.store().get_commit_async(commit_id).block_on().unwrap();
         assert_eq!(commit.id(), commit_id);
         assert!(change_ids.contains(commit.change_id()));
     }
@@ -5003,7 +5006,7 @@ fn test_concurrent_write_commit() {
     // The index should be consistent with the store.
     for commit_id in commit_change_ids.keys() {
         assert!(repo.index().has_id(commit_id).unwrap());
-        let commit = repo.store().get_commit(commit_id).unwrap();
+        let commit = repo.store().get_commit_async(commit_id).block_on().unwrap();
         assert_eq!(
             repo.resolve_change_id(commit.change_id())
                 .unwrap()
@@ -5091,7 +5094,7 @@ fn test_concurrent_read_write_commit() {
                             match git_backend.import_head_commits([&commit_id]) {
                                 Ok(()) => {
                                     // update index as git::import_refs() would do
-                                    let commit = repo.store().get_commit(&commit_id).unwrap();
+                                    let commit = repo.store().get_commit_async(&commit_id).block_on().unwrap();
                                     tx.repo_mut().add_head(&commit).block_on().unwrap();
                                     None
                                 }
@@ -5132,7 +5135,7 @@ fn test_concurrent_read_write_commit() {
     let repo = repo.reload_at_head().block_on().unwrap();
     for commit_id in &commit_ids {
         assert!(repo.index().has_id(commit_id).unwrap());
-        let commit = repo.store().get_commit(commit_id).unwrap();
+        let commit = repo.store().get_commit_async(commit_id).block_on().unwrap();
         assert_eq!(
             repo.resolve_change_id(commit.change_id())
                 .unwrap()
@@ -5217,7 +5220,7 @@ fn test_shallow_commits_lack_parents() {
     assert_eq!(*repo.view().heads(), expected_heads);
 
     let parents = |store: &Arc<jj_lib::store::Store>, commit| {
-        let commit = store.get_commit(&jj_id(commit)).unwrap();
+        let commit = store.get_commit_async(&jj_id(commit)).block_on().unwrap();
         commit.parent_ids().to_vec()
     };
 

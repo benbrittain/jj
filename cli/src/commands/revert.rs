@@ -141,7 +141,7 @@ pub(crate) fn cmd_revert(
     let original_parent_commit_ids: HashSet<_> = new_parent_ids.iter().cloned().collect();
     let new_parents: Vec<_> = new_parent_ids
         .iter()
-        .map(|id| tx.repo().store().get_commit(id))
+        .map(|id| tx.repo().store().get_commit_async(id).block_on())
         .try_collect()?;
     let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents).block_on()?;
     let mut parent_ids = new_parent_ids;
@@ -151,7 +151,7 @@ pub(crate) fn cmd_revert(
     for (commit_to_revert, new_commit_description) in
         &commits_to_revert_with_new_commit_descriptions
     {
-        let old_parents: Vec<_> = commit_to_revert.parents().try_collect()?;
+        let old_parents: Vec<_> = commit_to_revert.parents_async().block_on()?;
         let old_base_tree = commit_to_revert.parent_tree_async(tx.repo()).block_on()?;
         let old_tree = commit_to_revert.tree();
         let new_tree = MergedTree::merge(Merge::from_vec(vec![

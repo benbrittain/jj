@@ -618,7 +618,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) {
     let heads = repo.view().heads();
     assert_eq!(heads.len(), 1);
     let b2_id = heads.iter().next().unwrap();
-    let commit_b2 = repo.store().get_commit(b2_id).unwrap();
+    let commit_b2 = repo.store().get_commit_async(b2_id).block_on().unwrap();
     assert_eq!(commit_b2.change_id(), commit_b.change_id());
     assert_eq!(commit_b2.parent_ids(), vec![commit_a2.id().clone()]);
 }
@@ -670,7 +670,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
         assert_eq!(heads.len(), 2);
         assert!(heads.remove(commit_a3.id()));
         let b2_id = heads.iter().next().unwrap();
-        let commit_b2 = repo.store().get_commit(b2_id).unwrap();
+        let commit_b2 = repo.store().get_commit_async(b2_id).block_on().unwrap();
         assert_eq!(commit_b2.change_id(), commit_b.change_id());
         assert_eq!(commit_b2.parent_ids(), vec![commit_a4.id().clone()]);
     } else {
@@ -711,7 +711,7 @@ fn test_merge_views_child_on_abandoned(child_first: bool) {
     let heads = repo.view().heads();
     assert_eq!(heads.len(), 1);
     let id_c2 = heads.iter().next().unwrap();
-    let commit_c2 = repo.store().get_commit(id_c2).unwrap();
+    let commit_c2 = repo.store().get_commit_async(id_c2).block_on().unwrap();
     assert_eq!(commit_c2.change_id(), commit_c.change_id());
     assert_eq!(commit_c2.parent_ids(), vec![commit_a.id().clone()]);
 }

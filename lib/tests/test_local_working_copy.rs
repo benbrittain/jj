@@ -132,7 +132,7 @@ fn test_root() {
         .view()
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit_async(wc_commit_id).block_on().unwrap();
     assert_tree_eq!(new_tree, wc_commit.tree());
     assert_tree_eq!(new_tree, repo.store().empty_merged_tree());
 }
@@ -503,8 +503,8 @@ fn test_acl() {
         .load_at(repo.operation())
         .block_on()
         .unwrap();
-    let commit1 = repo.store().get_commit(commit1.id()).unwrap();
-    let commit2 = repo.store().get_commit(commit2.id()).unwrap();
+    let commit1 = repo.store().get_commit_async(commit1.id()).block_on().unwrap();
+    let commit2 = repo.store().get_commit_async(commit2.id()).block_on().unwrap();
 
     ws.check_out(repo.op_id().clone(), None, &commit1)
         .block_on()

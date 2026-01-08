@@ -146,10 +146,6 @@ impl Tree {
         }
     }
 
-    async fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
-        self.store.get_tree_async(subdir, id).await.unwrap()
-    }
-
     /// Look up the tree at the given path.
     pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
         let mut current_tree = self.clone();

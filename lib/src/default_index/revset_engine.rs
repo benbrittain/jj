@@ -1135,7 +1135,7 @@ impl EvaluationContext<'_> {
 
         let make_rev_item = |pos| -> Result<_, RevsetEvaluationError> {
             let entry = self.index.commits().entry_by_pos(pos?);
-            let commit = self.store.get_commit(&entry.commit_id())?;
+            let commit = self.store.get_commit_async(&entry.commit_id()).block_on()?;
             Ok(Reverse(Item {
                 timestamp: commit.committer().timestamp.timestamp,
                 pos: entry.position(),
@@ -1221,7 +1221,7 @@ async fn build_predicate_fn(
             let matcher = Rc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(matcher.is_match(commit.description()))
             })
         }
@@ -1229,7 +1229,7 @@ async fn build_predicate_fn(
             let matcher = Rc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(matcher.is_match(commit.description().lines().next().unwrap_or_default()))
             })
         }
@@ -1237,7 +1237,7 @@ async fn build_predicate_fn(
             let matcher = Rc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(matcher.is_match(&commit.author().name))
             })
         }
@@ -1245,7 +1245,7 @@ async fn build_predicate_fn(
             let matcher = Rc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(matcher.is_match(&commit.author().email))
             })
         }
@@ -1253,7 +1253,7 @@ async fn build_predicate_fn(
             let expression = *expression;
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 let author_date = &commit.author().timestamp;
                 Ok(expression.matches(author_date))
             })
@@ -1262,7 +1262,7 @@ async fn build_predicate_fn(
             let matcher = Rc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(matcher.is_match(&commit.committer().name))
             })
         }
@@ -1270,7 +1270,7 @@ async fn build_predicate_fn(
             let matcher = Rc::new(expression.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(matcher.is_match(&commit.committer().email))
             })
         }
@@ -1278,7 +1278,7 @@ async fn build_predicate_fn(
             let expression = *expression;
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 let committer_date = &commit.committer().timestamp;
                 Ok(expression.matches(committer_date))
             })
@@ -1290,7 +1290,7 @@ async fn build_predicate_fn(
                     return Ok(paths.any(|path| matcher.matches(path)));
                 }
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(has_diff_from_parent(&store, index, &commit, &*matcher).block_on()?)
             })
         }
@@ -1312,7 +1312,7 @@ async fn build_predicate_fn(
                     &*files_matcher
                 };
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(
                     matches_diff_from_parent(&store, index, &commit, &text_matcher, files_matcher)
                         .block_on()?,
@@ -1321,19 +1321,19 @@ async fn build_predicate_fn(
         }
         RevsetFilterPredicate::HasConflict => box_pure_predicate_fn(move |index, pos| {
             let entry = index.commits().entry_by_pos(pos);
-            let commit = store.get_commit(&entry.commit_id())?;
+            let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
             Ok(commit.has_conflict())
         }),
         RevsetFilterPredicate::Signed => box_pure_predicate_fn(move |index, pos| {
             let entry = index.commits().entry_by_pos(pos);
-            let commit = store.get_commit(&entry.commit_id())?;
+            let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
             Ok(commit.is_signed())
         }),
         RevsetFilterPredicate::Extension(ext) => {
             let ext = ext.clone();
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
-                let commit = store.get_commit(&entry.commit_id())?;
+                let commit = store.get_commit_async(&entry.commit_id()).block_on()?;
                 Ok(ext.matches_commit(&commit))
             })
         }

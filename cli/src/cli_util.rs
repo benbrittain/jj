@@ -479,7 +479,7 @@ impl CommandHelper {
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
-        let repo = workspace.repo_loader().load_at(&op_head)?;
+        let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
         let env = self.workspace_environment(ui, &workspace)?;
         revset_util::warn_unresolvable_trunk(ui, repo.as_ref(), &env.revset_parse_context())?;
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
@@ -544,7 +544,7 @@ impl CommandHelper {
 
         match workspace.repo_loader().load_operation(op_id).block_on() {
             Ok(op) => {
-                let repo = workspace.repo_loader().load_at(&op)?;
+                let repo = workspace.repo_loader().load_at(&op).block_on()?;
                 let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
                 workspace_command.check_working_copy_writable()?;
 
@@ -558,7 +558,7 @@ impl CommandHelper {
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
-                let stale_wc_commit = repo.store().get_commit(wc_commit_id)?;
+                let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).block_on()?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
@@ -678,7 +678,7 @@ impl CommandHelper {
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
                     )?;
-                    let base_repo = repo_loader.load_at(&op_heads[0])?;
+                    let base_repo = repo_loader.load_at(&op_heads[0]).await?;
                     // TODO: It may be helpful to print each operation we're merging here
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
@@ -1152,7 +1152,7 @@ impl WorkspaceCommandHelper {
                     .command
                     .resolve_operation(ui, repo.loader())
                     .map_err(snapshot_command_error)?;
-                let current_repo = repo.loader().load_at(&op).map_err(snapshot_command_error)?;
+                let current_repo = repo.loader().load_at(&op).block_on().map_err(snapshot_command_error)?;
                 self.user_repo = ReadonlyUserRepo::new(current_repo);
             }
         }
@@ -1213,7 +1213,7 @@ impl WorkspaceCommandHelper {
         let new_git_head = tx.repo().view().git_head().clone();
         if let Some(new_git_head_id) = new_git_head.as_normal() {
             let workspace_name = self.workspace_name().to_owned();
-            let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
+            let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).block_on()?;
             let wc_commit = tx
                 .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)
@@ -1310,7 +1310,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         self.check_working_copy_writable()?;
         let wc_commit = if let Some(wc_commit_id) = self.get_wc_commit_id() {
-            self.repo().store().get_commit(wc_commit_id)?
+            self.repo().store().get_commit_async(wc_commit_id).block_on()?
         } else {
             return Err(user_error("Nothing checked out in this workspace"));
         };
@@ -1878,7 +1878,7 @@ to the current parents may contain changes from multiple commits.
             user_error(format!("The root commit {commit_id:.12} is immutable"))
         } else {
             let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
-            let commit = repo.store().get_commit(&commit_id)?;
+            let commit = repo.store().get_commit_async(&commit_id).block_on()?;
             error.add_formatted_hint_with(|formatter| {
                 write!(formatter, "Could not modify commit: ")?;
                 self.write_commit_summary(formatter, &commit)?;
@@ -2035,8 +2035,8 @@ to the current parents may contain changes from multiple commits.
             write!(formatter, "Working copy  (@) now at: ")?;
             template.format(new_commit, formatter.as_mut())?;
             writeln!(formatter)?;
-            for parent in new_commit.parents() {
-                let parent = parent?;
+            for parent in new_commit.parents_async().block_on()? {
+                let parent = parent;
                 //                "Working copy  (@) now at: "
                 write!(formatter, "Parent commit (@-)      : ")?;
                 template.format(&parent, formatter.as_mut())?;
@@ -2086,7 +2086,7 @@ to the current parents may contain changes from multiple commits.
                 .find_immutable_commit(tx.repo(), &RevsetExpression::commit(wc_commit_id.clone()))?
                 .is_some()
             {
-                let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
+                let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).block_on()?;
                 tx.repo_mut()
                     .check_out(name.clone(), &wc_commit)
                     .block_on()?;
@@ -2104,13 +2104,13 @@ to the current parents may contain changes from multiple commits.
         let maybe_old_wc_commit = old_repo
             .view()
             .get_wc_commit_id(self.workspace_name())
-            .map(|commit_id| tx.base_repo().store().get_commit(commit_id))
+            .map(|commit_id| tx.base_repo().store().get_commit_async(commit_id).block_on())
             .transpose()?;
         let maybe_new_wc_commit = tx
             .repo()
             .view()
             .get_wc_commit_id(self.workspace_name())
-            .map(|commit_id| tx.repo().store().get_commit(commit_id))
+            .map(|commit_id| tx.repo().store().get_commit_async(commit_id).block_on())
             .transpose()?;
 
         #[cfg(feature = "git")]
@@ -2215,7 +2215,7 @@ to the current parents may contain changes from multiple commits.
                     .evaluate(new_repo)
                     .block_on()?
                     .stream()
-                    .commits(new_repo.store().clone())
+                    .commits(&new_repo.store())
                     .try_collect()
                     .block_on()?;
                 Ok(commits)
@@ -2316,7 +2316,7 @@ to the current parents may contain changes from multiple commits.
 
         let root_conflict_commits: Vec<_> = root_conflicts_revset
             .stream()
-            .commits(repo.store().clone())
+            .commits(&repo.store())
             .try_collect()
             .block_on()?;
 
@@ -2643,7 +2643,7 @@ fn handle_stale_working_copy(
     let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
         repo.view()
             .get_wc_commit_id(workspace_name)
-            .map(|id| repo.store().get_commit(id))
+            .map(|id| repo.store().get_commit_async(id).block_on())
             .transpose()
             .map_err(snapshot_command_error)
     };
@@ -3249,7 +3249,7 @@ pub fn compute_commit_location(
             (None, None, Some(before_commit_ids)) => {
                 let before_commits: Vec<_> = before_commit_ids
                     .iter()
-                    .map(|id| workspace_command.repo().store().get_commit(id))
+                    .map(|id| workspace_command.repo().store().get_commit_async(id).block_on())
                     .try_collect()?;
                 // Not using `RevsetExpression::parents` here to persist the order of parents
                 // specified in `before_commits`.

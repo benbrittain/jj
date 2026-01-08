@@ -128,7 +128,7 @@ pub(crate) fn cmd_restore(
         to_commit = workspace_command
             .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))?;
         from_tree = to_commit.parent_tree_async(workspace_command.repo().as_ref()).block_on()?;
-        from_commits = to_commit.parents().try_collect()?;
+        from_commits = to_commit.parents_async().block_on()?;
     }
     workspace_command.check_rewritable([to_commit.id()])?;
 

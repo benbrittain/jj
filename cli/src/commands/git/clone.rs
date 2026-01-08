@@ -247,7 +247,7 @@ pub fn cmd_git_clone(
             .get_remote_bookmark(working_symbol);
         if let Some(commit_id) = working_branch_remote_ref.target.as_normal().cloned() {
             let mut tx = workspace_command.start_transaction();
-            if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
+            if let Ok(commit) = tx.repo().store().get_commit_async(&commit_id).block_on() {
                 tx.check_out(&commit)?;
             }
             tx.finish(
@@ -313,7 +313,7 @@ fn configure_remote(
         .repo_loader()
         .load_operation(workspace_command.repo().op_id())
         .block_on()?;
-    let repo = workspace.repo_loader().load_at(&op)?;
+    let repo = workspace.repo_loader().load_at(&op).block_on()?;
     command.for_workable_repo(ui, workspace, repo)
 }
 

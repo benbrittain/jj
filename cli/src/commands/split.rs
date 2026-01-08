@@ -210,7 +210,10 @@ impl SplitArgs {
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
         let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
-        if target_commit.is_empty(workspace_command.repo().as_ref()).block_on()? {
+        if target_commit
+            .is_empty(workspace_command.repo().as_ref())
+            .block_on()?
+        {
             return Err(user_error_with_hint(
                 format!(
                     "Refusing to split empty commit {}.",
@@ -300,7 +303,11 @@ pub(crate) fn cmd_split(
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).block_on().detach();
+        let mut commit_builder = tx
+            .repo_mut()
+            .rewrite_commit(&target.commit)
+            .block_on()
+            .detach();
         commit_builder.set_tree(target.selected_tree.clone());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
@@ -340,11 +347,13 @@ pub(crate) fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            let selected_diff = target.diff_with_labels(
-                "parents of split revision",
-                "selected changes for split",
-                "split revision",
-            )?;
+            let selected_diff = target
+                .diff_with_labels(
+                    "parents of split revision",
+                    "selected changes for split",
+                    "split revision",
+                )
+                .block_on()?;
             MergedTree::merge(Merge::from_diffs(
                 (
                     target_tree,
@@ -361,7 +370,11 @@ pub(crate) fn cmd_split(
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).block_on().detach();
+        let mut commit_builder = tx
+            .repo_mut()
+            .rewrite_commit(&target.commit)
+            .block_on()
+            .detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
         let mut show_editor = args.editor;
         if !use_move_flags {
@@ -524,7 +537,9 @@ fn rewrite_descendants(
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
         if working_copy_commit == target.commit.id() {
-            tx.repo_mut().edit(name.clone(), &second_commit).block_on()?;
+            tx.repo_mut()
+                .edit(name.clone(), &second_commit)
+                .block_on()?;
         }
     }
 

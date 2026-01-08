@@ -1042,7 +1042,8 @@ fn test_rebase_descendants_contents() {
     assert_eq!(rebase_map.len(), 1);
     let new_commit_c = repo
         .store()
-        .get_commit(rebase_map.get(commit_c.id()).unwrap())
+        .get_commit_async(rebase_map.get(commit_c.id()).unwrap())
+        .block_on()
         .unwrap();
 
     let tree_b = commit_b.tree();
@@ -1136,7 +1137,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     let heads = tx.repo().view().heads();
     assert_eq!(heads.len(), 1);
     let c3_id = heads.iter().next().unwrap().clone();
-    let commit_c3 = repo.store().get_commit(&c3_id).unwrap();
+    let commit_c3 = repo.store().get_commit_async(&c3_id).block_on().unwrap();
     assert_ne!(commit_c3.id(), commit_c2.id());
     assert_eq!(commit_c3.parent_ids(), vec![commit_b2.id().clone()]);
     assert_eq!(
@@ -1722,7 +1723,8 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     );
     let checkout = repo
         .store()
-        .get_commit(repo.view().get_wc_commit_id(&ws1_name).unwrap())
+        .get_commit_async(repo.view().get_wc_commit_id(&ws1_name).unwrap())
+        .block_on()
         .unwrap();
     assert_eq!(checkout.parent_ids(), vec![commit_a.id().clone()]);
     assert_eq!(repo.view().get_wc_commit_id(&ws3_name), Some(commit_a.id()));
@@ -1758,7 +1760,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let new_checkout_id = repo.view().get_wc_commit_id(&ws_name).unwrap();
-    let checkout = repo.store().get_commit(new_checkout_id).unwrap();
+    let checkout = repo.store().get_commit_async(new_checkout_id).block_on().unwrap();
     assert_eq!(
         checkout.parent_ids(),
         vec![commit_b.id().clone(), commit_c.id().clone()]
@@ -1989,7 +1991,7 @@ fn test_rebase_abandoning_empty() {
         .get_wc_commit_id(&workspace)
         .unwrap()
         .clone();
-    let new_wc_commit = tx.repo().store().get_commit(&new_wc_commit_id).unwrap();
+    let new_wc_commit = tx.repo().store().get_commit_async(&new_wc_commit_id).block_on().unwrap();
     assert_eq!(new_wc_commit.parent_ids(), &[new_commit_c.id().clone()]);
 
     assert_eq!(

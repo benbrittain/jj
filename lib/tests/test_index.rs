@@ -774,7 +774,7 @@ fn test_reindex_missing_commit() {
     let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
     test_backend.remove_commit_unchecked(missing_commit.id());
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path()); // discard cache
-    assert!(repo.store().get_commit(missing_commit.id()).is_err());
+    assert!(repo.store().get_commit_async(missing_commit.id()).block_on().is_err());
 
     // Reindexing error should include the operation id where the commit
     // couldn't be found.

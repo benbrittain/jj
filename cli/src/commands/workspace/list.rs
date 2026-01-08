@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -69,7 +70,7 @@ pub fn cmd_workspace_list(
     let mut formatter = ui.stdout_formatter();
 
     for (name, wc_commit_id) in repo.view().wc_commit_ids() {
-        let commit = repo.store().get_commit(wc_commit_id)?;
+        let commit = repo.store().get_commit_async(wc_commit_id).block_on()?;
         let ws_ref = WorkspaceRef::new(name.clone(), commit);
 
         template.format(&ws_ref, formatter.as_mut())?;

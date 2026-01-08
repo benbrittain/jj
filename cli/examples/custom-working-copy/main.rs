@@ -261,8 +261,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
             .block_on()
             .iter()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
-            .collect()
-            .await;
+            .collect::<Vec<_>>();
         let conflicts_text = conflicts.join("");
         std::fs::write(self.wc_path.join(".conflicts"), conflicts_text).unwrap();
         self.inner.check_out(commit).await

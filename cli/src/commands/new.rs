@@ -184,7 +184,7 @@ pub(crate) fn cmd_new(
     )?;
     let parent_commits: Vec<_> = parent_commit_ids
         .iter()
-        .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
+        .map(|commit_id| workspace_command.repo().store().get_commit_async(commit_id).block_on())
         .try_collect()?;
     let mut advance_bookmarks_target = None;
     let mut advanceable_bookmarks = vec![];
@@ -220,7 +220,7 @@ pub(crate) fn cmd_new(
 
     let child_commits: Vec<_> = child_commit_ids
         .iter()
-        .map(|commit_id| tx.repo().store().get_commit(commit_id))
+        .map(|commit_id| tx.repo().store().get_commit_async(commit_id).block_on())
         .try_collect()?;
     let mut num_rebased = 0;
     for child_commit in child_commits {

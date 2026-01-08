@@ -23,7 +23,6 @@ use std::time::SystemTime;
 
 use clru::CLruCache;
 use futures::stream::BoxStream;
-use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 
 use crate::backend;

@@ -225,7 +225,7 @@ pub(crate) fn cmd_squash(
     } else {
         let source = workspace_command
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
-        let mut parents: Vec<_> = source.parents().try_collect()?;
+        let mut parents: Vec<_> = source.parents_async().block_on()?;
         if parents.len() != 1 {
             return Err(user_error_with_hint(
                 "Cannot squash merge commits without a specified destination",
@@ -272,7 +272,8 @@ pub(crate) fn cmd_squash(
                 tx.base_workspace_helper()
                     .repo()
                     .store()
-                    .get_commit(commit_id)
+                    .get_commit_async(commit_id)
+                    .block_on()
             })
             .try_collect()?;
         let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
