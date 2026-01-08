@@ -136,7 +136,7 @@ fn build_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
         .block_on()
         .unwrap();
-    repo.reload_at(repo.operation()).unwrap()
+    repo.reload_at(repo.operation()).block_on().unwrap()
 }
 
 #[test]
@@ -628,6 +628,7 @@ fn test_resolve_working_copy() {
             .block_on()
             .unwrap()
             .iter()
+            .block_on()
             .map(Result::unwrap)
             .collect_vec(),
         vec![]
@@ -651,6 +652,7 @@ fn test_resolve_working_copy() {
             .block_on()
             .unwrap()
             .iter()
+            .block_on()
             .map(Result::unwrap)
             .collect()
     };
@@ -691,6 +693,7 @@ fn test_resolve_working_copies() {
             .block_on()
             .unwrap()
             .iter()
+            .block_on()
             .map(Result::unwrap)
             .collect()
     };
@@ -1230,6 +1233,7 @@ fn try_resolve_commit_ids(
         .block_on()
         .unwrap()
         .iter()
+        .block_on()
         .map(Result::unwrap)
         .collect())
 }
@@ -1280,6 +1284,7 @@ fn resolve_commit_ids_in_workspace(
         .block_on()
         .unwrap()
         .iter()
+        .block_on()
         .map(Result::unwrap)
         .collect()
 }
@@ -1369,7 +1374,7 @@ fn test_evaluate_expression_root_and_checkout() {
     let repo = &test_workspace.repo;
 
     let root_operation = repo.loader().root_operation().block_on();
-    let root_repo = repo.reload_at(&root_operation).unwrap();
+    let root_repo = repo.reload_at(&root_operation).block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -4732,7 +4737,7 @@ fn test_evaluate_expression_file(indexed: bool) {
             FilesetExpression::prefix_path(file_path.to_owned()),
         ));
         let revset = expression.evaluate(mut_repo).block_on().unwrap();
-        revset.iter().map(Result::unwrap).collect()
+        revset.iter().block_on().map(Result::unwrap).collect()
     };
 
     assert_eq!(resolve(added_clean_clean), vec![commit1.id().clone()]);
@@ -5212,7 +5217,7 @@ fn test_reverse_graph() {
         repo.as_ref(),
         &[&commit_a, &commit_c, &commit_d, &commit_e, &commit_f],
     );
-    let commits = reverse_graph(revset.iter_graph(), |id| id).unwrap();
+    let commits = reverse_graph(revset.iter_graph().block_on(), |id| id).unwrap();
     assert_eq!(commits.len(), 5);
     assert_eq!(commits[0].0, *commit_a.id());
     assert_eq!(commits[1].0, *commit_c.id());
@@ -5274,7 +5279,7 @@ fn test_revset_containing_fn() {
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_d]);
 
-    let revset_has_commit = revset.containing_fn();
+    let revset_has_commit = revset.containing_fn().block_on();
     assert!(!revset_has_commit(commit_a.id()).unwrap());
     assert!(revset_has_commit(commit_b.id()).unwrap());
     assert!(!revset_has_commit(commit_c.id()).unwrap());

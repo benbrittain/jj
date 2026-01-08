@@ -74,7 +74,8 @@ impl DisambiguationData {
 
                 let revset = revset.evaluate(repo).await?;
 
-                let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect()?;
+                let commit_change_ids: Vec<_> =
+                    revset.commit_change_ids().await.try_collect()?;
                 let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
                 let mut change_index = IdIndex::with_capacity(commit_change_ids.len());
                 for (i, (commit_id, change_id)) in commit_change_ids.iter().enumerate() {

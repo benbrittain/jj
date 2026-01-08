@@ -6,7 +6,11 @@
       "Bash(find:*)",
       "Bash(jj status:*)",
       "Bash(jj resolve:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo test:*)",
+      "Bash(jj diff:*)",
+      "Bash(cargo fix:*)"
     ],
     "deny": [],
     "ask": []

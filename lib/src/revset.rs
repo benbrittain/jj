@@ -2585,15 +2585,18 @@ async fn reload_repo_at_operation(
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
         .await
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
-    base_repo.reload_at(&operation).map_err(|err| match err {
-        RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
-        RepoLoaderError::Index(_)
-        | RepoLoaderError::IndexStore(_)
-        | RepoLoaderError::OpHeadResolution(_)
-        | RepoLoaderError::OpHeadsStoreError(_)
-        | RepoLoaderError::OpStore(_)
-        | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
-    })
+    base_repo
+        .reload_at(&operation)
+        .await
+        .map_err(|err| match err {
+            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::Index(_)
+            | RepoLoaderError::IndexStore(_)
+            | RepoLoaderError::OpHeadResolution(_)
+            | RepoLoaderError::OpHeadsStoreError(_)
+            | RepoLoaderError::OpStore(_)
+            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+        })
 }
 
 fn resolve_remote_symbol(
@@ -3395,11 +3398,10 @@ impl VisibilityResolutionContext<'_> {
     }
 }
 
+#[async_trait(?Send)]
 pub trait Revset: fmt::Debug {
     /// Iterate in topological order with children before parents.
-    fn iter<'a>(&self) -> Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
+    async fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'a>;
 
     fn stream<'a>(
         &self,
@@ -3408,35 +3410,25 @@ pub trait Revset: fmt::Debug {
         Self: 'a;
 
     /// Iterates commit/change id pairs in topological order.
-    fn commit_change_ids<'a>(
-        &self,
-    ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
+    async fn commit_change_ids<'a>(&'a self) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>;
 
-    fn iter_graph<'a>(
-        &self,
-    ) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
+    async fn iter_graph<'a>(&'a self) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>;
 
     /// Returns true if iterator will emit no commit nor error.
-    fn is_empty(&self) -> bool;
+    async fn is_empty(&self) -> bool;
 
     /// Inclusive lower bound and, optionally, inclusive upper bound of how many
     /// commits are in the revset. The implementation can use its discretion as
     /// to how much effort should be put into the estimation, and how accurate
     /// the resulting estimate should be.
-    fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError>;
+    async fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError>;
 
     /// Returns a closure that checks if a commit is contained within the
     /// revset.
     ///
     /// The implementation may construct and maintain any necessary internal
     /// context to optimize the performance of the check.
-    fn containing_fn<'a>(&self) -> Box<RevsetContainingFn<'a>>
-    where
-        Self: 'a;
+    async fn containing_fn<'a>(&'a self) -> Box<RevsetContainingFn<'a>>;
 }
 
 /// Function that checks if a commit is contained within the revset.

@@ -67,6 +67,7 @@ pub(crate) fn cmd_simplify_parents(
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .iter()
+        .block_on()
         .try_collect()?;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
     let num_orig_commits = commit_ids.len();

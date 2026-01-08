@@ -30,6 +30,7 @@ name = "diff_bench"
 harness = false
 
 [dependencies]
+async-stream = { workspace = true }
 async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
@@ -53,7 +54,6 @@ once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
 pin-project-lite = "0.2.16"
-pollster = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
@@ -83,6 +83,7 @@ criterion = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
 num_cpus = { workspace = true }
+pollster = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 rustversion = { workspace = true }

@@ -314,7 +314,7 @@ async fn process_commits(
         .await?;
 
     state.num_unresolved_roots = 0;
-    for node in revset.iter_graph() {
+    for node in revset.iter_graph().await {
         let (commit_id, edge_list) = node?;
         process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
         if state.commit_source_map.len() == state.num_unresolved_roots {

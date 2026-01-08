@@ -163,8 +163,8 @@ fn verify_optimized(
         .evaluate_unoptimized(repo)
         .block_on()
         .unwrap();
-    let optimized_ids: Vec<_> = optimized_revset.iter().try_collect().unwrap();
-    let unoptimized_ids: Vec<_> = unoptimized_revset.iter().try_collect().unwrap();
+    let optimized_ids: Vec<_> = optimized_revset.iter().block_on().try_collect().unwrap();
+    let unoptimized_ids: Vec<_> = unoptimized_revset.iter().block_on().try_collect().unwrap();
     prop_assert_eq!(optimized_ids, unoptimized_ids);
     Ok(())
 }

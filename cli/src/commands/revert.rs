@@ -17,7 +17,6 @@ use std::collections::HashSet;
 use bstr::ByteVec as _;
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
-use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;

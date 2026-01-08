@@ -96,7 +96,7 @@ pub fn cmd_debug_revset(
     writeln!(ui.stdout())?;
 
     writeln!(ui.stdout(), "-- Commit IDs:")?;
-    for commit_id in revset.iter() {
+    for commit_id in revset.iter().block_on() {
         writeln!(ui.stdout(), "{}", commit_id?.hex())?;
     }
     Ok(())

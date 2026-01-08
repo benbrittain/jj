@@ -16,7 +16,6 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use futures::TryStreamExt as _;
-use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::repo::Repo as _;

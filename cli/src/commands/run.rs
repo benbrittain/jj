@@ -14,9 +14,7 @@
 
 //! This file contains the internal implementation of `run`.
 
-use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;

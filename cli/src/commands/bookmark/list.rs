@@ -17,8 +17,6 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use futures::StreamExt as _;
-use futures::TryStreamExt as _;
-use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
