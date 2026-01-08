@@ -953,13 +953,44 @@ impl CommitTemplateBuildFnTable<'_> {
     }
 }
 
+/// Wrapper that holds a revset and its containing_fn together.
+/// This allows the containing_fn (which borrows from the revset) to be safely
+/// stored and cloned via Rc.
+pub struct RevsetWithContainingFn<'repo> {
+    // The revset must be kept alive to ensure the containing_fn remains valid.
+    // It's wrapped in a Box and then we create the containing_fn from it.
+    // The containing_fn is created lazily and cached.
+    revset: Box<dyn Revset + 'repo>,
+    containing_fn: OnceCell<Box<RevsetContainingFn<'repo>>>,
+}
+
+impl<'repo> RevsetWithContainingFn<'repo> {
+    fn new(revset: Box<dyn Revset + 'repo>) -> Self {
+        Self {
+            revset,
+            containing_fn: OnceCell::new(),
+        }
+    }
+
+    fn containing_fn(&self) -> &Box<RevsetContainingFn<'repo>> {
+        self.containing_fn.get_or_init(|| {
+            let containing_fn = self.revset.containing_fn().block_on();
+            // SAFETY: The containing_fn closure actually owns all its data (it captures
+            // a PositionsAccumulator which clones the index). The 'a lifetime in the
+            // trait signature is overly conservative. We extend it to 'repo which
+            // matches the actual lifetime of the captured data.
+            unsafe { std::mem::transmute(containing_fn) }
+        })
+    }
+}
+
 #[derive(Default)]
 pub struct CommitKeywordCache<'repo> {
     // Build index lazily, and Rc to get away from &self lifetime.
     bookmarks_index: OnceCell<Rc<CommitRefsIndex>>,
     tags_index: OnceCell<Rc<CommitRefsIndex>>,
     git_refs_index: OnceCell<Rc<CommitRefsIndex>>,
-    is_immutable_fn: OnceCell<Rc<RevsetContainingFn<'repo>>>,
+    is_immutable: OnceCell<Rc<RevsetWithContainingFn<'repo>>>,
 }
 
 impl<'repo> CommitKeywordCache<'repo> {
@@ -982,15 +1013,18 @@ impl<'repo> CommitKeywordCache<'repo> {
         &self,
         language: &CommitTemplateLanguage<'repo>,
         span: pest::Span<'_>,
-    ) -> TemplateParseResult<&Rc<RevsetContainingFn<'repo>>> {
+    ) -> TemplateParseResult<Rc<RevsetWithContainingFn<'repo>>> {
         // Alternatively, a negated (i.e. visible mutable) set could be computed.
         // It's usually smaller than the immutable set. The revset engine can also
         // optimize "::<recent_heads>" query to use bitset-based implementation.
-        self.is_immutable_fn.get_or_try_init(|| {
-            let expression = &language.immutable_expression;
-            let revset = evaluate_revset_expression(language, span, expression)?;
-            Ok(revset.containing_fn().into())
-        })
+        let wrapper = self
+            .is_immutable
+            .get_or_try_init(|| -> TemplateParseResult<_> {
+                let expression = &language.immutable_expression;
+                let revset = evaluate_revset_expression(language, span, expression)?;
+                Ok(Rc::new(RevsetWithContainingFn::new(revset)))
+            })?;
+        Ok(wrapper.clone())
     }
 }
 
@@ -1239,11 +1273,12 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "immutable",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let is_immutable = language
+            let is_immutable_wrapper = language
                 .keyword_cache
-                .is_immutable_fn(language, function.name_span)?
-                .clone();
-            let out_property = self_property.and_then(move |commit| Ok(is_immutable(commit.id())?));
+                .is_immutable_fn(language, function.name_span)?;
+            let out_property = self_property.and_then(move |commit| {
+                Ok(is_immutable_wrapper.containing_fn()(commit.id())?)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1256,7 +1291,14 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 template_parser::catch_aliases(diagnostics, revset_node, |diagnostics, node| {
                     let text = template_parser::expect_string_literal(node)?;
                     let revset = evaluate_user_revset(language, diagnostics, node.span, text)?;
-                    Ok(revset.containing_fn())
+                    let containing_fn = revset.containing_fn().block_on();
+                    // SAFETY: The containing_fn closure actually owns all its data (it captures
+                    // a PositionsAccumulator which clones the index). The 'a lifetime in the
+                    // trait signature is overly conservative. We extend it to 'repo which
+                    // matches the actual lifetime of the captured data.
+                    let containing_fn: Box<RevsetContainingFn<'repo>> =
+                        unsafe { std::mem::transmute(containing_fn) };
+                    Ok(containing_fn)
                 })?;
 
             let out_property = self_property.and_then(move |commit| Ok(is_contained(commit.id())?));
@@ -1664,7 +1706,8 @@ impl CommitRef {
                 let other_ids = tracking.target.added_ids().cloned().collect_vec();
                 Ok(revset::walk_revs(repo, &self_ids, &other_ids)
                     .block_on()?
-                    .count_estimate()?)
+                    .count_estimate()
+                    .block_on()?)
             })
             .copied()
     }
@@ -1681,7 +1724,8 @@ impl CommitRef {
                 let other_ids = tracking.target.added_ids().cloned().collect_vec();
                 Ok(revset::walk_revs(repo, &other_ids, &self_ids)
                     .block_on()?
-                    .count_estimate()?)
+                    .count_estimate()
+                    .block_on()?)
             })
             .copied()
     }

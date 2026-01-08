@@ -18,7 +18,6 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use bstr::BStr;
-use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -178,6 +177,7 @@ pub fn cmd_gerrit_upload(
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .iter()
+        .block_on()
         .try_collect()?;
     if revisions.is_empty() {
         writeln!(ui.status(), "No revisions to upload.")?;

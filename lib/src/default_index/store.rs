@@ -29,7 +29,6 @@ use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -283,7 +282,7 @@ impl DefaultIndexStore {
             op_walk::walk_ancestors_range(slice::from_ref(operation), slice::from_ref(op))
                 .await
                 .try_collect()
-                .block_on()?
+                .await?
         } else {
             unindexed_ops
         };
@@ -593,7 +592,7 @@ impl IndexStore for DefaultIndexStore {
             Err(DefaultIndexStoreError::LoadAssociation(PathError { source: error, .. }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
-                self.build_index_at_operation(op, store).block_on()
+                self.build_index_at_operation(op, store).await
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
                 // If the index was corrupt (maybe it was written in a different format),
@@ -615,7 +614,7 @@ impl IndexStore for DefaultIndexStore {
                 }
                 self.reinit()
                     .map_err(|err| IndexStoreError::Read(err.into()))?;
-                self.build_index_at_operation(op, store).block_on()
+                self.build_index_at_operation(op, store).await
             }
             result => result,
         }

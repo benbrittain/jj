@@ -27,7 +27,6 @@ use async_trait::async_trait;
 use blake2::Blake2b512;
 use digest::Digest as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 use tempfile::NamedTempFile;
@@ -599,6 +598,7 @@ impl Index for DefaultMutableIndex {
     }
 }
 
+#[async_trait(?Send)]
 impl MutableIndex for DefaultMutableIndex {
     fn as_index(&self) -> &dyn Index {
         self
@@ -611,9 +611,9 @@ impl MutableIndex for DefaultMutableIndex {
         Box::new(ChangeIdIndexImpl::new(self, heads))
     }
 
-    fn add_commit(&mut self, commit: &Commit) -> IndexResult<()> {
+    async fn add_commit(&mut self, commit: &Commit) -> IndexResult<()> {
         Self::add_commit(self, commit)
-            .block_on()
+            .await
             .map_err(|err| IndexError::Other(err.into()))
     }
 

@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 32368a9d5fdea177d3e88e9e6bc5473a153a25e500fb7d3e3e723eb8818ab1ef # shrinks to expression = DagRange { roots: Range { roots: Intersection(Commits([CommitId("c199d1c8c617cf15893f")]), All), heads: NotIn(Reachable { sources: Filter(ParentCount(2..4294967295)), domain: Commits([CommitId("cb81e73e341e59553ff6")]) }), generation: 0..18446744073709551615, parents_range: 0..4294967295 }, heads: DagRange { roots: Ancestors { heads: All, generation: 1..2, parents_range: 0..1 }, heads: Ancestors { heads: All, generation: 1..2, parents_range: 0..1 } } }
+cc 384a98ad24237b799b5188516bcde9997d1de85c9ffd9787b53213d6d2d61d69 # shrinks to expression = Descendants { roots: Heads(Heads(Filter(ParentCount(2..4294967295)))), generation: 0..18446744073709551615 }
+cc 3fe85051bcd1d0aef24a01e99ea90fc1dd6672a28801dffed28dbc1046dab957 # shrinks to expression = Ancestors { heads: NotIn(VisibleHeads), generation: 0..18446744073709551615, parents_range: 0..4294967295 }

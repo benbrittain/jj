@@ -48,7 +48,6 @@ use futures::TryStreamExt as _;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use once_cell::unsync::OnceCell;
-use pollster::FutureExt as _;
 use prost::Message as _;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::IndexedParallelIterator as _;
@@ -1281,19 +1280,52 @@ impl TreeState {
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
+        let (file_process_tx, file_process_rx) = channel::<FileProcessRequest>();
+
+        // Clone data needed by the async processor thread
+        let current_tree = self.tree.clone();
+        let store = self.store.clone();
+        let own_mtime = self.own_mtime;
+        let symlink_support = self.symlink_support;
+        let exec_policy = self.exec_policy;
+        let target_eol_strategy_clone = self.target_eol_strategy.clone();
+        let tree_entries_tx_clone = tree_entries_tx.clone();
+        let file_states_tx_clone = file_states_tx.clone();
+
+        // Spawn async processor thread using futures::executor::block_on
+        // This thread runs independently so there's no nested executor issue
+        let processor_thread = std::thread::spawn(move || {
+            while let Ok(request) = file_process_rx.recv() {
+                let result = futures::executor::block_on(process_file_request(
+                    &request,
+                    &current_tree,
+                    &store,
+                    own_mtime,
+                    symlink_support,
+                    exec_policy,
+                    target_eol_strategy_clone.clone(),
+                    &tree_entries_tx_clone,
+                    &file_states_tx_clone,
+                ));
+                // Ignore send error - receiver may have dropped if rayon thread panicked
+                drop(request.response_tx.send(result));
+            }
+        });
+
+        // Drop the cloned senders since we don't need them in this scope after
+        // the processor thread has them
+        drop(tree_entries_tx);
+        drop(file_states_tx);
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
             let snapshotter = FileSnapshotter {
                 tree_state: self,
-                current_tree: &self.tree,
                 matcher: &matcher,
                 start_tracking_matcher,
                 force_tracking_matcher,
-                // Move tx sides so they'll be dropped at the end of the scope.
-                tree_entries_tx,
-                file_states_tx,
                 untracked_paths_tx,
                 deleted_files_tx,
+                file_process_tx,
                 error: OnceLock::new(),
                 progress,
                 max_new_file_size,
@@ -1304,7 +1336,6 @@ impl TreeState {
                 git_ignore: base_ignores.clone(),
                 file_states: self.file_states.all(),
             };
-            // Here we use scope as a queue of per-directory jobs.
             rayon::scope(|scope| {
                 snapshotter.spawn_ok(scope, |scope| {
                     snapshotter.visit_directory(directory_to_visit, scope)
@@ -1312,6 +1343,9 @@ impl TreeState {
             });
             snapshotter.into_result()
         })?;
+
+        // Rayon done, file_process_tx dropped, processor thread will exit
+        processor_thread.join().expect("Processor thread panicked");
 
         let stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
@@ -1423,17 +1457,282 @@ struct PresentDirEntries {
     files: HashSet<String>,
 }
 
+/// Request to process a file asynchronously, sent from rayon to the async processor.
+struct FileProcessRequest {
+    path: RepoPathBuf,
+    disk_path: PathBuf,
+    maybe_current_file_state: Option<FileState>,
+    new_file_state: FileState,
+    response_tx: tokio::sync::oneshot::Sender<Result<(), SnapshotError>>,
+}
+
+/// Sender for async file processing requests.
+type FileProcessSender = std::sync::mpsc::Sender<FileProcessRequest>;
+
+/// Processes a file request asynchronously. This runs in the processor thread.
+async fn process_file_request(
+    request: &FileProcessRequest,
+    current_tree: &MergedTree,
+    store: &Arc<Store>,
+    own_mtime: MillisSinceEpoch,
+    symlink_support: bool,
+    exec_policy: ExecChangePolicy,
+    target_eol_strategy: TargetEolStrategy,
+    tree_entries_tx: &Sender<(RepoPathBuf, MergedTreeValue)>,
+    file_states_tx: &Sender<(RepoPathBuf, FileState)>,
+) -> Result<(), SnapshotError> {
+    let path = &request.path;
+    let disk_path = &request.disk_path;
+    let maybe_current_file_state = request.maybe_current_file_state.as_ref();
+    let mut new_file_state = request.new_file_state.clone();
+
+    // Check if file is clean (from get_updated_tree_value logic)
+    let clean = match maybe_current_file_state {
+        None => false, // untracked
+        Some(current_file_state) => {
+            new_file_state.is_clean(current_file_state) && current_file_state.mtime < own_mtime
+        }
+    };
+
+    let update = if clean {
+        None
+    } else {
+        let current_tree_values = current_tree.path_value_async(path).await?;
+        let new_file_type = if !symlink_support {
+            let mut new_file_type = new_file_state.file_type.clone();
+            if matches!(new_file_type, FileType::Normal { .. })
+                && matches!(current_tree_values.as_normal(), Some(TreeValue::Symlink(_)))
+            {
+                new_file_type = FileType::Symlink;
+            }
+            new_file_type
+        } else {
+            new_file_state.file_type.clone()
+        };
+
+        match new_file_type {
+            FileType::Normal { exec_bit } => {
+                let new_tree_values = write_path_to_store_standalone(
+                    path,
+                    disk_path,
+                    &current_tree_values,
+                    exec_bit,
+                    maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
+                    store,
+                    exec_policy,
+                    target_eol_strategy,
+                )
+                .await?;
+                if new_tree_values != current_tree_values {
+                    Some(new_tree_values)
+                } else {
+                    None
+                }
+            }
+            FileType::Symlink => {
+                let id = write_symlink_to_store_standalone(path, disk_path, symlink_support, store).await?;
+                let new_tree_values = Merge::normal(TreeValue::Symlink(id));
+                let current_tree_values = current_tree.path_value_async(path).await?;
+                if new_tree_values != current_tree_values {
+                    Some(new_tree_values)
+                } else {
+                    None
+                }
+            }
+            FileType::GitSubmodule => panic!("git submodule cannot be written to store"),
+        }
+    };
+
+    // Preserve materialized conflict data for normal, non-resolved files
+    if matches!(new_file_state.file_type, FileType::Normal { .. })
+        && !update.as_ref().is_some_and(|update| update.is_resolved())
+    {
+        new_file_state.materialized_conflict_data =
+            maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
+    }
+
+    if let Some(tree_value) = update {
+        tree_entries_tx.send((path.clone(), tree_value)).ok();
+    }
+    if Some(&new_file_state) != maybe_current_file_state {
+        file_states_tx.send((path.clone(), new_file_state)).ok();
+    }
+
+    Ok(())
+}
+
+/// Standalone version of write_path_to_store for the processor thread.
+async fn write_path_to_store_standalone(
+    repo_path: &RepoPath,
+    disk_path: &Path,
+    current_tree_values: &MergedTreeValue,
+    exec_bit: ExecBit,
+    materialized_conflict_data: Option<MaterializedConflictData>,
+    store: &Arc<Store>,
+    exec_policy: ExecChangePolicy,
+    target_eol_strategy: TargetEolStrategy,
+) -> Result<MergedTreeValue, SnapshotError> {
+    if let Some(current_tree_value) = current_tree_values.as_resolved() {
+        let id = write_file_to_store_standalone(repo_path, disk_path, store, target_eol_strategy).await?;
+        // On Windows, we preserve the executable bit from the current tree.
+        let executable = exec_bit.for_tree_value(exec_policy, || {
+            if let Some(TreeValue::File {
+                id: _,
+                executable,
+                copy_id: _,
+            }) = current_tree_value
+            {
+                Some(*executable)
+            } else {
+                None
+            }
+        });
+        // Preserve the copy id from the current tree
+        let copy_id = {
+            if let Some(TreeValue::File {
+                id: _,
+                executable: _,
+                copy_id,
+            }) = current_tree_value
+            {
+                copy_id.clone()
+            } else {
+                CopyId::placeholder()
+            }
+        };
+        Ok(Merge::normal(TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        }))
+    } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
+        // Safe to unwrap because the copy id exists exactly on the file variant
+        let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
+        let copy_id = copy_id_merge
+            .resolve_trivial(SameChange::Accept)
+            .cloned()
+            .flatten()
+            .unwrap_or_else(CopyId::placeholder);
+        let mut contents = vec![];
+        let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
+            message: format!("Failed to open file {}", disk_path.display()),
+            err: err.into(),
+        })?;
+        target_eol_strategy
+            .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+            .await
+            .map_err(|err| SnapshotError::Other {
+                message: "Failed to convert the EOL".to_string(),
+                err: err.into(),
+            })?
+            .read_to_end(&mut contents)
+            .await
+            .map_err(|err| SnapshotError::Other {
+                message: "Failed to read the EOL converted contents".to_string(),
+                err: err.into(),
+            })?;
+        // If the file contained a conflict before and is a normal file on
+        // disk, we try to parse any conflict markers in the file into a
+        // conflict.
+        let new_file_ids = conflicts::update_from_content(
+            &old_file_ids,
+            store,
+            repo_path,
+            &contents,
+            materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
+                data.conflict_marker_len as usize
+            }),
+        )
+        .await?;
+        match new_file_ids.into_resolved() {
+            Ok(file_id) => {
+                // On Windows, we preserve the executable bit from the merged trees.
+                let executable = exec_bit.for_tree_value(exec_policy, || {
+                    current_tree_values
+                        .to_executable_merge()
+                        .as_ref()
+                        .and_then(conflicts::resolve_file_executable)
+                });
+                Ok(Merge::normal(TreeValue::File {
+                    id: file_id.unwrap(),
+                    executable,
+                    copy_id,
+                }))
+            }
+            Err(new_file_ids) => {
+                if new_file_ids != old_file_ids {
+                    Ok(current_tree_values.with_new_file_ids(&new_file_ids))
+                } else {
+                    Ok(current_tree_values.clone())
+                }
+            }
+        }
+    } else {
+        Ok(current_tree_values.clone())
+    }
+}
+
+/// Standalone version of write_file_to_store for the processor thread.
+async fn write_file_to_store_standalone(
+    path: &RepoPath,
+    disk_path: &Path,
+    store: &Arc<Store>,
+    target_eol_strategy: TargetEolStrategy,
+) -> Result<FileId, SnapshotError> {
+    let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
+        message: format!("Failed to open file {}", disk_path.display()),
+        err: err.into(),
+    })?;
+    let mut contents = target_eol_strategy
+        .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+        .await
+        .map_err(|err| SnapshotError::Other {
+            message: "Failed to convert the EOL".to_string(),
+            err: err.into(),
+        })?;
+    Ok(store.write_file(path, &mut contents).await?)
+}
+
+/// Standalone version of write_symlink_to_store for the processor thread.
+async fn write_symlink_to_store_standalone(
+    path: &RepoPath,
+    disk_path: &Path,
+    symlink_support: bool,
+    store: &Arc<Store>,
+) -> Result<SymlinkId, SnapshotError> {
+    if symlink_support {
+        let target = disk_path.read_link().map_err(|err| SnapshotError::Other {
+            message: format!("Failed to read symlink {}", disk_path.display()),
+            err: err.into(),
+        })?;
+        let str_target = symlink_target_convert_to_store(&target).ok_or_else(|| {
+            SnapshotError::InvalidUtf8SymlinkTarget {
+                path: disk_path.to_path_buf(),
+            }
+        })?;
+        Ok(store.write_symlink(path, &str_target).await?)
+    } else {
+        let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
+            message: format!("Failed to read file {}", disk_path.display()),
+            err: err.into(),
+        })?;
+        let string_target =
+            String::from_utf8(target).map_err(|_| SnapshotError::InvalidUtf8SymlinkTarget {
+                path: disk_path.to_path_buf(),
+            })?;
+        Ok(store.write_symlink(path, &string_target).await?)
+    }
+}
+
 /// Helper to scan local-disk directories and files in parallel.
 struct FileSnapshotter<'a> {
     tree_state: &'a TreeState,
-    current_tree: &'a MergedTree,
     matcher: &'a dyn Matcher,
     start_tracking_matcher: &'a dyn Matcher,
     force_tracking_matcher: &'a dyn Matcher,
-    tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
-    file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
     deleted_files_tx: Sender<RepoPathBuf>,
+    file_process_tx: FileProcessSender,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
@@ -1461,6 +1760,36 @@ impl FileSnapshotter<'_> {
             Some(err) => Err(err),
             None => Ok(()),
         }
+    }
+
+    /// Sends a file processing request to the async processor and waits for the result.
+    fn process_file_sync(
+        &self,
+        path: RepoPathBuf,
+        disk_path: PathBuf,
+        maybe_current_file_state: Option<FileState>,
+        new_file_state: FileState,
+    ) -> Result<(), SnapshotError> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        let request = FileProcessRequest {
+            path,
+            disk_path,
+            maybe_current_file_state,
+            new_file_state,
+            response_tx,
+        };
+        self.file_process_tx.send(request).map_err(|_| {
+            SnapshotError::Other {
+                message: "Async processor channel closed".to_string(),
+                err: "Async processor channel closed".into(),
+            }
+        })?;
+        response_rx.blocking_recv().map_err(|_| {
+            SnapshotError::Other {
+                message: "Async processor dropped response".to_string(),
+                err: "Async processor dropped response".into(),
+            }
+        })?
     }
 
     /// Visits the directory entries, spawns jobs to recurse into sub
@@ -1493,7 +1822,6 @@ impl FileSnapshotter<'_> {
             .with_min_len(100)
             .filter_map(|entry| {
                 self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
-                    .block_on()
                     .transpose()
             })
             .map(|item| match item {
@@ -1507,7 +1835,7 @@ impl FileSnapshotter<'_> {
         Ok(())
     }
 
-    async fn process_dir_entry<'scope>(
+    fn process_dir_entry<'scope>(
         &'scope self,
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
@@ -1558,7 +1886,7 @@ impl FileSnapshotter<'_> {
                 // start_tracking_matcher is NOT tested here because we need to
                 // scan directory entries to report untracked paths.
 
-                let tracked_files = self.visit_tracked_files(file_states).await;
+                let tracked_files = self.visit_tracked_files(file_states);
                 self.spawn_ok(scope, move |_| tracked_files);
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
@@ -1610,13 +1938,12 @@ impl FileSnapshotter<'_> {
                     self.untracked_paths_tx.send((path, reason)).ok();
                     Ok(None)
                 } else if let Some(new_file_state) = file_state(&metadata) {
-                    self.process_present_file(
+                    self.process_file_sync(
                         path,
-                        &entry.path(),
-                        maybe_current_file_state.as_ref(),
+                        entry.path(),
+                        maybe_current_file_state,
                         new_file_state,
-                    )
-                    .block_on()?;
+                    )?;
                     Ok(Some((PresentDirEntryKind::File, name_string)))
                 } else {
                     // Special file is not considered present
@@ -1629,7 +1956,7 @@ impl FileSnapshotter<'_> {
     }
 
     /// Visits only paths we're already tracking.
-    async fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
+    fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
         for (tracked_path, current_file_state) in file_states {
             if current_file_state.file_type == FileType::GitSubmodule {
                 continue;
@@ -1649,42 +1976,15 @@ impl FileSnapshotter<'_> {
                 }
             };
             if let Some(new_file_state) = metadata.as_ref().and_then(file_state) {
-                self.process_present_file(
+                self.process_file_sync(
                     tracked_path.to_owned(),
-                    &disk_path,
-                    Some(&current_file_state),
+                    disk_path,
+                    Some(current_file_state.clone()),
                     new_file_state,
-                )
-                .await?;
+                )?;
             } else {
                 self.deleted_files_tx.send(tracked_path.to_owned()).ok();
             }
-        }
-        Ok(())
-    }
-
-    async fn process_present_file(
-        &self,
-        path: RepoPathBuf,
-        disk_path: &Path,
-        maybe_current_file_state: Option<&FileState>,
-        mut new_file_state: FileState,
-    ) -> Result<(), SnapshotError> {
-        let update = self
-            .get_updated_tree_value(&path, disk_path, maybe_current_file_state, &new_file_state)
-            .await?;
-        // Preserve materialized conflict data for normal, non-resolved files
-        if matches!(new_file_state.file_type, FileType::Normal { .. })
-            && !update.as_ref().is_some_and(|update| update.is_resolved())
-        {
-            new_file_state.materialized_conflict_data =
-                maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
-        }
-        if let Some(tree_value) = update {
-            self.tree_entries_tx.send((path.clone(), tree_value)).ok();
-        }
-        if Some(&new_file_state) != maybe_current_file_state {
-            self.file_states_tx.send((path, new_file_state)).ok();
         }
         Ok(())
     }
@@ -1720,228 +2020,6 @@ impl FileSnapshotter<'_> {
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();
-    }
-
-    async fn get_updated_tree_value(
-        &self,
-        repo_path: &RepoPath,
-        disk_path: &Path,
-        maybe_current_file_state: Option<&FileState>,
-        new_file_state: &FileState,
-    ) -> Result<Option<MergedTreeValue>, SnapshotError> {
-        let clean = match maybe_current_file_state {
-            None => {
-                // untracked
-                false
-            }
-            Some(current_file_state) => {
-                // If the file's mtime was set at the same time as this state file's own mtime,
-                // then we don't know if the file was modified before or after this state file.
-                new_file_state.is_clean(current_file_state)
-                    && current_file_state.mtime < self.tree_state.own_mtime
-            }
-        };
-        if clean {
-            Ok(None)
-        } else {
-            let current_tree_values = self.current_tree.path_value_async(repo_path).await?;
-            let new_file_type = if !self.tree_state.symlink_support {
-                let mut new_file_type = new_file_state.file_type.clone();
-                if matches!(new_file_type, FileType::Normal { .. })
-                    && matches!(current_tree_values.as_normal(), Some(TreeValue::Symlink(_)))
-                {
-                    new_file_type = FileType::Symlink;
-                }
-                new_file_type
-            } else {
-                new_file_state.file_type.clone()
-            };
-            let new_tree_values = match new_file_type {
-                FileType::Normal { exec_bit } => {
-                    self.write_path_to_store(
-                        repo_path,
-                        disk_path,
-                        &current_tree_values,
-                        exec_bit,
-                        maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
-                    )
-                    .await?
-                }
-                FileType::Symlink => {
-                    let id = self.write_symlink_to_store(repo_path, disk_path).await?;
-                    Merge::normal(TreeValue::Symlink(id))
-                }
-                FileType::GitSubmodule => panic!("git submodule cannot be written to store"),
-            };
-            if new_tree_values != current_tree_values {
-                Ok(Some(new_tree_values))
-            } else {
-                Ok(None)
-            }
-        }
-    }
-
-    fn store(&self) -> &Store {
-        &self.tree_state.store
-    }
-
-    async fn write_path_to_store(
-        &self,
-        repo_path: &RepoPath,
-        disk_path: &Path,
-        current_tree_values: &MergedTreeValue,
-        exec_bit: ExecBit,
-        materialized_conflict_data: Option<MaterializedConflictData>,
-    ) -> Result<MergedTreeValue, SnapshotError> {
-        if let Some(current_tree_value) = current_tree_values.as_resolved() {
-            let id = self.write_file_to_store(repo_path, disk_path).await?;
-            // On Windows, we preserve the executable bit from the current tree.
-            let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {
-                if let Some(TreeValue::File {
-                    id: _,
-                    executable,
-                    copy_id: _,
-                }) = current_tree_value
-                {
-                    Some(*executable)
-                } else {
-                    None
-                }
-            });
-            // Preserve the copy id from the current tree
-            let copy_id = {
-                if let Some(TreeValue::File {
-                    id: _,
-                    executable: _,
-                    copy_id,
-                }) = current_tree_value
-                {
-                    copy_id.clone()
-                } else {
-                    CopyId::placeholder()
-                }
-            };
-            Ok(Merge::normal(TreeValue::File {
-                id,
-                executable,
-                copy_id,
-            }))
-        } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
-            // Safe to unwrap because the copy id exists exactly on the file variant
-            let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
-            let copy_id = copy_id_merge
-                .resolve_trivial(SameChange::Accept)
-                .cloned()
-                .flatten()
-                .unwrap_or_else(CopyId::placeholder);
-            let mut contents = vec![];
-            let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to open file {}", disk_path.display()),
-                err: err.into(),
-            })?;
-            self.tree_state
-                .target_eol_strategy
-                .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
-                .await
-                .map_err(|err| SnapshotError::Other {
-                    message: "Failed to convert the EOL".to_string(),
-                    err: err.into(),
-                })?
-                .read_to_end(&mut contents)
-                .await
-                .map_err(|err| SnapshotError::Other {
-                    message: "Failed to read the EOL converted contents".to_string(),
-                    err: err.into(),
-                })?;
-            // If the file contained a conflict before and is a normal file on
-            // disk, we try to parse any conflict markers in the file into a
-            // conflict.
-            let new_file_ids = conflicts::update_from_content(
-                &old_file_ids,
-                self.store(),
-                repo_path,
-                &contents,
-                materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
-                    data.conflict_marker_len as usize
-                }),
-            )
-            .await?;
-            match new_file_ids.into_resolved() {
-                Ok(file_id) => {
-                    // On Windows, we preserve the executable bit from the merged trees.
-                    let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {
-                        current_tree_values
-                            .to_executable_merge()
-                            .as_ref()
-                            .and_then(conflicts::resolve_file_executable)
-                    });
-                    Ok(Merge::normal(TreeValue::File {
-                        id: file_id.unwrap(),
-                        executable,
-                        copy_id,
-                    }))
-                }
-                Err(new_file_ids) => {
-                    if new_file_ids != old_file_ids {
-                        Ok(current_tree_values.with_new_file_ids(&new_file_ids))
-                    } else {
-                        Ok(current_tree_values.clone())
-                    }
-                }
-            }
-        } else {
-            Ok(current_tree_values.clone())
-        }
-    }
-
-    async fn write_file_to_store(
-        &self,
-        path: &RepoPath,
-        disk_path: &Path,
-    ) -> Result<FileId, SnapshotError> {
-        let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
-            message: format!("Failed to open file {}", disk_path.display()),
-            err: err.into(),
-        })?;
-        let mut contents = self
-            .tree_state
-            .target_eol_strategy
-            .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
-            .await
-            .map_err(|err| SnapshotError::Other {
-                message: "Failed to convert the EOL".to_string(),
-                err: err.into(),
-            })?;
-        Ok(self.store().write_file(path, &mut contents).await?)
-    }
-
-    async fn write_symlink_to_store(
-        &self,
-        path: &RepoPath,
-        disk_path: &Path,
-    ) -> Result<SymlinkId, SnapshotError> {
-        if self.tree_state.symlink_support {
-            let target = disk_path.read_link().map_err(|err| SnapshotError::Other {
-                message: format!("Failed to read symlink {}", disk_path.display()),
-                err: err.into(),
-            })?;
-            let str_target = symlink_target_convert_to_store(&target).ok_or_else(|| {
-                SnapshotError::InvalidUtf8SymlinkTarget {
-                    path: disk_path.to_path_buf(),
-                }
-            })?;
-            Ok(self.store().write_symlink(path, &str_target).await?)
-        } else {
-            let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to read file {}", disk_path.display()),
-                err: err.into(),
-            })?;
-            let string_target =
-                String::from_utf8(target).map_err(|_| SnapshotError::InvalidUtf8SymlinkTarget {
-                    path: disk_path.to_path_buf(),
-                })?;
-            Ok(self.store().write_symlink(path, &string_target).await?)
-        }
     }
 }
 

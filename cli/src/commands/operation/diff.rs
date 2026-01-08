@@ -185,6 +185,7 @@ pub fn show_op_diff(
         let revset = RevsetExpression::commits(changes.keys().cloned().collect())
             .evaluate(current_repo)
             .block_on()?;
+        let revset_iter = revset.iter_graph().block_on();
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -192,7 +193,7 @@ pub fn show_op_diff(
         if let Some(graph_style) = graph_style {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let graph_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
+            let graph_iter = TopoGroupedGraphIterator::new(revset_iter, |id| id);
             for node in graph_iter {
                 let (commit_id, mut edges) = node?;
                 let modified_change = changes.get(&commit_id).unwrap();
@@ -230,7 +231,7 @@ pub fn show_op_diff(
                 )?;
             }
         } else {
-            for commit_id in revset.iter() {
+            for commit_id in revset.iter().block_on() {
                 let commit_id = commit_id?;
                 let modified_change = changes.get(&commit_id).unwrap();
                 with_content_format.write(formatter, |formatter| {
@@ -515,7 +516,7 @@ fn compute_operation_commits_diff(
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();
     let mut abandoned_commits: HashSet<CommitId> = HashSet::new();
     let newly_hidden = to_expr.range(&from_expr).evaluate(repo).block_on()?;
-    for item in newly_hidden.commit_change_ids() {
+    for item in newly_hidden.commit_change_ids().block_on() {
         let (commit_id, change_id) = item?;
         // Just pick one if diverged. Divergent commits shouldn't be considered
         // "squashed" into the new commit.
@@ -528,7 +529,7 @@ fn compute_operation_commits_diff(
     // For each new commit, copy/deduce predecessors based on change id.
     let mut changes: HashMap<CommitId, ModifiedChange> = HashMap::new();
     let newly_visible = from_expr.range(&to_expr).evaluate(repo).block_on()?;
-    for item in newly_visible.commit_change_ids() {
+    for item in newly_visible.commit_change_ids().block_on() {
         let (commit_id, change_id) = item?;
         let predecessor_ids = if let Some(ids) = predecessor_commits.get(&commit_id) {
             ids // including visible predecessors

@@ -949,11 +949,11 @@ impl WorkspaceCommandEnvironment {
         .resolve()
         .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
 
-        let mut commit_id_iter = immutable_expr
+        let revset = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)
-            .block_on()?
-            .iter();
+            .block_on()?;
+        let mut commit_id_iter = revset.iter().block_on();
         Ok(commit_id_iter.next().transpose()?)
     }
 
@@ -1904,7 +1904,8 @@ to the current parents may contain changes from multiple commits.
             .intersection(&to_rewrite_expr.descendants())
             .evaluate(repo)
             .block_on()?
-            .count_estimate()?;
+            .count_estimate()
+            .block_on()?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
@@ -2656,6 +2657,7 @@ fn handle_stale_working_copy(
         Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
             let repo = repo
                 .reload_at(&wc_operation)
+                .block_on()
                 .map_err(snapshot_command_error)?;
             if let Some(wc_commit) = get_wc_commit(&repo)? {
                 Ok(Some((repo, wc_commit)))
@@ -3237,12 +3239,11 @@ pub fn compute_commit_location(
                 (after_commit_ids, before_commit_ids)
             }
             (None, Some(after_commit_ids), None) => {
-                let new_child_ids: Vec<_> = RevsetExpression::commits(after_commit_ids.clone())
+                let revset = RevsetExpression::commits(after_commit_ids.clone())
                     .children()
                     .evaluate(workspace_command.repo().as_ref())
-                    .block_on()?
-                    .iter()
-                    .try_collect()?;
+                    .block_on()?;
+                let new_child_ids: Vec<_> = revset.iter().block_on().try_collect()?;
 
                 (after_commit_ids, new_child_ids)
             }
@@ -3295,13 +3296,11 @@ fn ensure_no_commit_loop(
     parents_expression: &Arc<ResolvedRevsetExpression>,
     commit_type: &str,
 ) -> Result<(), CommandError> {
-    if let Some(commit_id) = children_expression
+    let revset = children_expression
         .dag_range_to(parents_expression)
         .evaluate(repo)
-        .block_on()?
-        .iter()
-        .next()
-    {
+        .block_on()?;
+    if let Some(commit_id) = revset.iter().block_on().next() {
         let commit_id = commit_id?;
         return Err(user_error(format!(
             "Refusing to create a loop: commit {} would be both an ancestor and a descendant of \

@@ -47,7 +47,6 @@ use super::revset_engine;
 use super::revset_engine::RevsetImpl;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::graph::GraphNode;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexResult;
@@ -789,15 +788,16 @@ pub struct DefaultReadonlyIndexRevset {
 }
 
 impl DefaultReadonlyIndexRevset {
-    pub fn iter_graph_impl(
-        &self,
-        skip_transitive_edges: bool,
-    ) -> impl Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> {
-        self.inner.iter_graph_impl(skip_transitive_edges)
-    }
-
     pub fn into_inner(self) -> Box<dyn Revset> {
         Box::new(self.inner)
+    }
+
+    pub async fn iter_graph_impl(
+        &self,
+        skip_transitive_edges: bool,
+    ) -> Box<dyn Iterator<Item = Result<crate::graph::GraphNode<CommitId>, crate::revset::RevsetEvaluationError>> + '_>
+    {
+        self.inner.iter_graph_impl(skip_transitive_edges).await
     }
 }
 

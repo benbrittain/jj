@@ -85,12 +85,14 @@ pub(crate) fn cmd_abandon(
             .evaluate(workspace_command.repo().as_ref())
             .block_on()?
             .iter()
+            .block_on()
             .try_collect()?;
 
         let targets: Vec<_> = target_expr
             .evaluate(workspace_command.repo().as_ref())
             .block_on()?
             .iter()
+            .block_on()
             .try_collect()?;
         if visible.len() < targets.len() {
             writeln!(

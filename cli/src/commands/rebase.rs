@@ -430,6 +430,7 @@ fn plan_rebase_revisions(
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .iter()
+        .block_on()
         .try_collect()?; // in reverse topological order
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
@@ -525,6 +526,7 @@ fn plan_rebase_branch(
         .block_on()
         .unwrap()
         .iter()
+        .block_on()
         .try_collect()?;
     if rebase_destination.onto.is_some() {
         for id in &root_commit_ids {

@@ -559,10 +559,10 @@ fn validate_commits_ready_to_push(
 
     let settings = workspace_helper.settings();
     let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
-    let is_private = workspace_helper
+    let private_revset = workspace_helper
         .parse_revset(ui, &private_revset_str)?
-        .evaluate()?
-        .containing_fn();
+        .evaluate()?;
+    let is_private = private_revset.containing_fn().block_on();
     let sign_settings = sign_behavior.map(|sign_behavior| {
         let mut sign_settings = settings.sign_settings();
         sign_settings.behavior = sign_behavior;

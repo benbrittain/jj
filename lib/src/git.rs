@@ -670,11 +670,13 @@ async fn abandon_unreachable_commits(
         .range(&RevsetExpression::commits(hidable_git_heads))
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
-    let abandoned_commit_ids: Vec<_> = abandoned_expression
+    let revset = abandoned_expression
         .evaluate(mut_repo)
         .await
-        .map_err(|err| err.into_backend_error())?
+        .map_err(|err| err.into_backend_error())?;
+    let abandoned_commit_ids: Vec<_> = revset
         .iter()
+        .await
         .try_collect()
         .map_err(|err| err.into_backend_error())?;
     for id in &abandoned_commit_ids {

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Some items are prepared for future use or were used before the async conversion
+#![allow(dead_code)]
+
 use std::cmp::Reverse;
 use std::cmp::max;
 use std::collections::HashMap;

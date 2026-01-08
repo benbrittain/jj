@@ -596,12 +596,14 @@ pub async fn compute_move_commits(
                 return Ok(ComputedMoveCommits::empty());
             }
 
-            target_commit_ids = RevsetExpression::commits(root_ids.clone())
+            let revset = RevsetExpression::commits(root_ids.clone())
                 .descendants()
                 .evaluate(repo)
                 .await
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_backend_error())?;
+            target_commit_ids = revset
                 .iter()
+                .await
                 .try_collect()
                 .map_err(|err| err.into_backend_error())?;
 
@@ -1422,12 +1424,12 @@ pub async fn find_duplicate_divergent_commits(
 
     // We only care about divergent changes which are new ancestors of the rebased
     // commits, not ones which were already ancestors of the rebased commits.
-    let is_new_ancestor = RevsetExpression::commits(target_root_ids.clone())
+    let revset = RevsetExpression::commits(target_root_ids.clone())
         .range(&RevsetExpression::commits(new_parent_ids.to_owned()))
         .evaluate(repo)
         .await
-        .map_err(|err| err.into_backend_error())?
-        .containing_fn();
+        .map_err(|err| err.into_backend_error())?;
+    let is_new_ancestor = revset.containing_fn().await;
 
     let mut duplicate_divergent = Vec::new();
     // Checking every pair of commits between these two sets could be expensive if

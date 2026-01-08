@@ -79,6 +79,7 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) {
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_d]);
     let commits: Vec<_> = revset
         .iter_graph_impl(skip_transitive_edges)
+        .block_on()
         .try_collect()
         .unwrap();
     assert_eq!(commits.len(), 2);
@@ -122,6 +123,7 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_b, &commit_c, &commit_f]);
     let commits: Vec<_> = revset
         .iter_graph_impl(skip_transitive_edges)
+        .block_on()
         .try_collect()
         .unwrap();
     assert_eq!(commits.len(), 4);
@@ -176,6 +178,7 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) {
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_c, &commit_e]);
     let commits: Vec<_> = revset
         .iter_graph_impl(skip_transitive_edges)
+        .block_on()
         .try_collect()
         .unwrap();
     assert_eq!(commits.len(), 3);
@@ -220,6 +223,7 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u3
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_f]);
     let commits: Vec<_> = revset
         .iter_graph_impl(skip_transitive_edges)
+        .block_on()
         .try_collect()
         .unwrap();
     assert_eq!(commits.len(), 2);
@@ -267,6 +271,7 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u3
     let revset = revset_for_commits(repo.as_ref(), &[&commit_c, &commit_d, &commit_f]);
     let commits: Vec<_> = revset
         .iter_graph_impl(skip_transitive_edges)
+        .block_on()
         .try_collect()
         .unwrap();
     assert_eq!(commits.len(), 3);
@@ -329,6 +334,7 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: 
     );
     let commits: Vec<_> = revset
         .iter_graph_impl(skip_transitive_edges)
+        .block_on()
         .try_collect()
         .unwrap();
     assert_eq!(commits.len(), 5);

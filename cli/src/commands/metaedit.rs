@@ -164,6 +164,7 @@ pub(crate) fn cmd_metaedit(
         .evaluate(workspace_command.repo().as_ref())
         .block_on()?
         .iter()
+        .block_on()
         .try_collect()?;
     if commit_ids.is_empty() {
         writeln!(ui.status(), "No revisions to modify.")?;

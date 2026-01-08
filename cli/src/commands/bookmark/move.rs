@@ -81,12 +81,21 @@ pub fn cmd_bookmark_move(
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
     let target_commit = workspace_command.resolve_single_rev(ui, &args.to)?;
-    let matched_bookmarks = {
-        let is_source_ref: Box<dyn Fn(&RefTarget) -> _> = if !args.from.is_empty() {
-            let is_source_commit = workspace_command
-                .parse_union_revsets(ui, &args.from)?
-                .evaluate()?
-                .containing_fn();
+    let matched_bookmarks;
+    {
+        // Parse and evaluate the source revset within this block so it's dropped
+        // before we need to borrow workspace_command mutably later
+        let source_revset = if !args.from.is_empty() {
+            Some(
+                workspace_command
+                    .parse_union_revsets(ui, &args.from)?
+                    .evaluate()?,
+            )
+        } else {
+            None
+        };
+        let is_source_ref: Box<dyn Fn(&RefTarget) -> _> = if let Some(revset) = &source_revset {
+            let is_source_commit = revset.containing_fn().block_on();
             Box::new(move |target| fallible_any(target.added_ids(), &is_source_commit))
         } else {
             Box::new(|_| Ok(true))
@@ -108,8 +117,8 @@ pub fn cmd_bookmark_move(
         warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
         // Noop matches aren't error, but should be excluded from stats.
         bookmarks.retain(|(_, old_target)| old_target.as_normal() != Some(target_commit.id()));
-        bookmarks
-    };
+        matched_bookmarks = bookmarks;
+    }
 
     if matched_bookmarks.is_empty() {
         writeln!(ui.status(), "No bookmarks to update.")?;

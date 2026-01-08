@@ -17,7 +17,6 @@ use std::iter::once;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
-use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use indoc::formatdoc;
 use itertools::Itertools as _;

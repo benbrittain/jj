@@ -22,7 +22,6 @@ use futures::StreamExt;
 use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
@@ -34,7 +33,6 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetStreamExt as _;
 use pollster::FutureExt as _;
-use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -165,7 +163,7 @@ pub(crate) fn cmd_log(
     let revset = revset_expression.evaluate()?;
 
     if args.count {
-        let (lower, upper) = revset.count_estimate()?;
+        let (lower, upper) = revset.count_estimate().block_on()?;
         let limit = args.limit.unwrap_or(usize::MAX);
         let count = if limit <= lower {
             limit
@@ -174,6 +172,7 @@ pub(crate) fn cmd_log(
         } else {
             revset
                 .iter()
+                .block_on()
                 .take(limit)
                 .process_results(|iter| iter.count())?
         };
@@ -220,9 +219,10 @@ pub(crate) fn cmd_log(
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
             let iter: Box<dyn Iterator<Item = _>> = {
-                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
+                let mut forward_iter =
+                    TopoGroupedGraphIterator::new(revset.iter_graph().block_on(), |id| id);
 
-                let has_commit = revset.containing_fn();
+                let has_commit = revset.containing_fn().block_on();
 
                 let stream = prio_revset.evaluate_to_commit_ids()?;
                 let mut stream = std::pin::Pin::from(stream);
@@ -379,7 +379,7 @@ pub(crate) fn cmd_log(
                  this is often not useful because all non-empty commits touch '.'. If you meant \
                  to show the working copy commit, pass -r '@' instead."
             )?;
-        } else if revset.is_empty()
+        } else if revset.is_empty().block_on()
             && workspace_command
                 .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
                 .is_ok()

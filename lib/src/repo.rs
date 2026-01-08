@@ -30,7 +30,6 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -342,8 +341,8 @@ impl ReadonlyRepo {
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation).block_on()
+    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at(operation).await
     }
 }
 
@@ -772,13 +771,13 @@ impl RepoLoader {
         )
         .await?;
         let view = op.view().await?;
-        self.finish_load(op, view)
+        self.finish_load(op, view).await
     }
 
     #[instrument(skip(self))]
     pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view().await?;
-        self.finish_load(op.clone(), view)
+        self.finish_load(op.clone(), view).await
     }
 
     pub fn create_from(
@@ -854,7 +853,7 @@ impl RepoLoader {
             .await
     }
 
-    fn finish_load(
+    async fn finish_load(
         &self,
         operation: Operation,
         view: View,
@@ -862,7 +861,7 @@ impl RepoLoader {
         let index = self
             .index_store
             .get_index_at_op(&operation, &self.store)
-            .block_on()?;
+            .await?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
@@ -1254,11 +1253,8 @@ impl MutableRepo {
         let heads_to_add_expression = old_commits_expression
             .parents()
             .minus(&old_commits_expression);
-        let heads_to_add: Vec<_> = heads_to_add_expression
-            .evaluate(self)
-            .await?
-            .iter()
-            .try_collect()?;
+        let revset = heads_to_add_expression.evaluate(self).await?;
+        let heads_to_add: Vec<_> = revset.iter().await.try_collect()?;
 
         let mut view = self.view().store_view().clone();
         for commit_id in self.parent_mapping.keys() {
@@ -1665,6 +1661,7 @@ impl MutableRepo {
             {
                 self.index
                     .add_commit(head)
+                    .await
                     // TODO: indexing error shouldn't be a "BackendError"
                     .map_err(|err| BackendError::Other(err.into()))?;
                 self.view.get_mut().add_head(head.id());
@@ -1702,6 +1699,7 @@ impl MutableRepo {
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)
+                        .await
                         // TODO: indexing error shouldn't be a "BackendError"
                         .map_err(|err| BackendError::Other(err.into()))?;
                 }
@@ -1977,16 +1975,17 @@ impl MutableRepo {
         new_heads: &[CommitId],
     ) -> BackendResult<()> {
         let mut removed_changes: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
-        for item in revset::walk_revs(self, old_heads, new_heads)
-            .await
-            .map_err(|err| err.into_backend_error())?
-            .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
-            removed_changes
-                .entry(change_id)
-                .or_default()
-                .push(commit_id);
+            let old_revset = revset::walk_revs(self, old_heads, new_heads)
+                .await
+                .map_err(|err| err.into_backend_error())?;
+            for item in old_revset.commit_change_ids().await {
+                let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
+                removed_changes
+                    .entry(change_id)
+                    .or_default()
+                    .push(commit_id);
+            }
         }
         if removed_changes.is_empty() {
             return Ok(());
@@ -1994,21 +1993,22 @@ impl MutableRepo {
 
         let mut rewritten_changes = HashSet::new();
         let mut rewritten_commits: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        for item in revset::walk_revs(self, new_heads, old_heads)
-            .await
-            .map_err(|err| err.into_backend_error())?
-            .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
-            if let Some(old_commits) = removed_changes.get(&change_id) {
-                for old_commit in old_commits {
-                    rewritten_commits
-                        .entry(old_commit.clone())
-                        .or_default()
-                        .push(commit_id.clone());
+            let new_revset = revset::walk_revs(self, new_heads, old_heads)
+                .await
+                .map_err(|err| err.into_backend_error())?;
+            for item in new_revset.commit_change_ids().await {
+                let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
+                if let Some(old_commits) = removed_changes.get(&change_id) {
+                    for old_commit in old_commits {
+                        rewritten_commits
+                            .entry(old_commit.clone())
+                            .or_default()
+                            .push(commit_id.clone());
+                    }
                 }
+                rewritten_changes.insert(change_id);
             }
-            rewritten_changes.insert(change_id);
         }
         for (old_commit, new_commits) in rewritten_commits {
             if new_commits.len() == 1 {

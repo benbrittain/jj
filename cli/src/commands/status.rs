@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use futures::StreamExt as _;
-use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;

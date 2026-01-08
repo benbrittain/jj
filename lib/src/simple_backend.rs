@@ -30,7 +30,6 @@ use blake2::Blake2b512;
 use blake2::Digest as _;
 use futures::stream;
 use futures::stream::BoxStream;
-use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncRead;
@@ -109,10 +108,10 @@ impl SimpleBackend {
         fs::create_dir(store_path.join("symlinks")).unwrap();
         fs::create_dir(store_path.join("conflicts")).unwrap();
         let backend = Self::load(store_path);
-        let empty_tree_id = backend
-            .write_tree(RepoPath::root(), &Tree::default())
-            .block_on()
-            .unwrap();
+        let empty_tree_id = futures::executor::block_on(
+            backend.write_tree(RepoPath::root(), &Tree::default()),
+        )
+        .unwrap();
         assert_eq!(empty_tree_id, backend.empty_tree_id);
         backend
     }
