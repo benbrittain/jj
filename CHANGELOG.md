@@ -72,6 +72,9 @@ and this project adheres to
 
 ### Fixed bugs
 
+* Resolving a conflict of five or more terms no longer leaves a directory
+  conflicted when the terms where it is a file or symlink cancel out.
+
 * The operations created by `jj workspace add` are now attributed to the
   workspace the command was run in, so `jj undo` there undoes them instead of
   refusing to undo an operation from another workspace.
