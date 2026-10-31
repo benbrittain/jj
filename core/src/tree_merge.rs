@@ -180,8 +180,8 @@ struct TreeMerger {
     work: FuturesUnordered<BoxFuture<'static, TreeMergerWorkOutput>>,
     // Futures we haven't started polling yet, in order to respect the backend's concurrency limit.
     unstarted_work: BTreeMap<TreeMergeWorkItemKey, BoxFuture<'static, TreeMergerWorkOutput>>,
-    // Original values of directories merged from their simplified terms. They replace the
-    // merged result unless it resolves.
+    // Original values of directories merged from their simplified terms. Unless the merge
+    // resolves, its terms go back where the simplified terms came from.
     unsimplified_values: BTreeMap<RepoPathBuf, MergedTreeValue>,
 }
 
@@ -209,7 +209,7 @@ impl TreeMerger {
                     if let Some(original) = self.unsimplified_values.remove(&dir)
                         && !new_value.is_resolved()
                     {
-                        new_value = original;
+                        new_value = original.update_from_simplified(new_value);
                     }
                     self.mark_completed(&dir, new_value);
                 }

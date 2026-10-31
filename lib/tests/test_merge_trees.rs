@@ -302,6 +302,51 @@ fn test_resolve_directory_after_canceling_file_terms(same_change: SameChange) ->
 
 #[test_case(SameChange::Keep)]
 #[test_case(SameChange::Accept)]
+fn test_resolve_directory_cancellation_keeps_merged_terms(same_change: SameChange) -> TestResult {
+    let settings = settings_with_same_change(same_change);
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let repo = &test_repo.repo;
+    let dir = repo_path("d");
+    let a = repo_path("d/a");
+    let b = repo_path("d/b");
+    let q = repo_path("q");
+    let terms = [
+        create_tree(repo, &[(a, "1\n"), (b, "0\n"), (q, "0\n")]),
+        create_tree(repo, &[(dir, "9\n"), (q, "1\n")]),
+        create_tree(repo, &[(dir, "9\n"), (q, "1\n")]),
+        create_tree(repo, &[(a, "0\n"), (b, "0\n"), (q, "0\n")]),
+        create_tree(repo, &[(a, "2\n"), (b, "1\n"), (q, "0\n")]),
+    ];
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(terms.map(|tree| tree.tree_ids().first().clone()).to_vec()),
+        ConflictLabels::from_vec(
+            ["a", "base1", "b", "base2", "c"]
+                .map(str::to_owned)
+                .to_vec(),
+        ),
+    );
+    // d/b resolves while d/a still conflicts. Resolving q makes the file terms at d
+    // cancel as whole trees, so the merged directory must replace the original terms.
+    let expected = [
+        create_tree(repo, &[(a, "1\n"), (b, "1\n"), (q, "0\n")]),
+        create_tree(repo, &[(a, "0\n"), (b, "1\n"), (q, "0\n")]),
+        create_tree(repo, &[(a, "2\n"), (b, "1\n"), (q, "0\n")]),
+    ];
+    let expected = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(expected.map(|tree| tree.tree_ids().first().clone()).to_vec()),
+        ConflictLabels::from_vec(["a", "base2", "c"].map(str::to_owned).to_vec()),
+    );
+    let resolved = tree.resolve().block_on()?;
+    assert_tree_eq!(resolved, expected);
+    let again = resolved.clone().resolve().block_on()?;
+    assert_tree_eq!(again, resolved);
+    Ok(())
+}
+
+#[test_case(SameChange::Keep)]
+#[test_case(SameChange::Accept)]
 fn test_resolve_directory_cancellation_keeps_unresolved_terms(
     same_change: SameChange,
 ) -> TestResult {
